@@ -10,6 +10,7 @@
 - 已建立 #07 工作模式所需的全域 skills：`startup-sync`、`shutdown-sync`、`project-init-sync`。
 - 本工作區已初始化根目錄規則、README、gitignore 與 Obsidian 駕駛艙。
 - GitHub repo 已改為 public，並已啟用 GitHub Pages：https://datsam8866.github.io/AI-Playgrounds/
+- 已用 chezmoi 同步 Codex 全域規則與工作模式 skills 到 private repo：Datsam8866/codex-config。
 
 ## Next Action
 
@@ -22,6 +23,7 @@
 - Firebase 規則：`firestore.rules`
 - Firebase 專案設定：`.firebaserc`、`firebase.json`
 - GitHub Pages：https://datsam8866.github.io/AI-Playgrounds/
+- Codex 設定同步：chezmoi + Datsam8866/codex-config
 
 ## 安全原則
 
