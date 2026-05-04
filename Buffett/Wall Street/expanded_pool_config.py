@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 DB_PATH = ROOT / "stock_forecast.sqlite"
 TRAIN_START = "2000-01-01"
-DATA_END = "2026-05-02"
+DATA_END = "2026-05-05"
 CORE_TICKER = "VOO"
 REFERENCE_TICKERS = ["SPY", "QQQ"]
 
@@ -62,7 +62,7 @@ REQUESTED_POOL_TICKERS = [
     "OKTA",
     "ORCL",
     "PLTR",
-    "PSTG",
+    "P",       # Pure Storage → Everpure，2026-04-17 改 ticker PSTG→P
     "QCOM",
     "SMCI",
     "SNDK",

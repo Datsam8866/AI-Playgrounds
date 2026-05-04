@@ -19,6 +19,7 @@
 | 2026-04-18 | `LITE` | **加入** | 模型 inference 排名 #1（predicted_return 0.108） |
 | 2026-04-18 | `COHR` | **加入** | 模型 inference 排名 #2（predicted_return 0.057） |
 | 2026-04-18 | `ARM` | **確認** | 已在 pool，排名 #10 進入組合 |
+| 2026-05-05 | `PSTG` → `P` | **改名** | Pure Storage 改名 Everpure，2026-04-17 NYSE ticker 由 PSTG 改為 P；SQLite 歷史資料同步改名，config 更新 |
 
 ---
 
