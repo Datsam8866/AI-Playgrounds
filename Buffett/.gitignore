@@ -7,6 +7,10 @@ __pycache__/
 *.pyc
 *.pyo
 
+# 測試截圖
+*.png
+*.jpg
+
 # Playwright / yfinance cache
 .playwright-mcp/
 .sandbox_cache/
