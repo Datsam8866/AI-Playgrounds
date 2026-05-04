@@ -7,12 +7,13 @@
 主要工作目錄：C:\Users\dat_s\OneDrive\Documents\AI Playgrounds
 GitHub repo：https://github.com/Datsam8866/AI-Playgrounds
 預設 branch：main
+Claude 原始規則：CLAUDE.md
 
 ## Obsidian 對應筆記
 
 Obsidian vault：C:\Users\dat_s\OneDrive\Documents\Obsidian Vault
-專案駕駛艙：AI Playgrounds/專案工作流程.md
-收工時優先更新：AI Playgrounds/專案工作流程.md
+專案駕駛艙：AI Playgrounds/工作筆記.md
+收工時優先更新：AI Playgrounds/工作筆記.md
 
 > 注意：專案駕駛艙是 Obsidian vault 裡的一篇筆記，不是工作資料夾裡的 Markdown 檔。
 
@@ -20,7 +21,7 @@ Obsidian vault：C:\Users\dat_s\OneDrive\Documents\Obsidian Vault
 
 - 工作桌：C:\Users\dat_s\OneDrive\Documents\AI Playgrounds
 - GitHub：https://github.com/Datsam8866/AI-Playgrounds
-- Obsidian：C:\Users\dat_s\OneDrive\Documents\Obsidian Vault + AI Playgrounds/專案工作流程.md
+- Obsidian：C:\Users\dat_s\OneDrive\Documents\Obsidian Vault + AI Playgrounds/工作筆記.md
 - Firebase：ai-playground-e1f62
 
 ## 同步規則
@@ -30,6 +31,7 @@ Obsidian vault：C:\Users\dat_s\OneDrive\Documents\Obsidian Vault
 - 讀本檔
 - 讀 Obsidian 駕駛艙
 - 檢查 Git 狀態
+- 回報「上次做到哪」與下一步
 - 不自動 pull / commit / push
 
 收工時：
@@ -37,15 +39,23 @@ Obsidian vault：C:\Users\dat_s\OneDrive\Documents\Obsidian Vault
 - 更新 Obsidian 駕駛艙
 - 如規則、路徑、專案邊界改變才更新本檔
 - 需要時 commit + push GitHub
+- commit 訊息要寫清楚做了什麼與為什麼
 
 新專案初始化時：
 - 使用 `project-init-sync` 流程
 
+新增工具時：
+- 在 `tools/<工具名>/` 建立子資料夾
+- 引導使用者跟著影片做第一個可用版本
+- 完成後更新 README 與 Obsidian 工具清單
+- 需要部署時再 push 並確認 GitHub Pages 或其他部署目標
+
 ## 主要檔案
 
-入口檔：README.md
+入口檔：README.md、CLAUDE.md
 設定檔：AGENTS.md、.gitignore、firebase.json、firestore.rules、.firebaserc
-部署位置：GitHub Pages 視 repo 權限與方案支援而定
+工具目錄：tools/
+部署位置：https://datsam8866.github.io/AI-Playgrounds/
 
 ## 不要做
 

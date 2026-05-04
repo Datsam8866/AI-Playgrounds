@@ -17,8 +17,8 @@
 
 ## 工作模式
 
-- 固定規則：`AGENTS.md`
-- 進度與踩坑：Obsidian `AI Playgrounds/專案工作流程.md`
+- 固定規則：`AGENTS.md`，Claude 版原始規則：`CLAUDE.md`
+- 進度與踩坑：Obsidian `AI Playgrounds/工作筆記.md`
 - Firebase 規則：`firestore.rules`
 - Firebase 專案設定：`.firebaserc`、`firebase.json`
 - GitHub Pages：https://datsam8866.github.io/AI-Playgrounds/
