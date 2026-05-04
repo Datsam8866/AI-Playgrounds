@@ -11,6 +11,7 @@
 - 本工作區已初始化根目錄規則、README、gitignore 與 Obsidian 駕駛艙。
 - GitHub repo 已改為 public，並已啟用 GitHub Pages：https://datsam8866.github.io/AI-Playgrounds/
 - 已用 chezmoi 同步 Codex 全域規則與工作模式 skills 到 private repo：Datsam8866/codex-config。
+- 已安裝 Superpowers for Codex，來源：https://github.com/obra/superpowers.git。
 
 ## Next Action
 
@@ -24,6 +25,7 @@
 - Firebase 專案設定：`.firebaserc`、`firebase.json`
 - GitHub Pages：https://datsam8866.github.io/AI-Playgrounds/
 - Codex 設定同步：chezmoi + Datsam8866/codex-config
+- Superpowers skills：`C:\Users\dat_s\.agents\skills\superpowers` 指向 `C:\Users\dat_s\.codex\superpowers\skills`
 
 ## 安全原則
 
