@@ -9,6 +9,7 @@
 - 已完成 Obsidian MCP 設定，vault：C:\Users\dat_s\OneDrive\Documents\Obsidian Vault。
 - 已建立 #07 工作模式所需的全域 skills：`startup-sync`、`shutdown-sync`、`project-init-sync`。
 - 本工作區已初始化根目錄規則、README、gitignore 與 Obsidian 駕駛艙。
+- GitHub repo 已改為 public，並已啟用 GitHub Pages：https://datsam8866.github.io/AI-Playgrounds/
 
 ## Next Action
 
@@ -20,6 +21,7 @@
 - 進度與踩坑：Obsidian `AI Playgrounds/專案工作流程.md`
 - Firebase 規則：`firestore.rules`
 - Firebase 專案設定：`.firebaserc`、`firebase.json`
+- GitHub Pages：https://datsam8866.github.io/AI-Playgrounds/
 
 ## 安全原則
 
