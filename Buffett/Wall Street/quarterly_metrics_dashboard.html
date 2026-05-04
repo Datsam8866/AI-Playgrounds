@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quarterly Metrics Dashboard</title>
+  <style>
+    :root {
+      --bg: #f5f0e8;
+      --panel: #fffaf2;
+      --ink: #1d1c1a;
+      --muted: #6a665f;
+      --grid: #d9d0c0;
+      --accent: #b56576;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Noto Sans TC", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(181,101,118,0.15), transparent 30%),
+        linear-gradient(180deg, #f8f4ec 0%, var(--bg) 100%);
+      color: var(--ink);
+    }
+    .wrap {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 28px 24px 40px;
+    }
+    .hero {
+      background: linear-gradient(135deg, rgba(255,250,242,0.96), rgba(247,238,226,0.96));
+      border: 1px solid rgba(48,99,142,0.15);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 18px 40px rgba(29,28,26,0.08);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 34px;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(48,99,142,0.14);
+      border-radius: 20px;
+      padding: 18px;
+      box-shadow: 0 12px 26px rgba(29,28,26,0.06);
+    }
+    .controls h2,
+    .chart-panel h2,
+    .table-panel h2,
+    .snapshot-panel h2 {
+      margin: 0 0 14px;
+      font-size: 18px;
+    }
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.75);
+      border: 1px solid rgba(48,99,142,0.10);
+    }
+    .toggle input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+    }
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      flex: 0 0 auto;
+    }
+    .meta, .snapshot-meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .chip {
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.78);
+      border: 1px solid rgba(48,99,142,0.10);
+    }
+    .chip strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    #chart {
+      width: 100%;
+      height: 520px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.45));
+      border-radius: 16px;
+      border: 1px solid rgba(48,99,142,0.10);
+    }
+    .chart-note {
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 14px;
+      font-size: 14px;
+    }
+    th, td {
+      border-bottom: 1px solid rgba(48,99,142,0.10);
+      padding: 10px 12px;
+      text-align: center;
+    }
+    th {
+      background: rgba(48,99,142,0.08);
+      font-weight: 600;
+    }
+    .tooltip {
+      position: fixed;
+      pointer-events: none;
+      transform: translate(12px, 12px);
+      background: rgba(29,28,26,0.94);
+      color: white;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.18);
+      display: none;
+      z-index: 20;
+      min-width: 200px;
+    }
+    .snapshot-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .weights-box {
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.76);
+      border: 1px solid rgba(48,99,142,0.10);
+      color: var(--muted);
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 13px;
+    }
+    @media (max-width: 1100px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .snapshot-grid {
+        grid-template-columns: 1fr;
+      }
+      #chart {
+        height: 420px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>季度指標關聯圖</h1>
+      <p>資料來源：portfolio_pool_probability_quarterly_walkforward_combined_z_regime_constrained.csv。這個版本已切到 `Combined Z + regime + constraints` 主線，並同時顯示 `校準後 / 原始` 的 `P(>5%)` 與 `P(<0%)`，方便你直接看 calibration 帶來的差異。</p>
+    </section>
+
+    <div class="grid">
+      <aside class="panel controls">
+        <h2>指標切換</h2>
+        <div id="series-controls"></div>
+        <div class="toggle">
+          <input id="normalize-toggle" type="checkbox" checked>
+          <label for="normalize-toggle">標準化顯示（建議開啟）</label>
+        </div>
+        <div class="meta">
+          <div class="chip">
+            <strong>期間數</strong>
+            <span id="period-count"></span>
+          </div>
+          <div class="chip">
+            <strong>最新季度</strong>
+            <span id="latest-period"></span>
+          </div>
+        </div>
+      </aside>
+
+      <section class="panel chart-panel">
+        <h2>曲線圖</h2>
+        <svg id="chart" viewBox="0 0 1000 520" preserveAspectRatio="none"></svg>
+        <div class="chart-note">標準化模式下，每條線會各自映射到 0~100，用來比較趨勢與背離。建議同時勾選 `P>5 (Cal.) / P>5 (Raw)` 或 `P<0 (Cal.) / P<0 (Raw)` 看 calibration 差異。</div>
+      </section>
+    </div>
+
+    <div class="snapshot-grid">
+      <section class="panel snapshot-panel">
+        <h2>最新季度風險卡</h2>
+        <div class="snapshot-meta">
+          <div class="chip"><strong>Period</strong><span id="snap-period"></span></div>
+          <div class="chip"><strong>Regime</strong><span id="snap-regime"></span></div>
+          <div class="chip"><strong>Stage</strong><span id="snap-stage"></span></div>
+          <div class="chip"><strong>Combined Z</strong><span id="snap-combined-z"></span></div>
+          <div class="chip"><strong>Sharpe</strong><span id="snap-sharpe"></span></div>
+          <div class="chip"><strong>Turnover</strong><span id="snap-turnover"></span></div>
+          <div class="chip"><strong>Tracking Error</strong><span id="snap-tracking-error"></span></div>
+          <div class="chip"><strong>Theme Max</strong><span id="snap-theme-max"></span></div>
+        </div>
+      </section>
+
+      <section class="panel snapshot-panel">
+        <h2>校準前後機率</h2>
+        <table id="current-prob-table"></table>
+        <div class="weights-box" id="weights-box"></div>
+      </section>
+    </div>
+
+    <section class="panel table-panel" style="margin-top: 18px;">
+      <h2>相關係數矩陣</h2>
+      <table id="corr-table"></table>
+    </section>
+  </div>
+
+  <div id="tooltip" class="tooltip"></div>
+
+  <script>
+    const DATA = {"periods": ["2016Q1", "2016Q2", "2016Q3", "2016Q4", "2017Q1", "2017Q2", "2017Q3", "2017Q4", "2018Q1", "2018Q2", "2018Q3", "2018Q4", "2019Q1", "2019Q2", "2019Q3", "2019Q4", "2020Q1", "2020Q2", "2020Q3", "2020Q4", "2021Q1", "2021Q2", "2021Q3", "2021Q4", "2022Q1", "2022Q2", "2022Q3", "2022Q4", "2023Q1", "2023Q2", "2023Q3", "2023Q4", "2024Q1", "2024Q2", "2024Q3", "2024Q4", "2025Q1", "2025Q2", "2025Q3", "2025Q4", "2026Q1", "2026Q2_current"], "series": {"combined_z": {"label": "Combined Z", "color": "#d1495b", "format": "number", "values": [3.0306954224431006, 2.603045878903807, 3.279937507429768, 3.5146234743496545, 2.419998463143485, 3.789546491840848, 3.0725119078285266, 2.127896793618508, 3.406240828801664, 3.2657307799586763, 3.201642028608419, 4.287792774587477, 4.473543454043142, 5.164312827343097, 5.195109700762711, 1.7412956080905773, 4.4209931465845465, 2.6156507060232723, 1.813947099418609, -2.1661546788399697, 2.962560133790468, 2.206017615124089, 3.097702968207577, 0.5235210638315504, 2.9469194939606767, 1.524573652109061, 1.3118243057793395, 1.8160681076809089, 3.2385600410882622, 3.556946810049074, -0.1569109629008696, 4.104604699967422, 3.1447780914531966, 0.530364884187679, 1.321717730457798, 1.546719196052218, 4.413650551541021, 1.88453999015354, 2.5138901401762994, 3.645750856788579, 3.389343970648801, 3.33880616788988]}, "sharpe": {"label": "Sharpe", "color": "#00798c", "format": "number", "values": [1.150758400152018, 1.3370415718295314, 1.1038928284166245, 1.6526898877883225, 1.189457366043312, 2.1131999111173583, 2.1034964465440904, 2.474979353535113, 2.7748422259809216, 2.511424960069648, 1.9790815237174184, 1.9951063300035008, 1.0075889037578163, 1.245651733306355, 1.6590745896194514, 1.052915617599894, 1.3712702179607643, 0.9023305249715434, 1.1096639693174988, 1.0966413518936249, 1.9555857818924511, 1.6761339141483411, 1.9558096765210429, 2.393438567985388, 1.8692283962935292, 1.3453077895123144, 0.6880729906874791, 0.6737901667471327, 0.8834927643433025, 0.9257555372944254, 0.5807507026458774, 0.9746702799868416, 0.7220696425650669, 1.2694592824336082, 3.249053308641515, 2.087580407158913, 2.234745517685611, 1.5761558224893544, 1.794115594790918, 1.1156688404121544, 1.1039185058207668, 1.6801206238135016]}, "p_gt_5_cal": {"label": "P>5 (Cal.)", "color": "#edae49", "format": "percent", "values": [0.4826666666666667, 0.53, 0.5143333333333333, 0.597, 0.5176666666666667, 0.715, 0.715, 0.6753333333333333, 0.6285245016435628, 0.555645232727636, 0.6015018817093224, 0.6376785134029447, 0.5806442592788752, 0.61482744288963, 0.5719795503113003, 0.5317957493331374, 0.5622339018077981, 0.5275109686908963, 0.555821396821862, 0.5796958316233534, 0.597416583753128, 0.5660796345307259, 0.5876314843710139, 0.5587209676800295, 0.5799484012910138, 0.5651896412037187, 0.5419911217935496, 0.5203541793070278, 0.5400721907704122, 0.5564304970079065, 0.5757589866895269, 0.5502167279499993, 0.5685053839395984, 0.5774801639321625, 0.5428822225100008, 0.5324215280951109, 0.5411109685644753, 0.5337384203880293, 0.5431367876894048, 0.5697967460909504, 0.5537284766341759, 0.5315265093580382]}, "p_lt_0_cal": {"label": "P<0 (Cal.)", "color": "#30638e", "format": "percent", "values": [0.2593333333333333, 0.2413333333333333, 0.2716666666666666, 0.2276666666666666, 0.2623333333333333, 0.1526666666666666, 0.153, 0.0463333333333333, 0.0226666666666666, 0.0306666666666666, 0.1, 0.1163333333333333, 0.0829839451514311, 0.0766762453715899, 0.0714154496923782, 0.1328618820858761, 0.1246316384478211, 0.1762684613788815, 0.1663912405473931, 0.1575119783541155, 0.1500633865708584, 0.1429604200352948, 0.1363888655600555, 0.1745868590780448, 0.1668283085533841, 0.1988217260581171, 0.2308468783005464, 0.2614737568594809, 0.2512662271071467, 0.2421503186661315, 0.2343809504864143, 0.2604978860321028, 0.2552291605765229, 0.2442911446852037, 0.2318287201857248, 0.2576284619575683, 0.250209877455002, 0.270509718461808, 0.2636269417489996, 0.2550787291498215, 0.2485837806581128, 0.2689583175381675]}, "p_gt_5_raw": {"label": "P>5 (Raw)", "color": "#f4a261", "format": "percent", "values": [0.4826666666666667, 0.53, 0.5143333333333333, 0.597, 0.5176666666666667, 0.715, 0.715, 0.6753333333333333, 0.7593333333333333, 0.8546666666666667, 0.6986666666666667, 0.6906666666666667, 0.52, 0.573, 0.661, 0.532, 0.5583333333333333, 0.4756666666666667, 0.524, 0.5443333333333333, 0.7583333333333333, 0.7573333333333333, 0.761, 0.7816666666666666, 0.7606666666666667, 0.5183333333333333, 0.5113333333333333, 0.4986666666666666, 0.47, 0.5103333333333333, 0.446, 0.554, 0.4513333333333333, 0.572, 0.9303333333333332, 0.733, 0.8106666666666666, 0.6913333333333334, 0.7293333333333333, 0.5543333333333333, 0.5723333333333334, 0.701]}, "p_lt_0_raw": {"label": "P<0 (Raw)", "color": "#5c677d", "format": "percent", "values": [0.2593333333333333, 0.2413333333333333, 0.2716666666666666, 0.2276666666666666, 0.2623333333333333, 0.1526666666666666, 0.153, 0.0463333333333333, 0.0226666666666666, 0.0306666666666666, 0.1, 0.1163333333333333, 0.272, 0.239, 0.1786666666666666, 0.2536666666666666, 0.2306666666666666, 0.2653333333333333, 0.2463333333333333, 0.257, 0.1736666666666666, 0.1616666666666666, 0.1673333333333333, 0.1046666666666666, 0.1516666666666666, 0.2856666666666667, 0.318, 0.309, 0.2953333333333333, 0.292, 0.417, 0.282, 0.387, 0.304, 0.0293333333333333, 0.132, 0.095, 0.1976666666666666, 0.1816666666666666, 0.287, 0.2793333333333333, 0.1513333333333333]}, "realized_return": {"label": "實際報酬", "color": "#003d5b", "format": "percent", "values": [0.0262817615555603, 0.0273643750855369, 0.1061546442975572, 0.1031220058250373, 0.1081291215592647, 0.0682748435759194, 0.0799429764947538, 0.032668286877169, 0.0346409986232959, 0.120857346885625, 0.1081436331043581, -0.1579203385132678, 0.1938444630323948, 0.0350582473586511, -0.055698001940021, 0.1978965067007093, -0.1298274419997419, 0.3255048598920205, 0.1836977090032252, 0.1572508705073964, 0.0286648569177616, 0.0560976736891661, -0.0084396048798131, 0.0928748688801949, -0.0754753056666943, -0.2335346647101051, -0.0369983526448187, 0.0642385524681631, 0.2566395389897712, 0.1577065982703158, -0.0245775042028461, 0.1171663821865283, 0.3240699298930147, 0.0381405085644918, -0.0044680987721726, 0.1208426182493356, -0.0840047063290089, 0.2286890095581191, 0.1411357748798404, 0.0244874167506751, -0.0582057449976979, null]}}, "latest": {"period": "2026Q2_current", "regime": "risk_on", "stage": "feasible", "combined_z": 3.33880616788988, "sharpe": 1.6801206238135016, "p_gt_5_cal": 0.5315265093580382, "p_lt_0_cal": 0.2689583175381675, "p_gt_5_raw": 0.701, "p_lt_0_raw": 0.1513333333333333, "turnover": 0.35, "tracking_error": 0.17007486331264, "theme_max": 0.2, "weights": "VOO 50.0%, MU 5.0%, CLS 5.0%, DELL 5.0%, MRVL 5.0%, MSTR 5.0%, VRT 5.0%, NOW 5.0%, SMCI 5.0%, INTC 5.0%, CRWV 5.0%"}, "defaultSelected": ["combined_z", "sharpe", "p_gt_5_cal", "p_lt_0_cal", "realized_return"]};
+    const SERIES_ORDER = ["combined_z", "sharpe", "p_gt_5_cal", "p_lt_0_cal", "p_gt_5_raw", "p_lt_0_raw", "realized_return"];
+    const SELECTED = new Set(DATA.defaultSelected);
+    const controls = document.getElementById("series-controls");
+    const chart = document.getElementById("chart");
+    const corrTable = document.getElementById("corr-table");
+    const tooltip = document.getElementById("tooltip");
+    const normalizeToggle = document.getElementById("normalize-toggle");
+
+    document.getElementById("period-count").textContent = DATA.periods.length.toString();
+    document.getElementById("latest-period").textContent = DATA.latest.period;
+
+    function fmtValue(format, value) {
+      if (value == null || Number.isNaN(value)) return "—";
+      if (format === "percent") return `${(value * 100).toFixed(1)}%`;
+      return value.toFixed(3);
+    }
+
+    function fmt(seriesKey, value) {
+      return fmtValue(DATA.series[seriesKey].format, value);
+    }
+
+    function buildControls() {
+      SERIES_ORDER.forEach((key) => {
+        const wrapper = document.createElement("label");
+        wrapper.className = "toggle";
+        wrapper.innerHTML = `
+          <input type="checkbox" data-key="${key}" ${SELECTED.has(key) ? "checked" : ""}>
+          <span class="swatch" style="background:${DATA.series[key].color}"></span>
+          <span>${DATA.series[key].label}</span>
+        `;
+        wrapper.querySelector("input").addEventListener("change", (event) => {
+          if (event.target.checked) {
+            SELECTED.add(key);
+          } else {
+            SELECTED.delete(key);
+          }
+          renderAll();
+        });
+        controls.appendChild(wrapper);
+      });
+    }
+
+    function correlation(a, b) {
+      const pairs = [];
+      for (let i = 0; i < a.length; i += 1) {
+        const x = a[i];
+        const y = b[i];
+        if (x == null || y == null || Number.isNaN(x) || Number.isNaN(y)) continue;
+        pairs.push([x, y]);
+      }
+      if (pairs.length < 2) return null;
+      const xs = pairs.map((p) => p[0]);
+      const ys = pairs.map((p) => p[1]);
+      const meanX = xs.reduce((s, v) => s + v, 0) / xs.length;
+      const meanY = ys.reduce((s, v) => s + v, 0) / ys.length;
+      let num = 0;
+      let denX = 0;
+      let denY = 0;
+      for (let i = 0; i < xs.length; i += 1) {
+        const dx = xs[i] - meanX;
+        const dy = ys[i] - meanY;
+        num += dx * dy;
+        denX += dx * dx;
+        denY += dy * dy;
+      }
+      const den = Math.sqrt(denX * denY);
+      if (den === 0) return null;
+      return num / den;
+    }
+
+    function renderCorrelationTable() {
+      const visible = SERIES_ORDER.filter((key) => SELECTED.has(key));
+      let html = "<thead><tr><th>指標</th>";
+      visible.forEach((key) => {
+        html += `<th>${DATA.series[key].label}</th>`;
+      });
+      html += "</tr></thead><tbody>";
+      visible.forEach((rowKey) => {
+        html += `<tr><th>${DATA.series[rowKey].label}</th>`;
+        visible.forEach((colKey) => {
+          const corr = correlation(DATA.series[rowKey].values, DATA.series[colKey].values);
+          html += `<td>${corr == null ? "—" : corr.toFixed(2)}</td>`;
+        });
+        html += "</tr>";
+      });
+      html += "</tbody>";
+      corrTable.innerHTML = html;
+    }
+
+    function normalize(values) {
+      const filtered = values.filter((value) => value != null && !Number.isNaN(value));
+      if (!filtered.length) return values.map(() => null);
+      const min = Math.min(...filtered);
+      const max = Math.max(...filtered);
+      if (Math.abs(max - min) < 1e-12) return values.map((value) => (value == null ? null : 50));
+      return values.map((value) => value == null ? null : ((value - min) / (max - min)) * 100);
+    }
+
+    function renderSnapshot() {
+      const snap = DATA.latest;
+      document.getElementById("snap-period").textContent = snap.period || "—";
+      document.getElementById("snap-regime").textContent = snap.regime || "—";
+      document.getElementById("snap-stage").textContent = snap.stage || "—";
+      document.getElementById("snap-combined-z").textContent = fmtValue("number", snap.combined_z);
+      document.getElementById("snap-sharpe").textContent = fmtValue("number", snap.sharpe);
+      document.getElementById("snap-turnover").textContent = fmtValue("percent", snap.turnover);
+      document.getElementById("snap-tracking-error").textContent = fmtValue("percent", snap.tracking_error);
+      document.getElementById("snap-theme-max").textContent = fmtValue("percent", snap.theme_max);
+
+      document.getElementById("current-prob-table").innerHTML = `
+        <thead>
+          <tr><th>Metric</th><th>Calibrated</th><th>Raw</th><th>Delta</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>P(>5%)</td>
+            <td>${fmtValue("percent", snap.p_gt_5_cal)}</td>
+            <td>${fmtValue("percent", snap.p_gt_5_raw)}</td>
+            <td>${fmtValue("percent", snap.p_gt_5_cal - snap.p_gt_5_raw)}</td>
+          </tr>
+          <tr>
+            <td>P(<0%)</td>
+            <td>${fmtValue("percent", snap.p_lt_0_cal)}</td>
+            <td>${fmtValue("percent", snap.p_lt_0_raw)}</td>
+            <td>${fmtValue("percent", snap.p_lt_0_cal - snap.p_lt_0_raw)}</td>
+          </tr>
+        </tbody>
+      `;
+      document.getElementById("weights-box").textContent = snap.weights ? `最新配置\n${snap.weights}` : "無最新配置";
+    }
+
+    function renderChart() {
+      const visible = SERIES_ORDER.filter((key) => SELECTED.has(key));
+      const width = 1000;
+      const height = 520;
+      const padding = { top: 26, right: 24, bottom: 70, left: 56 };
+      const innerWidth = width - padding.left - padding.right;
+      const innerHeight = height - padding.top - padding.bottom;
+      const normalizeMode = normalizeToggle.checked;
+
+      const processed = visible.map((key) => {
+        const raw = DATA.series[key].values;
+        return {
+          key,
+          label: DATA.series[key].label,
+          color: DATA.series[key].color,
+          values: normalizeMode ? normalize(raw) : raw,
+          rawValues: raw,
+        };
+      });
+
+      const allValues = processed.flatMap((s) => s.values.filter((v) => v != null && !Number.isNaN(v)));
+      const minValue = allValues.length ? Math.min(...allValues) : 0;
+      const maxValue = allValues.length ? Math.max(...allValues) : 1;
+      const safeMin = minValue === maxValue ? minValue - 1 : minValue;
+      const safeMax = minValue === maxValue ? maxValue + 1 : maxValue;
+
+      function xScale(index) {
+        if (DATA.periods.length === 1) return padding.left + innerWidth / 2;
+        return padding.left + (index / (DATA.periods.length - 1)) * innerWidth;
+      }
+
+      function yScale(value) {
+        return padding.top + (1 - (value - safeMin) / (safeMax - safeMin)) * innerHeight;
+      }
+
+      let svg = "";
+      for (let i = 0; i <= 5; i += 1) {
+        const y = padding.top + (innerHeight / 5) * i;
+        svg += `<line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="rgba(48,99,142,0.12)" stroke-width="1" />`;
+      }
+      for (let i = 0; i < DATA.periods.length; i += 1) {
+        const x = xScale(i);
+        svg += `<line x1="${x}" y1="${padding.top}" x2="${x}" y2="${height - padding.bottom}" stroke="rgba(48,99,142,0.05)" stroke-width="1" />`;
+      }
+
+      processed.forEach((series) => {
+        const points = [];
+        series.values.forEach((value, idx) => {
+          if (value == null || Number.isNaN(value)) return;
+          points.push(`${xScale(idx)},${yScale(value)}`);
+        });
+        if (points.length >= 2) {
+          svg += `<polyline fill="none" stroke="${series.color}" stroke-width="3" points="${points.join(" ")}" stroke-linejoin="round" stroke-linecap="round" />`;
+        }
+        series.values.forEach((value, idx) => {
+          if (value == null || Number.isNaN(value)) return;
+          const cx = xScale(idx);
+          const cy = yScale(value);
+          const raw = series.rawValues[idx];
+          svg += `<circle cx="${cx}" cy="${cy}" r="4.5" fill="${series.color}" data-series="${series.key}" data-index="${idx}" data-raw="${raw}" data-display="${value}" />`;
+        });
+      });
+
+      for (let i = 0; i < DATA.periods.length; i += 1) {
+        const x = xScale(i);
+        const label = DATA.periods[i];
+        svg += `<text x="${x}" y="${height - 22}" fill="#6a665f" font-size="11" text-anchor="end" transform="rotate(-45 ${x} ${height - 22})">${label}</text>`;
+      }
+
+      for (let i = 0; i <= 5; i += 1) {
+        const value = safeMin + ((safeMax - safeMin) / 5) * (5 - i);
+        const y = padding.top + (innerHeight / 5) * i;
+        const label = normalizeMode ? `${value.toFixed(0)}` : value.toFixed(2);
+        svg += `<text x="${padding.left - 10}" y="${y + 4}" fill="#6a665f" font-size="11" text-anchor="end">${label}</text>`;
+      }
+
+      chart.innerHTML = svg;
+      chart.querySelectorAll("circle").forEach((node) => {
+        node.addEventListener("mouseenter", (event) => {
+          const idx = Number(event.target.dataset.index);
+          const key = event.target.dataset.series;
+          tooltip.style.display = "block";
+          tooltip.innerHTML = `
+            <strong>${DATA.periods[idx]}</strong><br>
+            ${DATA.series[key].label}: ${fmt(key, Number(event.target.dataset.raw))}
+          `;
+        });
+        node.addEventListener("mousemove", (event) => {
+          tooltip.style.left = `${event.clientX}px`;
+          tooltip.style.top = `${event.clientY}px`;
+        });
+        node.addEventListener("mouseleave", () => {
+          tooltip.style.display = "none";
+        });
+      });
+    }
+
+    function renderAll() {
+      renderChart();
+      renderCorrelationTable();
+      renderSnapshot();
+    }
+
+    buildControls();
+    normalizeToggle.addEventListener("change", renderAll);
+    renderAll();
+  </script>
+</body>
+</html>

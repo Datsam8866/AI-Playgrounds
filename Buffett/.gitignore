@@ -1,0 +1,20 @@
+# SQLite databases (large files)
+*.sqlite
+*.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Playwright / yfinance cache
+.playwright-mcp/
+.sandbox_cache/
+.sqlite_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment
+.env
+*.env
