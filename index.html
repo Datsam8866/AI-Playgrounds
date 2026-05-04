@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Playgrounds</title>
+<style>
+  :root { --bg:#0f172a; --surface:#1e293b; --border:#334155; --text:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; }
+  h1 { font-size:22px; font-weight:700; color:var(--accent); margin-bottom:6px; }
+  p.sub { color:var(--muted); font-size:13px; margin-bottom:32px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; width:100%; max-width:640px; }
+  a.card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px 22px; text-decoration:none; color:var(--text); display:block; transition:border-color .2s; }
+  a.card:hover { border-color:var(--accent); }
+  .card-icon { font-size:28px; margin-bottom:10px; }
+  .card-title { font-size:15px; font-weight:600; margin-bottom:4px; }
+  .card-desc { font-size:12px; color:var(--muted); line-height:1.5; }
+  footer { margin-top:40px; color:var(--muted); font-size:11px; }
+</style>
+</head>
+<body>
+  <h1>📊 AI Playgrounds</h1>
+  <p class="sub">個人工具集</p>
+
+  <div class="grid">
+    <a class="card" href="Buffett/portfolio_dashboard.html">
+      <div class="card-icon">💼</div>
+      <div class="card-title">Portfolio Dashboard</div>
+      <div class="card-desc">台美股持倉配置、損益摘要、模型建議 vs 實際配置對比</div>
+    </a>
+  </div>
+
+  <footer>Datsam8866 · AI Playgrounds</footer>
+</body>
+</html>
