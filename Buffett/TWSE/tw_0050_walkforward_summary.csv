@@ -1,0 +1,2 @@
+quarters,start_period,end_period,strategy_total_return,benchmark_total_return,strategy_quarterly_sharpe,benchmark_quarterly_sharpe,strategy_max_drawdown,benchmark_max_drawdown,beat_0050_rate,avg_turnover,latest_period,prediction_rows,ic_mean,icir
+41,2016Q1,2026Q1,13.812490815560297,5.208124274547647,1.2101361845855374,1.0662674888288255,-0.23704676740426578,-0.23059702276339666,0.6585365853658537,0.2814024390243902,2026Q2_current,2698.0,0.06567504609379576,0.7013633998982904
