@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+.playwright-mcp/
+.obsidian/
+
+cpbl.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+*.png

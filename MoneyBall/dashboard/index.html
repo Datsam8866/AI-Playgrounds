@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MoneyBall Dashboard</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root {
+    --ev-pos: #22c55e;
+    --ev-neg: #ef4444;
+    --ev-bet: #16a34a;
+    --prob-bar-h: #3b82f6;
+    --prob-bar-a: #94a3b8;
+    --surface-1: rgba(255,255,255,.04);
+    --surface-2: rgba(255,255,255,.06);
+    --surface-3: rgba(255,255,255,.09);
+    --border-soft: rgba(255,255,255,.08);
+    --border-strong: rgba(255,255,255,.14);
+    --accent-warm: #f59e0b;
+    --accent-cool: #38bdf8;
+    --league-accent: #3b82f6;
+  }
+  body { font-size: 0.88rem; }
+  .navbar-brand { font-weight: 700; letter-spacing: 1px; font-size: 1.2rem; }
+  .league-tab .nav-link {
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 0.5rem 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid transparent;
+  }
+  .league-tab .nav-link.active { background: rgba(255,255,255,.08) !important; color: #fff !important; border-color: rgba(255,255,255,.14); }
+  .league-tab-badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.04));
+    border: 1px solid rgba(255,255,255,.16);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .league-tab-badge img { display: block; }
+  .league-tab-copy { display: flex; flex-direction: column; line-height: 1.08; }
+  .league-tab-copy small { color: var(--bs-secondary-color); font-size: .67rem; letter-spacing: .04em; }
+  .league-shell {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--league-accent) 12%, transparent), transparent 200px);
+    border-radius: 16px;
+  }
+  .league-shell-mlb { --league-accent: #2563eb; }
+  .league-shell-cpbl { --league-accent: #10b981; }
+  .league-shell-npb { --league-accent: #f97316; }
+  .league-shell-kbo { --league-accent: #14b8a6; }
+
+  /* Game table */
+  .game-table { border-collapse: separate; border-spacing: 0; }
+  .game-table th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; }
+  .game-table td { vertical-align: middle; white-space: nowrap; }
+  .game-row:hover { background: rgba(255,255,255,.04); }
+  .game-row.row-bet { background: rgba(34,197,94,.10); }
+  .game-row.row-ev  { background: rgba(245,158,11,.08); }
+  .game-row.row-bet:hover,
+  .game-row.row-ev:hover { background: rgba(255,255,255,.09); }
+
+  /* Team cells */
+  .team-block { line-height: 1.25; }
+  .team-name { font-weight: 600; }
+  .sp-text { font-size: 0.75rem; color: var(--bs-secondary-color); }
+  .team-home { color: var(--bs-info); }
+  .team-away { color: var(--bs-secondary-color); }
+
+  /* Probability bar */
+  .prob-wrap { position: relative; width: 90px; height: 18px; border-radius: 9px;
+               background: rgba(148,163,184,.2); overflow: hidden; display: inline-block; }
+  .prob-fill  { position: absolute; left: 0; top: 0; height: 100%;
+               background: var(--prob-bar-h); border-radius: 9px; transition: width .4s; }
+  .prob-label { position: absolute; width: 100%; text-align: center; font-size: .72rem;
+                font-weight: 700; line-height: 18px; color: #fff; }
+
+  /* Confidence badges */
+  .badge-HIGH { background: #16a34a; }
+  .badge-MED  { background: #d97706; }
+  .badge-LOW  { background: #475569; }
+
+  /* EV cells */
+  .ev-pos  { color: var(--ev-pos); font-weight: 600; }
+  .ev-neg  { color: var(--ev-neg); }
+  .ev-bet  { color: var(--ev-bet); font-weight: 700; }
+  .ev-na   { color: var(--bs-secondary-color); }
+
+  /* BET badge */
+  .bet-badge { font-size: 0.78rem; padding: 3px 8px; font-weight: 700;
+               background: #16a34a; color: #fff; border-radius: 4px; }
+  .no-bet    { color: var(--bs-secondary-color); font-size: .8rem; }
+
+  /* Editable cell */
+  .editable-input { width: 62px; text-align: center; padding: 2px 4px;
+                    background: transparent; border: 1px solid transparent;
+                    color: inherit; border-radius: 4px; font-size: .85rem; }
+  .editable-input:focus { border-color: var(--bs-primary); outline: none;
+                           background: rgba(255,255,255,.06); }
+  .sp-input { width: 110px; }
+
+  /* Status bar */
+  .status-bar { font-size: .78rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot-ok   { background: #22c55e; }
+  .dot-warn { background: #f59e0b; }
+  .dot-err  { background: #ef4444; }
+  .dot-idle { background: #64748b; }
+
+  /* Summary cards */
+  .summary-card { border-radius: 8px; padding: 10px 16px; text-align: center;
+                  background: var(--surface-1); border: 1px solid var(--border-soft); height: 100%; }
+  .summary-card .val { font-size: 1.5rem; font-weight: 700; line-height: 1.2; }
+  .summary-card .lbl { font-size: .72rem; color: var(--bs-secondary-color); }
+  .summary-card .sub { font-size: .74rem; color: var(--bs-secondary-color); margin-top: 2px; }
+  .summary-card.summary-card-primary { background: linear-gradient(180deg, rgba(34,197,94,.12), rgba(34,197,94,.02)); border-color: rgba(34,197,94,.22); }
+  .summary-card.summary-card-warning { background: linear-gradient(180deg, rgba(245,158,11,.10), rgba(245,158,11,.02)); border-color: rgba(245,158,11,.2); }
+  .summary-card.summary-card-info { background: linear-gradient(180deg, rgba(56,189,248,.10), rgba(56,189,248,.02)); border-color: rgba(56,189,248,.2); }
+
+  .toolbar-card,
+  .status-card,
+  .table-frame {
+    background: var(--surface-1);
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+  }
+  .toolbar-sticky {
+    position: sticky;
+    top: 10px;
+    z-index: 20;
+    backdrop-filter: blur(10px);
+  }
+  .status-card { padding: 12px 14px; }
+  .status-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .status-kicker { font-size: .70rem; text-transform: uppercase; letter-spacing: .08em; color: var(--bs-secondary-color); margin-bottom: 4px; }
+  .status-value { font-size: .96rem; font-weight: 600; }
+  .toolbar-card { padding: 12px 14px; }
+  .toolbar-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--bs-secondary-color); }
+  .toolbar-count { font-weight: 700; color: var(--bs-info); }
+  .empty-state { border: 1px dashed var(--border-strong); border-radius: 12px; padding: 32px 20px; text-align: center; background: rgba(255,255,255,.02); }
+  .empty-state .title { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+  .empty-state .desc { color: var(--bs-secondary-color); font-size: .84rem; }
+  .empty-state .hint { margin-top: 10px; font-size: .78rem; color: var(--bs-secondary-color); }
+  .toolbar-inline-note { font-size: .78rem; color: var(--bs-secondary-color); }
+  .badge-soft { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+  .badge-soft-success { background: rgba(34,197,94,.12); color: #4ade80; border: 1px solid rgba(34,197,94,.22); }
+  .badge-soft-warn { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.22); }
+  .badge-soft-muted { background: rgba(148,163,184,.12); color: #cbd5e1; border: 1px solid rgba(148,163,184,.2); }
+  .badge-soft-info { background: rgba(56,189,248,.12); color: #7dd3fc; border: 1px solid rgba(56,189,248,.22); }
+  .sort-select { min-width: 140px; }
+  .table-frame { padding: 6px 0 0; }
+  .table-topline { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0 14px 10px; flex-wrap: wrap; }
+  .table-kicker { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--bs-secondary-color); }
+  .table-title { font-size: 1rem; font-weight: 700; }
+  .table-subtitle { font-size: .80rem; color: var(--bs-secondary-color); }
+  .parlay-launch { min-width: 160px; }
+  .league-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    border-radius: 14px;
+    background:
+      radial-gradient(circle at top right, color-mix(in srgb, var(--league-accent) 22%, transparent), transparent 56%),
+      linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    border: 1px solid color-mix(in srgb, var(--league-accent) 26%, rgba(255,255,255,.08));
+  }
+  .league-brand-badge {
+    width: 52px;
+    height: 52px;
+    flex: 0 0 52px;
+    border-radius: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--league-accent) 40%, rgba(255,255,255,.08)), rgba(15,23,42,.25));
+    border: 1px solid color-mix(in srgb, var(--league-accent) 45%, rgba(255,255,255,.12));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+  }
+  .league-brand-badge img { max-width: 30px; max-height: 30px; display: block; }
+  .league-brand-mark {
+    font-weight: 800;
+    letter-spacing: .08em;
+    font-size: .86rem;
+    color: #fff;
+  }
+  .league-brand-name { font-size: 1rem; font-weight: 700; }
+  .league-brand-sub { font-size: .78rem; color: var(--bs-secondary-color); }
+  .league-brand-chip {
+    margin-left: auto;
+    padding: 7px 10px;
+    border-radius: 999px;
+    font-size: .74rem;
+    color: #fff;
+    background: color-mix(in srgb, var(--league-accent) 78%, rgba(15,23,42,.1));
+    border: 1px solid color-mix(in srgb, var(--league-accent) 86%, rgba(255,255,255,.15));
+  }
+  .team-name-wrap { display: flex; align-items: center; gap: 8px; }
+  .team-logo-pill {
+    min-width: 26px;
+    height: 26px;
+    padding: 0 7px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .63rem;
+    font-weight: 800;
+    letter-spacing: .05em;
+    color: #fff;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--league-accent) 72%, rgba(255,255,255,.1)), rgba(15,23,42,.35));
+    border: 1px solid color-mix(in srgb, var(--league-accent) 75%, rgba(255,255,255,.2));
+  }
+  .matchup-meta {
+    margin-top: 4px;
+    font-size: .72rem;
+    color: var(--bs-secondary-color);
+  }
+
+  /* Parlay panel */
+  .parlay-panel { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
+                  border-radius: 8px; padding: 12px 16px; }
+  .parlay-stat  { font-size: 0.85rem; }
+
+  /* Spinner overlay */
+  .refresh-spinner { animation: spin 1s linear infinite; }
+  @keyframes spin { 100% { transform: rotate(360deg); } }
+
+  /* Scrollable table */
+  .table-scroll { overflow-x: auto; }
+  .table-scroll.sticky-head thead th { position: sticky; top: 0; background: var(--bs-body-bg); z-index: 2; }
+  .table-scroll.sticky-head .game-table thead th { box-shadow: inset 0 -1px 0 rgba(255,255,255,.08); }
+
+  /* Dark/light toggle */
+  [data-bs-theme="light"] { --ev-pos: #16a34a; --ev-neg: #dc2626; }
+  [data-bs-theme="light"] .game-table td { border-color: #e2e8f0; }
+  [data-bs-theme="light"] .table-scroll.sticky-head thead th { background: #fff; }
+
+  /* Accuracy tab */
+  .acc-league-btn { font-weight: 600; }
+  .acc-summary-card { border-radius: 8px; padding: 12px 16px; text-align: center;
+                      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); }
+  .acc-summary-card .val { font-size: 1.6rem; font-weight: 700; line-height: 1.2; }
+  .acc-summary-card .lbl { font-size: .72rem; color: var(--bs-secondary-color); }
+  .acc-summary-card .sub { font-size: .75rem; margin-top: 2px; }
+  .acc-summary-card .delta { font-size: .76rem; margin-top: 4px; }
+  .acc-green { color: #22c55e; }
+  .acc-red   { color: #ef4444; }
+  .acc-muted { color: #64748b; }
+  .acc-table th { font-size: .78rem; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; }
+  .acc-table td { white-space: nowrap; vertical-align: middle; }
+  .acc-insight { background: rgba(56,189,248,.08); border: 1px solid rgba(56,189,248,.18); border-radius: 10px; padding: 10px 14px; }
+  .acc-meta-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: .76rem; background: rgba(15,23,42,.06); border: 1px solid rgba(15,23,42,.08); }
+  .acc-shell { background: #f8fafc; border-radius: 16px; padding: 16px; }
+  .acc-table-wrap { max-height: 430px; overflow: auto; }
+  .acc-table-wrap thead th { position: sticky; top: 0; background: #f8fafc; z-index: 2; }
+  .mobile-action-bar {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 1040;
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 18px;
+    background: rgba(15,23,42,.92);
+    border: 1px solid rgba(255,255,255,.1);
+    box-shadow: 0 20px 40px rgba(15,23,42,.35);
+    backdrop-filter: blur(16px);
+  }
+  .mobile-action-context { min-width: 0; flex: 1 1 auto; }
+  .mobile-action-kicker { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; }
+  .mobile-action-title { font-size: .92rem; font-weight: 700; color: #f8fafc; }
+  .mobile-action-meta { font-size: .75rem; color: #cbd5e1; }
+  .mobile-action-buttons { display: flex; gap: 8px; }
+  .mobile-action-buttons .btn { border-radius: 12px; white-space: nowrap; }
+
+  @media (max-width: 991px) {
+    .status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 767px) {
+    body { padding-bottom: 92px; }
+    .status-grid { grid-template-columns: 1fr; }
+    .parlay-launch { width: 100%; }
+    .toolbar-sticky { position: static; backdrop-filter: none; }
+    .table-topline { align-items: flex-start; }
+    .league-tab .nav-link { padding: 0.45rem 0.7rem; gap: 8px; }
+    .league-tab-copy small { display: none; }
+    .league-brand { padding: 12px; }
+    .league-brand-chip { display: none; }
+    .mobile-action-bar.is-visible { display: flex; }
+    .game-table thead { display: none; }
+    .game-table,
+    .game-table tbody,
+    .game-table tr,
+    .game-table td { display: block; width: 100%; }
+    .game-table tbody { padding: 0 10px 12px; }
+    .game-table tr.game-row {
+      border: 1px solid var(--border-soft);
+      border-radius: 14px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,.03);
+    }
+    .game-table tr.game-row td {
+      border: 0;
+      padding: 6px 0;
+      white-space: normal;
+    }
+    .game-table tr.game-row td::before {
+      content: attr(data-label);
+      display: block;
+      font-size: .70rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--bs-secondary-color);
+      margin-bottom: 2px;
+    }
+    .game-table tr.game-row td:first-child::before { display: none; }
+    .game-table tr.game-row td:first-child {
+      padding-bottom: 10px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--border-soft);
+      font-size: .78rem;
+    }
+    .game-table .editable-input,
+    .game-table .sp-input { width: 100%; }
+    .game-table .prob-wrap { width: 100%; max-width: none; }
+    .game-table .parlay-cb { transform: scale(1.1); }
+    .acc-table-wrap { max-height: none; }
+    .acc-table td,
+    .acc-table th { font-size: .76rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-md navbar-dark bg-dark px-3 py-2">
+  <span class="navbar-brand"><i class="fa-solid fa-baseball me-2 text-warning"></i>MoneyBall</span>
+  <div class="ms-auto d-flex align-items-center gap-3">
+    <input type="date" id="globalDate" class="form-control form-control-sm"
+           style="width:140px" onchange="onDateChange()">
+    <button class="btn btn-sm btn-outline-secondary" onclick="toggleTheme()" title="Toggle theme">
+      <i class="fa-solid fa-circle-half-stroke"></i>
+    </button>
+  </div>
+</nav>
+
+<div class="container-fluid px-3 py-3">
+
+  <!-- League tabs -->
+  <ul class="nav nav-pills league-tab mb-3" id="leagueTabs">
+    <li class="nav-item"><a class="nav-link active" href="#" onclick="switchLeague('mlb');return false" id="tab-mlb">
+      <span class="league-tab-badge"><img src="https://www.mlbstatic.com/team-logos/league-on-dark/1.svg" height="18" alt="MLB"></span>
+      <span class="league-tab-copy"><span>MLB</span><small>Major League</small></span></a></li>
+    <li class="nav-item"><a class="nav-link" href="#" onclick="switchLeague('cpbl');return false" id="tab-cpbl">
+      <span class="league-tab-badge"><span class="league-brand-mark">CP</span></span>
+      <span class="league-tab-copy"><span>CPBL</span><small>Taiwan</small></span></a></li>
+    <li class="nav-item"><a class="nav-link" href="#" onclick="switchLeague('npb');return false" id="tab-npb">
+      <span class="league-tab-badge"><span class="league-brand-mark">NP</span></span>
+      <span class="league-tab-copy"><span>NPB</span><small>Japan</small></span></a></li>
+    <li class="nav-item"><a class="nav-link" href="#" onclick="switchLeague('kbo');return false" id="tab-kbo">
+      <span class="league-tab-badge"><span class="league-brand-mark">KB</span></span>
+      <span class="league-tab-copy"><span>KBO</span><small>Korea</small></span></a></li>
+    <li class="nav-item"><a class="nav-link" href="#" onclick="switchAccuracy();return false" id="tab-accuracy">
+      <span class="league-tab-badge"><i class="fa-solid fa-chart-line" style="color:#38bdf8"></i></span>
+      <span class="league-tab-copy"><span>Accuracy</span><small>Backtest</small></span></a></li>
+  </ul>
+
+  <!-- Per-league panels -->
+  <div id="league-panels">
+    <!-- Populated by JS -->
+  </div>
+
+  <!-- Accuracy panel -->
+  <div id="panel-accuracy" class="d-none acc-shell" style="color:#1e293b">
+    <!-- League selector -->
+    <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+      <span class="text-secondary small me-1">League:</span>
+      <button class="btn btn-sm acc-league-btn btn-primary" id="acc-btn-cpbl" onclick="accSwitchLeague('cpbl')">🇹🇼 CPBL</button>
+      <button class="btn btn-sm acc-league-btn btn-outline-secondary" id="acc-btn-mlb" onclick="accSwitchLeague('mlb')"><img src="https://www.mlbstatic.com/team-logos/league-on-dark/1.svg" height="14" class="me-1">MLB</button>
+      <button class="btn btn-sm acc-league-btn btn-outline-secondary" id="acc-btn-npb" onclick="accSwitchLeague('npb')">🇯🇵 NPB</button>
+      <button class="btn btn-sm acc-league-btn btn-outline-secondary" id="acc-btn-kbo" onclick="accSwitchLeague('kbo')">🇰🇷 KBO</button>
+      <button class="btn btn-sm btn-outline-info ms-auto" id="acc-backfill-btn" onclick="accStartBackfill()">
+        <i class="fa-solid fa-clock-rotate-left me-1"></i>Backfill 30d
+      </button>
+      <span class="small ms-2" id="acc-backfill-status" style="display:none"></span>
+      <span class="text-secondary small ms-2" id="acc-status-text">—</span>
+    </div>
+
+    <div class="acc-insight mb-3" id="acc-insight">
+      選擇聯盟後可查看近 30 天 official backtest 表現與基準線差異。
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 mb-3" id="acc-meta-row">
+      <span class="acc-meta-chip">Latest resolved: —</span>
+      <span class="acc-meta-chip">Baseline: —</span>
+      <span class="acc-meta-chip">Window: 30 days</span>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="row g-2 mb-3" id="acc-summary-cards">
+      <div class="col-6 col-md-3"><div class="acc-summary-card"><div class="val text-secondary">—</div><div class="lbl">7d ALL</div></div></div>
+      <div class="col-6 col-md-3"><div class="acc-summary-card"><div class="val text-secondary">—</div><div class="lbl">7d HIGH</div></div></div>
+      <div class="col-6 col-md-3"><div class="acc-summary-card"><div class="val text-secondary">—</div><div class="lbl">14d ALL</div></div></div>
+      <div class="col-6 col-md-3"><div class="acc-summary-card"><div class="val text-secondary">—</div><div class="lbl">30d HIGH</div></div></div>
+    </div>
+
+    <!-- Chart -->
+    <div class="mb-3" style="position:relative; height:280px;">
+      <canvas id="accChart"></canvas>
+    </div>
+
+    <!-- Detail table -->
+    <div class="table-scroll acc-table-wrap">
+      <table class="table table-sm acc-table align-middle">
+        <thead><tr>
+          <th>Date</th>
+          <th>HIGH Total</th><th>HIGH Correct</th><th>HIGH %</th>
+          <th>ALL Total</th><th>ALL Correct</th><th>ALL %</th>
+        </tr></thead>
+        <tbody id="acc-tbody">
+          <tr><td colspan="7" class="text-center text-secondary py-3">Select a league to load data.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<div class="mobile-action-bar d-md-none" id="mobile-action-bar">
+  <div class="mobile-action-context">
+    <div class="mobile-action-kicker" id="mobile-action-kicker">League Board</div>
+    <div class="mobile-action-title" id="mobile-action-title">MLB · 未載入</div>
+    <div class="mobile-action-meta" id="mobile-action-meta">先更新預測，再開始挑選 picks。</div>
+  </div>
+  <div class="mobile-action-buttons">
+    <button class="btn btn-outline-light btn-sm" id="mobile-secondary-btn" onclick="openParlay()" disabled>
+      <i class="fa-solid fa-calculator me-1"></i>Parlay
+    </button>
+    <button class="btn btn-primary btn-sm" id="mobile-primary-btn" onclick="startRefresh(state.activeLeague)">
+      <i class="fa-solid fa-rotate-right me-1"></i>Update
+    </button>
+  </div>
+</div>
+
+<!-- Parlay modal -->
+<div class="modal fade" id="parlayModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-calculator me-2 text-warning"></i>Parlay Calculator</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-secondary small mb-2">Select picks from the table (☐ checkbox) to add to parlay.</p>
+        <div id="parlayContent"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+const LEAGUES = ['mlb', 'cpbl', 'npb', 'kbo'];
+const LEAGUE_META = {
+  mlb: {
+    short: 'MLB',
+    long: 'Major League Baseball',
+    market: '15-game slate',
+    badge: '<img src="https://www.mlbstatic.com/team-logos/league-on-dark/1.svg" alt="MLB">',
+  },
+  cpbl: {
+    short: 'CPBL',
+    long: 'Chinese Professional Baseball League',
+    market: 'Taiwan board',
+    badge: '<span class="league-brand-mark">CPBL</span>',
+  },
+  npb: {
+    short: 'NPB',
+    long: 'Nippon Professional Baseball',
+    market: 'Japan board',
+    badge: '<span class="league-brand-mark">NPB</span>',
+  },
+  kbo: {
+    short: 'KBO',
+    long: 'Korea Baseball Organization',
+    market: 'Korea board',
+    badge: '<span class="league-brand-mark">KBO</span>',
+  },
+};
+let state = {
+  activeLeague: 'mlb',
+  date: today(),
+  data: {},          // {league: {games:[], ...}}
+  spOverrides: {},   // {'league-idx-side': 'SP name'}
+  parlayPicks: {},   // {'league-idx': true}
+  polling: {},       // {league: timer}
+  ui: {},            // {league: {phase, statusText}}
+};
+
+// ── Init ───────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('globalDate').value = state.date;
+  buildPanels();
+  initTooltips(document.body);
+  loadSpOverrides();
+  window.addEventListener('resize', updateMobileActionBar);
+  switchLeague('mlb');
+});
+
+function today() {
+  return new Date().toISOString().slice(0,10);
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  html.setAttribute('data-bs-theme', html.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark');
+}
+
+function initTooltips(root = document) {
+  root.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+    const existing = bootstrap.Tooltip.getInstance(el);
+    if (existing) existing.dispose();
+    new bootstrap.Tooltip(el, { trigger: 'hover focus' });
+  });
+}
+
+function onDateChange() {
+  state.date = document.getElementById('globalDate').value;
+  state.parlayPicks = {};
+  LEAGUES.forEach(lg => delete state.data[lg]);
+  state.ui = {};
+  updateMobileActionBar();
+  if (state.activeLeague !== 'accuracy') {
+    loadData(state.activeLeague);
+  }
+}
+
+// ── Panel builder ──────────────────────────────────────────────────────────
+function buildPanels() {
+  const wrap = document.getElementById('league-panels');
+  wrap.innerHTML = LEAGUES.map(lg => `
+    <div id="panel-${lg}" class="d-none league-shell league-shell-${lg} p-1">
+      <div class="toolbar-sticky">
+        <div class="league-brand">
+          <div class="league-brand-badge">${LEAGUE_META[lg].badge}</div>
+          <div>
+            <div class="league-brand-name">${LEAGUE_META[lg].short}</div>
+            <div class="league-brand-sub">${LEAGUE_META[lg].long}</div>
+          </div>
+          <div class="league-brand-chip">${LEAGUE_META[lg].market}</div>
+        </div>
+        <!-- Toolbar -->
+        <div class="toolbar-card mb-3">
+          <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+            <button class="btn btn-primary btn-sm" onclick="startRefresh('${lg}')">
+              <i class="fa-solid fa-rotate-right me-1" id="spin-${lg}"></i>Update Predictions
+            </button>
+            <button class="btn btn-outline-warning btn-sm ms-auto parlay-launch" id="parlay-btn-${lg}" onclick="openParlay()">
+              <i class="fa-solid fa-calculator me-1"></i>Parlay Builder · 0 picks
+            </button>
+          </div>
+          <div class="status-card">
+            <div class="status-grid">
+              <div data-bs-toggle="tooltip" title="目前正在檢視的資料日期。">
+                <div class="status-kicker">Data Date</div>
+                <div class="status-value" id="date-badge-${lg}">—</div>
+              </div>
+              <div data-bs-toggle="tooltip" title="目前賠率與先發來源。">
+                <div class="status-kicker">Odds Source</div>
+                <div class="status-value" id="odds-src-${lg}">—</div>
+              </div>
+              <div data-bs-toggle="tooltip" title="背景預測流程與快取更新狀態。">
+                <div class="status-kicker">Pipeline Status</div>
+                <div class="status-bar" id="status-${lg}">
+                  <span class="status-dot dot-idle" id="dot-${lg}"></span>
+                  <span id="status-text-${lg}">尚未載入</span>
+                </div>
+              </div>
+              <div data-bs-toggle="tooltip" title="根據目前資料給你的第一個判讀建議。">
+                <div class="status-kicker">Decision Hint</div>
+                <div class="status-value text-secondary" id="hint-${lg}">先載入資料再挑選推薦</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Filters -->
+        <div class="toolbar-card mb-3">
+          <div class="d-flex align-items-end gap-3 flex-wrap">
+            <div class="d-flex flex-column gap-1">
+              <label class="toolbar-label mb-0">Confidence</label>
+              <select class="form-select form-select-sm" style="width:90px" id="filter-conf-${lg}"
+                      onchange="renderTable('${lg}')">
+                <option value="all">All</option>
+                <option value="HIGH">HIGH</option>
+                <option value="MED">MED</option>
+                <option value="LOW">LOW</option>
+              </select>
+            </div>
+            <div class="d-flex flex-column gap-1">
+              <label class="toolbar-label mb-0">Quick Filters</label>
+              <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div class="form-check mb-0" data-bs-toggle="tooltip" title="只保留任一方向 EV 大於 0 的比賽。">
+                  <input class="form-check-input" type="checkbox" id="filter-ev-${lg}"
+                         onchange="renderTable('${lg}')">
+                  <label class="form-check-label small" for="filter-ev-${lg}">+ EV only</label>
+                </div>
+                <div class="form-check mb-0" data-bs-toggle="tooltip" title="只保留已達正式推薦門檻的比賽。">
+                  <input class="form-check-input" type="checkbox" id="filter-bet-${lg}"
+                         onchange="renderTable('${lg}')">
+                  <label class="form-check-label small" for="filter-bet-${lg}">BET only</label>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex flex-column gap-1" data-bs-toggle="tooltip" title="Recommended 會優先顯示 BET 與 +EV 的比賽。">
+              <label class="toolbar-label mb-0">Sort</label>
+              <select class="form-select form-select-sm sort-select" id="sort-${lg}" onchange="renderTable('${lg}')">
+                <option value="recommended">Recommended</option>
+                <option value="edge">Best Edge</option>
+                <option value="ev">Best EV</option>
+                <option value="confidence">Highest Confidence</option>
+                <option value="alpha">Matchup A-Z</option>
+              </select>
+            </div>
+            <div class="ms-auto d-flex flex-column gap-1">
+              <label class="toolbar-label mb-0">Selection</label>
+              <div class="toolbar-inline-note"><span class="toolbar-count" id="selected-count-${lg}">0</span> picks selected</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Summary -->
+      <div class="row g-2 mb-3" id="summary-${lg}"></div>
+      <!-- Table -->
+      <div class="table-frame">
+        <div class="table-topline">
+          <div>
+            <div class="table-kicker">Today's Board</div>
+            <div class="table-title" id="table-title-${lg}">等待載入資料</div>
+            <div class="table-subtitle" id="table-subtitle-${lg}">先更新預測，再依 EV 或推薦排序檢視比賽。</div>
+          </div>
+          <div class="toolbar-inline-note" id="table-meta-${lg}">No data yet</div>
+        </div>
+        <div class="table-scroll sticky-head">
+        <table class="table table-sm game-table align-middle mb-0" id="table-${lg}">
+          <thead id="thead-${lg}"></thead>
+          <tbody id="tbody-${lg}"><tr><td colspan="12" class="text-center text-secondary py-4">
+            Click "Update Predictions" to load data.</td></tr></tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchLeague(lg) {
+  LEAGUES.forEach(l => {
+    document.getElementById(`panel-${l}`)?.classList.add('d-none');
+    document.getElementById(`tab-${l}`)?.classList.remove('active');
+  });
+  // Also hide accuracy panel
+  document.getElementById('panel-accuracy')?.classList.add('d-none');
+  document.getElementById('tab-accuracy')?.classList.remove('active');
+
+  document.getElementById(`panel-${lg}`)?.classList.remove('d-none');
+  document.getElementById(`tab-${lg}`)?.classList.add('active');
+  state.activeLeague = lg;
+  updateMobileActionBar();
+  if (!state.data[lg]) loadData(lg);
+}
+
+// ── Data loading ───────────────────────────────────────────────────────────
+function loadData(lg) {
+  setUiPhase(lg, 'loading', '讀取資料中…');
+  renderTable(lg);
+  fetch(`/api/data/${lg}?date=${state.date}`)
+    .then(r => r.json())
+    .then(data => {
+      state.data[lg] = data;
+      setUiPhase(lg, data?.last_updated ? 'ready' : 'idle',
+        data?.last_updated ? `Updated ${fmtTime(data.last_updated)}` : '尚未建立該日期快取');
+      renderTable(lg);
+      updateStatus(lg, data);
+      updateMobileActionBar();
+    })
+    .catch(() => {
+      setUiPhase(lg, 'error', '資料讀取失敗');
+      setStatus(lg, 'err', 'Fetch error');
+      renderTable(lg);
+      updateMobileActionBar();
+    });
+}
+
+function startRefresh(lg) {
+  setUiPhase(lg, 'loading', '模型與賠率更新中…');
+  setStatus(lg, 'spin', 'Starting…');
+  updateHint(lg, '系統正在重建今日預測，完成後會自動刷新表格。');
+  renderTable(lg);
+  updateMobileActionBar();
+  const icon = document.getElementById(`spin-${lg}`);
+  icon?.classList.add('refresh-spinner');
+
+  fetch(`/api/refresh/${lg}?date=${state.date}`, {method: 'POST'})
+    .then(r => r.json())
+    .then(() => pollStatus(lg))
+    .catch(e => setStatus(lg, 'err', String(e)));
+}
+
+function pollStatus(lg) {
+  if (state.polling[lg]) clearInterval(state.polling[lg]);
+  state.polling[lg] = setInterval(() => {
+    fetch(`/api/status/${lg}`)
+      .then(r => r.json())
+      .then(s => {
+        setStatus(lg, s.running ? 'spin' : (s.error ? 'err' : 'ok'),
+                  s.running ? (s.progress || 'Running…') : (s.error || `Updated ${fmtTime(s.last)}`));
+        if (!s.running) {
+          clearInterval(state.polling[lg]);
+          document.getElementById(`spin-${lg}`)?.classList.remove('refresh-spinner');
+          if (!s.error) {
+            setUiPhase(lg, 'loading', '載入更新後資料…');
+            loadData(lg);
+          } else {
+            setUiPhase(lg, 'error', s.error || '更新失敗');
+            renderTable(lg);
+            updateMobileActionBar();
+          }
+        }
+      });
+  }, 2000);
+}
+
+function fmtTime(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'});
+}
+
+function updateStatus(lg, data) {
+  const hasErr = data.error;
+  setStatus(
+    lg,
+    hasErr ? 'warn' : (data.last_updated ? 'ok' : 'idle'),
+    hasErr ? `⚠ ${data.error?.slice(0,60)}` : (data.last_updated ? `Updated ${fmtTime(data.last_updated)}` : '尚未建立快取')
+  );
+  updateLeagueChrome(lg, data);
+  updateHint(lg, buildDecisionHint(data));
+}
+
+function setStatus(lg, type, msg) {
+  const dot  = document.getElementById(`dot-${lg}`);
+  const text = document.getElementById(`status-text-${lg}`);
+  if (!dot || !text) return;
+  const mapped = type === 'spin' ? 'warn' : type === 'err' ? 'err' : type === 'idle' ? 'idle' : 'ok';
+  dot.className = `status-dot dot-${mapped}`;
+  text.textContent = msg;
+}
+
+function setUiPhase(lg, phase, statusText = '') {
+  state.ui[lg] = { ...(state.ui[lg] || {}), phase, statusText };
+}
+
+function updateLeagueChrome(lg, data) {
+  const dateBadge = document.getElementById(`date-badge-${lg}`);
+  if (dateBadge) dateBadge.textContent = data?.date || state.date || '—';
+
+  const src = document.getElementById(`odds-src-${lg}`);
+  if (src) {
+    const sourceText = data?.odds_source || '—';
+    src.textContent = sourceText;
+    src.className = `status-value ${data?.odds_fetched ? 'text-success' : 'text-secondary'}`;
+  }
+
+  const meta = document.getElementById(`table-meta-${lg}`);
+  if (meta) {
+    const totalGames = data?.games?.length || 0;
+    const stamp = data?.last_updated ? `Updated ${fmtTime(data.last_updated)}` : 'No cache yet';
+    meta.textContent = `${totalGames} games · ${stamp}`;
+  }
+  updateMobileActionBar();
+}
+
+function updateHint(lg, text) {
+  const hint = document.getElementById(`hint-${lg}`);
+  if (hint) hint.textContent = text;
+}
+
+function buildDecisionHint(data) {
+  const games = data?.games || [];
+  if (!data?.last_updated) return '這個日期尚未建立快取，先執行 Update Predictions。';
+  if (!games.length) return '該日期目前沒有可顯示的賽事。';
+  const betCount = games.filter(g => g.bet_side).length;
+  const posEvCount = games.filter(g => g.ev_home > 0 || g.ev_away > 0).length;
+  if (betCount > 0) return `目前有 ${betCount} 場符合推薦門檻，可先依 Recommended 排序檢視。`;
+  if (posEvCount > 0) return `目前沒有正式 BET 推薦，但有 ${posEvCount} 場 +EV 值得進一步檢查。`;
+  return '目前沒有符合門檻的推薦，建議切換聯盟或調整篩選條件。';
+}
+
+// ── Render table ───────────────────────────────────────────────────────────
+function renderTable(lg) {
+  const data = state.data[lg];
+  const thead = document.getElementById(`thead-${lg}`);
+  const tbody = document.getElementById(`tbody-${lg}`);
+  const summaryEl = document.getElementById(`summary-${lg}`);
+  const titleEl = document.getElementById(`table-title-${lg}`);
+  const subtitleEl = document.getElementById(`table-subtitle-${lg}`);
+  const selectedCountEl = document.getElementById(`selected-count-${lg}`);
+  if (!thead || !tbody) return;
+
+  thead.innerHTML = `<tr>
+    <th>#</th>
+    <th>Away</th><th>Away SP</th>
+    <th>Home</th><th>Home SP</th>
+    <th>Prob(H)</th><th>Conf</th>
+    <th>Odds-A</th><th>Odds-H</th>
+    <th>EV-A</th><th>EV-H</th>
+    <th>Rec</th><th>☐</th>
+  </tr>`;
+
+  const games = (data?.games || []);
+  const uiPhase = state.ui[lg]?.phase || (data?.last_updated ? 'ready' : 'idle');
+  const confFilter = document.getElementById(`filter-conf-${lg}`)?.value || 'all';
+  const evOnly = document.getElementById(`filter-ev-${lg}`)?.checked;
+  const betOnly = document.getElementById(`filter-bet-${lg}`)?.checked;
+  const sortBy = document.getElementById(`sort-${lg}`)?.value || 'recommended';
+
+  if (selectedCountEl) {
+    selectedCountEl.textContent = countLeagueParlayPicks(lg);
+  }
+  updateParlayLaunch(lg);
+
+  let betCount = 0, posEvCount = 0, totalEdge = 0, edgeCount = 0;
+  let filteredOut = 0;
+
+  const visibleGames = games.map((g, idx) => ({ g, idx })).filter(({ g }) => {
+    const ph = g.prob_home ?? 0.5;
+    const conf = g.confidence || 'LOW';
+    const matches =
+      (confFilter === 'all' || conf === confFilter) &&
+      (!evOnly || (g.ev_home > 0 || g.ev_away > 0)) &&
+      (!betOnly || !!g.bet_side);
+    if (!matches) filteredOut++;
+    return matches;
+  }).sort((a, b) => compareGames(a.g, b.g, sortBy) || a.idx - b.idx);
+
+  visibleGames.forEach(({ g }) => {
+    if (g.bet_side) betCount++;
+    if (g.ev_home > 0 || g.ev_away > 0) posEvCount++;
+    const edge = bestEdge(g);
+    if (edge != null) { totalEdge += edge; edgeCount++; }
+  });
+
+  const rows = visibleGames.map(({ g, idx }, renderIdx) => {
+    const ph = g.prob_home ?? 0.5;
+    const conf = g.confidence || 'LOW';
+
+    const spKey = `${lg}-${idx}`;
+    const spH = state.spOverrides[`${spKey}-h`] ?? g.home_sp ?? 'TBD';
+    const spA = state.spOverrides[`${spKey}-a`] ?? g.away_sp ?? 'TBD';
+
+    const oddsA = g.odds_away?.toFixed(2) ?? '';
+    const oddsH = g.odds_home?.toFixed(2) ?? '';
+    const oddsEditable = !(data?.odds_fetched);
+
+    const evAClass = evClass(g.ev_away, g.bet_side === 'AWAY');
+    const evHClass = evClass(g.ev_home, g.bet_side === 'HOME');
+    const rowClass = g.bet_side ? 'row-bet' : ((g.ev_home > 0 || g.ev_away > 0) ? 'row-ev' : '');
+    const recCell = recBadge(g);
+
+    const checked = state.parlayPicks[`${lg}-${idx}`] ? 'checked' : '';
+    const matchupMeta = buildMatchupMeta(g);
+
+    return `<tr class="game-row ${rowClass}" data-lg="${lg}" data-idx="${idx}">
+      <td class="text-secondary" data-label="#">${renderIdx + 1}</td>
+      <td data-label="Away"><div class="team-block team-away">
+        <div class="team-name-wrap">
+          <span class="team-logo-pill">${teamMonogram(g.away)}</span>
+          <div class="team-name">${esc(g.away)}</div>
+        </div>
+        <div class="matchup-meta">${matchupMeta}</div>
+      </div></td>
+      <td data-label="Away SP"><input class="editable-input sp-input" data-key="${spKey}-a" value="${esc(spA)}"
+           onchange="saveSP('${lg}',${idx},'a',this.value)" placeholder="SP name"></td>
+      <td data-label="Home"><div class="team-block team-home">
+        <div class="team-name-wrap">
+          <span class="team-logo-pill">${teamMonogram(g.home)}</span>
+          <div class="team-name${g.prob_home >= 0.5 ? ' fw-bold' : ''}">${esc(g.home)}</div>
+        </div>
+      </div></td>
+      <td data-label="Home SP"><input class="editable-input sp-input" data-key="${spKey}-h" value="${esc(spH)}"
+           onchange="saveSP('${lg}',${idx},'h',this.value)" placeholder="SP name"></td>
+      <td data-label="Prob(H)">${probBar(ph)}</td>
+      <td data-label="Conf"><span class="badge badge-${conf}">${conf}</span></td>
+      <td data-label="Odds-A">${oddsEditable
+            ? `<input class="editable-input" value="${oddsA}"
+                 onchange="saveOdds('${lg}',${idx},'away',this.value)" placeholder="1.80">`
+            : `<span>${oddsA || '<span class=text-secondary>—</span>'}</span>`}</td>
+      <td data-label="Odds-H">${oddsEditable
+            ? `<input class="editable-input" value="${oddsH}"
+                 onchange="saveOdds('${lg}',${idx},'home',this.value)" placeholder="2.10">`
+            : `<span>${oddsH || '<span class=text-secondary>—</span>'}</span>`}</td>
+      <td class="${evAClass}" data-label="EV-A">${fmtEV(g.ev_away)}</td>
+      <td class="${evHClass}" data-label="EV-H">${fmtEV(g.ev_home)}</td>
+      <td data-label="Rec">${recCell}</td>
+      <td data-label="Pick"><input type="checkbox" class="form-check-input parlay-cb" ${checked}
+           onchange="toggleParlay('${lg}',${idx},this.checked)"></td>
+    </tr>`;
+  });
+
+  if (titleEl) titleEl.textContent = buildBoardTitle(lg, data, visibleGames.length);
+  if (subtitleEl) subtitleEl.textContent = buildBoardSubtitle(data, visibleGames.length, filteredOut, uiPhase);
+
+  tbody.innerHTML = rows.length ? rows.join('') : renderLeagueEmptyState(lg, data, filteredOut, uiPhase);
+
+  // Summary cards
+  const avgEdge = edgeCount ? (totalEdge / edgeCount * 100).toFixed(1) : '—';
+  summaryEl.innerHTML = `
+    <div class="col-6 col-md-3"><div class="summary-card summary-card-info" data-bs-toggle="tooltip" title="這個日期與聯盟目前總共可顯示的賽事數。">
+      <div class="val">${games.length}</div><div class="lbl">Games</div>
+      <div class="sub">今日可用賽事</div>
+    </div></div>
+    <div class="col-6 col-md-3"><div class="summary-card summary-card-primary" data-bs-toggle="tooltip" title="同時滿足信心與 EV 門檻的正式推薦數量。">
+      <div class="val text-success">${betCount}</div><div class="lbl">BET Picks</div>
+      <div class="sub">符合信心與 EV 門檻</div>
+    </div></div>
+    <div class="col-6 col-md-3"><div class="summary-card summary-card-warning" data-bs-toggle="tooltip" title="至少一側 EV 大於 0，但未必達到正式 BET 門檻。">
+      <div class="val text-warning">${posEvCount}</div><div class="lbl">+ EV Games</div>
+      <div class="sub">可再人工判讀</div>
+    </div></div>
+    <div class="col-6 col-md-3"><div class="summary-card" data-bs-toggle="tooltip" title="平均 edge = 模型機率減去去水後隱含機率。">
+      <div class="val ${edgeCount && totalEdge > 0 ? 'text-success' : 'text-secondary'}">${avgEdge}${edgeCount ? '%' : ''}</div>
+      <div class="lbl">Avg Edge</div>
+      <div class="sub">模型 vs 去水隱含機率</div>
+     </div></div>`;
+  initTooltips(document.getElementById(`panel-${lg}`));
+  updateMobileActionBar();
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function probBar(ph) {
+  const w = (ph * 100).toFixed(0);
+  return `<div class="prob-wrap"><div class="prob-fill" style="width:${w}%"></div>
+           <span class="prob-label">${(ph*100).toFixed(1)}%</span></div>`;
+}
+
+function evClass(ev, isBet) {
+  if (ev == null) return 'ev-na';
+  if (isBet) return 'ev-bet';
+  if (ev > 0)  return 'ev-pos';
+  return 'ev-neg';
+}
+
+function fmtEV(ev) {
+  if (ev == null) return '<span class="text-secondary">—</span>';
+  return `${ev >= 0 ? '+' : ''}${(ev*100).toFixed(1)}%`;
+}
+
+function bestEdge(game) {
+  const values = [game?.edge_home, game?.edge_away].filter(v => typeof v === 'number');
+  if (!values.length) return null;
+  return Math.max(...values);
+}
+
+function bestEV(game) {
+  const values = [game?.ev_home, game?.ev_away].filter(v => typeof v === 'number');
+  if (!values.length) return null;
+  return Math.max(...values);
+}
+
+function recommendationWeight(game) {
+  if (game.bet_side) return 300 + (bestEV(game) || 0) * 100 + Math.max(game.prob_home || 0, 1 - (game.prob_home || 0));
+  if ((game.ev_home || 0) > 0 || (game.ev_away || 0) > 0) return 200 + (bestEV(game) || 0) * 100;
+  return Math.max(bestEdge(game) || 0, 0) * 100 + Math.max(game.prob_home || 0, 1 - (game.prob_home || 0));
+}
+
+function teamMonogram(team) {
+  const parts = String(team || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'TM';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function buildMatchupMeta(game) {
+  const status = game?.status || 'Scheduled';
+  const source = game?.odds_source || '';
+  return [status, source].filter(Boolean).join(' · ');
+}
+
+function compareGames(a, b, sortBy) {
+  const confA = Math.max(a.prob_home || 0, 1 - (a.prob_home || 0));
+  const confB = Math.max(b.prob_home || 0, 1 - (b.prob_home || 0));
+  if (sortBy === 'edge') return (bestEdge(b) || -999) - (bestEdge(a) || -999);
+  if (sortBy === 'ev') return (bestEV(b) || -999) - (bestEV(a) || -999);
+  if (sortBy === 'confidence') return confB - confA;
+  if (sortBy === 'alpha') return `${a.away} @ ${a.home}`.localeCompare(`${b.away} @ ${b.home}`, 'zh-Hant');
+  return recommendationWeight(b) - recommendationWeight(a);
+}
+
+function recBadge(game) {
+  if (game.bet_side) {
+    return `<span class="badge-soft badge-soft-success">BET ${game.bet_side}</span>`;
+  }
+  if ((game.ev_home || 0) > 0 || (game.ev_away || 0) > 0) {
+    const side = (game.ev_home || 0) >= (game.ev_away || 0) ? 'HOME' : 'AWAY';
+    return `<span class="badge-soft badge-soft-warn">+EV ${side}</span>`;
+  }
+  return `<span class="badge-soft badge-soft-muted">Watchlist</span>`;
+}
+
+function buildBoardTitle(lg, data, visibleCount) {
+  if (!data?.last_updated) return '尚未載入今日預測';
+  if (!data.games?.length) return '該日期目前沒有賽事';
+  return `${lg.toUpperCase()} 今日可判讀比賽 ${visibleCount} 場`;
+}
+
+function buildBoardSubtitle(data, visibleCount, filteredOut, phase) {
+  if (phase === 'loading') return '系統正在更新資料，完成後表格會自動刷新。';
+  if (!data?.last_updated) return '先按 Update Predictions 建立這一天的預測與賠率快取。';
+  if (!data.games?.length) return '系統已載入資料，但該日期沒有賽事可顯示。';
+  if (!visibleCount && filteredOut) return '目前是篩選條件把所有比賽排除了，放寬條件即可恢復。';
+  return `依目前條件顯示 ${visibleCount} 場；推薦列會優先排在前面。`;
+}
+
+function renderLeagueEmptyState(lg, data, filteredOut, phase) {
+  let title = '尚未載入今日預測';
+  let desc = '先建立該日期的預測快取，才能看到比賽列表、賠率與推薦。';
+  let hint = '點擊上方 Update Predictions 後，系統會自動刷新。';
+
+  if (phase === 'loading') {
+    title = '資料更新中';
+    desc = '模型、賽程與賠率正在同步，請稍候幾秒。';
+    hint = '完成後會自動載入，不需要手動重整。';
+  } else if (phase === 'error') {
+    title = '載入失敗';
+    desc = '這次請求沒有成功完成。';
+    hint = '可再次執行 Update Predictions，或切換日期重試。';
+  } else if (data?.last_updated && !(data?.games || []).length) {
+    title = '該日期沒有賽事';
+    desc = '資料已載入，但這一天沒有可顯示的比賽。';
+    hint = '可切換日期或聯盟查看其他賽程。';
+  } else if (filteredOut) {
+    title = '沒有比賽符合目前篩選';
+    desc = '資料有載入，但篩選條件把所有比賽排除了。';
+    hint = '先關閉 +EV only 或 BET only，或放寬 Confidence。';
+  }
+
+  return `<tr><td colspan="13" class="p-4 border-0">
+    <div class="empty-state">
+      <div class="title">${title}</div>
+      <div class="desc">${desc}</div>
+      <div class="hint">${hint}</div>
+    </div>
+  </td></tr>`;
+}
+
+function countLeagueParlayPicks(lg) {
+  return Object.keys(state.parlayPicks).filter(key => key.startsWith(`${lg}-`)).length;
+}
+
+function updateParlayLaunch(lg) {
+  const btn = document.getElementById(`parlay-btn-${lg}`);
+  if (!btn) return;
+  const count = countLeagueParlayPicks(lg);
+  btn.disabled = count === 0;
+  btn.className = `btn btn-sm ms-auto parlay-launch ${count ? 'btn-outline-warning' : 'btn-outline-secondary'}`;
+  btn.innerHTML = `<i class="fa-solid fa-calculator me-1"></i>Parlay Builder · ${count} pick${count === 1 ? '' : 's'}`;
+  updateMobileActionBar();
+}
+
+function updateMobileActionBar() {
+  const bar = document.getElementById('mobile-action-bar');
+  const kicker = document.getElementById('mobile-action-kicker');
+  const title = document.getElementById('mobile-action-title');
+  const meta = document.getElementById('mobile-action-meta');
+  const primaryBtn = document.getElementById('mobile-primary-btn');
+  const secondaryBtn = document.getElementById('mobile-secondary-btn');
+  if (!bar || !kicker || !title || !meta || !primaryBtn || !secondaryBtn) return;
+
+  const isMobile = window.innerWidth <= 767;
+  const isLeagueView = LEAGUES.includes(state.activeLeague);
+  bar.classList.toggle('is-visible', isMobile && isLeagueView);
+  if (!isMobile || !isLeagueView) return;
+
+  const lg = state.activeLeague;
+  const leagueMeta = LEAGUE_META[lg];
+  const data = state.data[lg];
+  const picks = countLeagueParlayPicks(lg);
+  const games = data?.games?.length || 0;
+  const phase = state.ui[lg]?.phase || (data?.last_updated ? 'ready' : 'idle');
+  const phaseText = phase === 'loading'
+    ? '同步中'
+    : phase === 'error'
+      ? '需要重試'
+      : data?.last_updated
+        ? '已載入'
+        : '尚未載入';
+
+  kicker.textContent = `${leagueMeta.short} mobile actions`;
+  title.textContent = `${leagueMeta.short} · ${state.date}`;
+  meta.textContent = `${games} games · ${picks} picks selected · ${phaseText}`;
+  primaryBtn.innerHTML = '<i class="fa-solid fa-rotate-right me-1"></i>Update';
+  primaryBtn.disabled = phase === 'loading';
+  primaryBtn.onclick = () => startRefresh(lg);
+  secondaryBtn.disabled = picks === 0;
+  secondaryBtn.className = `btn btn-sm ${picks ? 'btn-outline-warning' : 'btn-outline-light'}`;
+  secondaryBtn.innerHTML = `<i class="fa-solid fa-calculator me-1"></i>Parlay ${picks ? `· ${picks}` : ''}`;
+  secondaryBtn.onclick = () => openParlay();
+}
+
+// ── SP override ────────────────────────────────────────────────────────────
+function saveSP(lg, idx, side, val) {
+  const key = `${lg}-${idx}-${side}`;
+  if (val.trim()) state.spOverrides[key] = val.trim();
+  else delete state.spOverrides[key];
+  saveSpOverrides();
+}
+
+function loadSpOverrides() {
+  fetch('/api/sp').then(r => r.json()).then(d => {
+    state.spOverrides = d || {};
+  }).catch(() => {});
+}
+
+function saveSpOverrides() {
+  fetch('/api/sp', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(state.spOverrides),
+  }).catch(() => {});
+}
+
+// ── Manual odds ────────────────────────────────────────────────────────────
+function saveOdds(lg, idx, side, val) {
+  const num = parseFloat(val);
+  if (isNaN(num) || num < 1) return;
+
+  const game = state.data[lg]?.games?.[idx];
+  if (!game) return;
+
+  const body = { league: lg, game_idx: idx };
+  if (side === 'home') body.odds_home = num;
+  else body.odds_away = num;
+
+  fetch(`/api/odds?date=${state.date}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body),
+  }).then(r => r.json()).then(res => {
+    if (res.ok && res.game) {
+      state.data[lg].games[idx] = res.game;
+      // Targeted row update — avoids wiping the other odds input during typing
+      _updateGameRow(lg, idx, res.game);
+      renderTable(lg);
+      updateHint(lg, buildDecisionHint(state.data[lg]));
+    }
+  }).catch(() => {});
+}
+
+function _updateGameRow(lg, idx, game) {
+  const row = document.querySelector(`#table-${lg} tbody tr[data-idx="${idx}"]`);
+  if (!row) return;
+  const cells = row.querySelectorAll('td');
+  if (cells.length < 12) return;
+
+  // Confirm saved odds values in inputs (cells 7=Odds-A, 8=Odds-H)
+  const oddsAInput = cells[7].querySelector('input');
+  const oddsHInput = cells[8].querySelector('input');
+  if (oddsAInput && game.odds_away != null) oddsAInput.value = game.odds_away.toFixed(2);
+  if (oddsHInput && game.odds_home != null) oddsHInput.value = game.odds_home.toFixed(2);
+
+  // Update EV cells (cells 9=EV-A, 10=EV-H)
+  const evAClass = evClass(game.ev_away, game.bet_side === 'AWAY');
+  const evHClass = evClass(game.ev_home, game.bet_side === 'HOME');
+  cells[9].className = evAClass;
+  cells[9].innerHTML = fmtEV(game.ev_away);
+  cells[10].className = evHClass;
+  cells[10].innerHTML = fmtEV(game.ev_home);
+
+  // Update Rec cell (cell 11)
+  cells[11].innerHTML = game.bet_side
+    ? `<span class="bet-badge">BET ${game.bet_side}</span>`
+    : `<span class="no-bet">—</span>`;
+}
+
+// ── Accuracy tab ─────────────────────────────────────────────────────────
+const ACC_BASELINES = { cpbl: 0.727, mlb: 0.567, kbo: 0.5577, npb: 0.5465 };
+let accState = {
+  league: 'cpbl',
+  data: null,
+  chart: null,
+};
+
+function switchAccuracy() {
+  // Hide all league panels
+  LEAGUES.forEach(l => {
+    document.getElementById(`panel-${l}`)?.classList.add('d-none');
+    document.getElementById(`tab-${l}`)?.classList.remove('active');
+  });
+  document.getElementById('panel-accuracy')?.classList.remove('d-none');
+  document.getElementById('tab-accuracy')?.classList.add('active');
+  state.activeLeague = 'accuracy';
+  updateMobileActionBar();
+
+  // Load data if not already loaded
+  if (!accState.data) {
+    accLoadData(accState.league);
+  }
+}
+
+function accSwitchLeague(lg) {
+  accState.league = lg;
+  accState.data = null;
+  // Update button styles
+  ['cpbl','mlb','npb','kbo'].forEach(l => {
+    const btn = document.getElementById(`acc-btn-${l}`);
+    if (btn) {
+      btn.className = `btn btn-sm acc-league-btn ${l === lg ? 'btn-primary' : 'btn-outline-secondary'}`;
+    }
+  });
+  accLoadData(lg);
+}
+
+function accLoadData(lg) {
+  document.getElementById('acc-status-text').textContent = 'Loading…';
+  fetch(`/api/accuracy/${lg}?days=30`)
+    .then(r => r.json())
+    .then(data => {
+      accState.data = data;
+      document.getElementById('acc-status-text').textContent =
+        `${data.days.length} days loaded` + (data.db_errors ? ' ⚠' : '');
+      accRenderSummary(data);
+      accRenderChart(data);
+      accRenderTable(data);
+    })
+    .catch(e => {
+      document.getElementById('acc-status-text').textContent = `Error: ${e}`;
+    });
+}
+
+function accRenderSummary(data) {
+  const baseline = ACC_BASELINES[accState.league] || 0.5;
+  const s = data.summary;
+  const cards = [
+    { key: '7d',  conf: 'all',  label: '7d ALL'  },
+    { key: '7d',  conf: 'high', label: '7d HIGH' },
+    { key: '14d', conf: 'all',  label: '14d ALL' },
+    { key: '30d', conf: 'high', label: '30d HIGH'},
+  ];
+  const el = document.getElementById('acc-summary-cards');
+  const latest = data.days.at(-1)?.date || '—';
+  const baselinePct = (baseline * 100).toFixed(1) + '%';
+  const metaRow = document.getElementById('acc-meta-row');
+  if (metaRow) {
+    metaRow.innerHTML = `
+      <span class="acc-meta-chip">Latest resolved: ${latest}</span>
+      <span class="acc-meta-chip">Baseline: ${baselinePct}</span>
+      <span class="acc-meta-chip">Window: ${data.days.length} loaded days</span>`;
+  }
+
+  const insight = document.getElementById('acc-insight');
+  const weekAll = s['7d']?.all?.pct;
+  const deltaWeek = weekAll != null ? ((weekAll - baseline) * 100).toFixed(1) : null;
+  if (insight) {
+    insight.innerHTML = weekAll == null
+      ? '目前尚無足夠資料判讀近 7 日表現。'
+      : `近 7 日 <strong>${accState.league.toUpperCase()}</strong> ALL accuracy 為 <strong>${(weekAll * 100).toFixed(1)}%</strong>，
+         ${weekAll >= baseline ? '高於' : '低於'}長期基準 <strong>${baselinePct}</strong>
+         <strong class="${weekAll >= baseline ? 'acc-green' : 'acc-red'}">${deltaWeek > 0 ? '+' : ''}${deltaWeek}%</strong>。`;
+  }
+
+  el.innerHTML = cards.map(c => {
+    const stat = s[c.key]?.[c.conf];
+    const pct  = stat?.pct;
+    const n    = stat?.total ?? 0;
+    const pctStr = pct != null ? (pct * 100).toFixed(1) + '%' : '—';
+    const delta = pct != null ? ((pct - baseline) * 100).toFixed(1) : null;
+    const colorClass = pct == null ? 'text-secondary'
+                     : pct >= baseline ? 'acc-green' : 'acc-red';
+    return `<div class="col-6 col-md-3"><div class="acc-summary-card" data-bs-toggle="tooltip" title="${c.label} 目前樣本數 n=${n}">
+      <div class="val ${colorClass}">${pctStr}</div>
+      <div class="lbl">${c.label}</div>
+      <div class="sub text-secondary">n=${n}場</div>
+      <div class="delta ${pct == null ? 'acc-muted' : (pct >= baseline ? 'acc-green' : 'acc-red')}">
+        ${pct == null ? 'vs baseline —' : `${delta > 0 ? '+' : ''}${delta}% vs baseline`}
+      </div>
+    </div></div>`;
+  }).join('');
+  initTooltips(document.getElementById('panel-accuracy'));
+}
+
+function accSlidingAvg(values, window) {
+  return values.map((_, i) => {
+    const slice = values.slice(Math.max(0, i - window + 1), i + 1).filter(v => v != null);
+    return slice.length > 0 ? slice.reduce((a, b) => a + b, 0) / slice.length : null;
+  });
+}
+
+function accRenderChart(data) {
+  const days = data.days;
+  // Use last 30 days only for the chart
+  const recent = days.slice(-30);
+
+  const labels = recent.map(d => d.date);
+  const allPct  = recent.map(d => d.all.total  > 0 ? +(d.all.correct  / d.all.total  * 100).toFixed(1) : null);
+  const highPct = recent.map(d => d.high.total > 0 ? +(d.high.correct / d.high.total * 100).toFixed(1) : null);
+
+  const allAvg  = accSlidingAvg(allPct,  7);
+  const highAvg = accSlidingAvg(highPct, 7);
+
+  // Point sizes: small sample = red dot
+  const pointRadius = recent.map(d => d.all.total < 3 ? 6 : 3);
+  const pointColor  = recent.map(d => d.all.total < 3 ? '#ef4444' : 'rgba(148,163,184,0.8)');
+
+  const baseline = ACC_BASELINES[accState.league] || 0.5;
+  const baselinePct = +(baseline * 100).toFixed(1);
+
+  const canvas = document.getElementById('accChart');
+  if (accState.chart) {
+    accState.chart.destroy();
+    accState.chart = null;
+  }
+
+  accState.chart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'ALL',
+          data: allPct,
+          borderColor: 'rgba(100,116,139,0.55)',
+          backgroundColor: 'rgba(100,116,139,0.08)',
+          pointRadius: pointRadius.map(v => Math.max(v - 1, 2)),
+          pointBackgroundColor: pointColor,
+          borderWidth: 2,
+          tension: 0.35,
+          spanGaps: true,
+        },
+        {
+          label: 'HIGH',
+          data: highPct,
+          borderColor: 'rgba(34,197,94,0.35)',
+          backgroundColor: 'transparent',
+          pointRadius: 0,
+          borderWidth: 1.5,
+          tension: 0.35,
+          spanGaps: true,
+        },
+        {
+          label: 'ALL 7d avg',
+          data: allAvg,
+          borderColor: 'rgba(59,130,246,0.95)',
+          borderDash: [],
+          backgroundColor: 'transparent',
+          pointRadius: 0,
+          borderWidth: 3,
+          tension: 0.3,
+          spanGaps: true,
+        },
+        {
+          label: 'HIGH 7d avg',
+          data: highAvg,
+          borderColor: 'rgba(22,163,74,0.95)',
+          borderDash: [7, 4],
+          backgroundColor: 'transparent',
+          pointRadius: 0,
+          borderWidth: 3,
+          tension: 0.3,
+          spanGaps: true,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 11 }, usePointStyle: true, boxWidth: 10 } },
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              const v = ctx.parsed.y;
+              if (v == null) return `${ctx.dataset.label}: —`;
+              const d = recent[ctx.dataIndex];
+              const conf = ctx.dataset.label.toLowerCase();
+              let n = '?';
+              if (conf === 'all' || conf.includes('avg')) n = d.all.total;
+              else if (conf === 'high') n = d.high.total;
+              return `${ctx.dataset.label}: ${v.toFixed(1)}% (n=${n})`;
+            },
+          },
+        },
+        annotation: undefined,
+      },
+      scales: {
+        y: {
+          min: 30,
+          max: 100,
+          ticks: { callback: v => v + '%' },
+          grid: { color: 'rgba(15,23,42,0.08)' },
+        },
+        x: {
+          ticks: { maxTicksLimit: 10, font: { size: 10 } },
+          grid: { display: false },
+        },
+      },
+    },
+    plugins: [{
+      // Draw baseline
+      id: 'baseline',
+      afterDraw(chart) {
+        const { ctx, chartArea: { left, right, top, bottom }, scales: { y } } = chart;
+        const yPos = y.getPixelForValue(baselinePct);
+        if (yPos < top || yPos > bottom) return;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(251,191,36,0.5)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(left, yPos);
+        ctx.lineTo(right, yPos);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(251,191,36,0.7)';
+        ctx.font = '10px sans-serif';
+        ctx.fillText(`baseline ${baselinePct}%`, right - 80, yPos - 4);
+        ctx.restore();
+      }
+    }],
+  });
+}
+
+function accRenderTable(data) {
+  const tbody = document.getElementById('acc-tbody');
+  const days = [...data.days].reverse(); // most recent first
+  if (!days.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-secondary py-3">No data with resolved results found.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = days.map(d => {
+    const hp  = d.high.total > 0 ? (d.high.correct / d.high.total * 100).toFixed(1) + '%' : '—';
+    const ap  = d.all.total  > 0 ? (d.all.correct  / d.all.total  * 100).toFixed(1) + '%' : '—';
+    const hcls = d.high.total > 0
+      ? (d.high.correct / d.high.total >= (ACC_BASELINES[accState.league]||0.5) ? 'acc-green' : 'acc-red')
+      : 'text-secondary';
+    const acls = d.all.total > 0
+      ? (d.all.correct / d.all.total >= (ACC_BASELINES[accState.league]||0.5) ? 'acc-green' : 'acc-red')
+      : 'text-secondary';
+    return `<tr>
+      <td>${d.date}</td>
+      <td>${d.high.total}</td>
+      <td>${d.high.correct}</td>
+      <td class="${hcls} fw-bold">${hp}</td>
+      <td>${d.all.total}</td>
+      <td>${d.all.correct}</td>
+      <td class="${acls} fw-bold">${ap}</td>
+    </tr>`;
+  }).join('');
+  initTooltips(document.getElementById('panel-accuracy'));
+}
+
+// ── Parlay ────────────────────────────────────────────────────────────────
+function toggleParlay(lg, idx, checked) {
+  const key = `${lg}-${idx}`;
+  if (checked) state.parlayPicks[key] = true;
+  else delete state.parlayPicks[key];
+  updateParlayLaunch(lg);
+  const selectedCountEl = document.getElementById(`selected-count-${lg}`);
+  if (selectedCountEl) selectedCountEl.textContent = countLeagueParlayPicks(lg);
+  updateMobileActionBar();
+}
+
+function openParlay() {
+  const picks = Object.keys(state.parlayPicks);
+  const content = document.getElementById('parlayContent');
+
+  if (!picks.length) {
+    content.innerHTML = '<p class="text-secondary">No picks selected. Check the ☐ boxes in the table.</p>';
+  } else {
+    let combProb = 1.0, combOdds = 1.0;
+    const rows = picks.map(key => {
+      const [lg, idx] = key.split('-');
+      const g = state.data[lg]?.games?.[parseInt(idx)];
+      if (!g) return '';
+
+      const ph = g.prob_home ?? 0.5;
+      const pa = 1 - ph;
+      const isBetHome = g.bet_side === 'HOME';
+      const prob = isBetHome ? ph : pa;
+      const odds = isBetHome ? (g.odds_home ?? null) : (g.odds_away ?? null);
+      const team = isBetHome ? g.home : g.away;
+      const league = lg.toUpperCase();
+
+      combProb *= prob;
+      if (odds) combOdds *= odds;
+
+      const evVal = odds ? (prob * (odds - 1) - (1 - prob)) : null;
+      return `<div class="d-flex justify-content-between align-items-center py-1 border-bottom parlay-stat">
+        <span><strong>${league}</strong> ${esc(team)}</span>
+        <span class="ms-3 text-secondary small">${(prob*100).toFixed(1)}% · ${odds ? odds.toFixed(2) : '—'}
+          ${evVal != null ? `<span class="${evVal>=0?'text-success':'text-danger'}">(${evVal>=0?'+':''}${(evVal*100).toFixed(1)}%)</span>` : ''}
+        </span>
+      </div>`;
+    }).filter(Boolean);
+
+    const parlayEV = combOdds > 1 ? (combProb * (combOdds - 1) - (1 - combProb)) : null;
+
+    content.innerHTML = `
+      <div class="mb-3">${rows.join('')}</div>
+      <div class="parlay-panel">
+        <div class="row g-2 text-center">
+          <div class="col-4">
+            <div class="fw-bold fs-5">${picks.length}</div>
+            <div class="text-secondary small">Legs</div>
+          </div>
+          <div class="col-4">
+            <div class="fw-bold fs-5">${(combProb*100).toFixed(1)}%</div>
+            <div class="text-secondary small">Combined Prob</div>
+          </div>
+          <div class="col-4">
+            <div class="fw-bold fs-5">${combOdds > 1 ? combOdds.toFixed(2) : '—'}</div>
+            <div class="text-secondary small">Combined Odds</div>
+          </div>
+        </div>
+        ${parlayEV != null ? `
+        <hr class="my-2">
+        <div class="text-center">
+          <span class="small text-secondary me-2">Parlay EV:</span>
+          <strong class="${parlayEV >= 0 ? 'text-success' : 'text-danger'} fs-6">
+            ${parlayEV >= 0 ? '+' : ''}${(parlayEV*100).toFixed(1)}%</strong>
+          <span class="text-secondary small ms-2">(per 1 unit)</span>
+        </div>` : ''}
+      </div>`;
+  }
+
+  new bootstrap.Modal(document.getElementById('parlayModal')).show();
+}
+
+function accStartBackfill() {
+  const btn = document.getElementById('acc-backfill-btn');
+  const status = document.getElementById('acc-backfill-status');
+  btn.disabled = true;
+  status.style.display = '';
+  status.textContent = 'Starting…';
+
+  fetch('/api/backfill?days=30&force=1', {method: 'POST'})
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'already_running') {
+        status.textContent = 'Already running…';
+        btn.disabled = false;
+        return;
+      }
+      accPollBackfill();
+    })
+    .catch(e => {
+      status.textContent = `Error: ${e}`;
+      btn.disabled = false;
+    });
+}
+
+function accPollBackfill() {
+  const btn = document.getElementById('acc-backfill-btn');
+  const status = document.getElementById('acc-backfill-status');
+  const timer = setInterval(() => {
+    fetch('/api/backfill_status')
+      .then(r => r.json())
+      .then(s => {
+        if (s.running) {
+          status.textContent = s.progress || 'Running…';
+        } else {
+          clearInterval(timer);
+          btn.disabled = false;
+          status.textContent = `Done: ${s.done}/${s.total} saved` + (s.errors?.length ? ` (${s.errors.length} errors)` : '');
+          // Reload accuracy data
+          accState.data = null;
+          accLoadData(accState.league);
+        }
+      });
+  }, 3000);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+# Python / cache
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# Local databases and generated data
+*.sqlite
+*.sqlite3
+*.db
+dashboard/data/*.json
+
+# Logs
+*.log
+*.err.log
+dashboard_server_test.log
+dashboard_server_test.err.log
+
+# Browser automation local state
+.playwright-mcp/
+
+# Nested Git metadata backups
+.git-backups/
+
+# Environment / secrets
+.env
+.env.*
+*.key
+credentials.*
+secrets.*
+
+# Local reports and exports
+predictions_*.md
+*_report_*.md

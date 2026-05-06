@@ -8,6 +8,7 @@ Thumbs.db
 # 同步暫存
 .tmp.drivedownload/
 .tmp.driveupload/
+.local-backups/
 
 # 敏感資料
 .env
@@ -37,6 +38,5 @@ build/
 # 既有子專案先不自動納入總 repo
 99_Acrhieved/
 House_Budget/
-MoneyBall/
 Wall Street/
 !Buffett/Wall Street/
