@@ -15,6 +15,7 @@ __pycache__/
 .playwright-mcp/
 .sandbox_cache/
 .sqlite_cache/
+daily_update.log
 
 # Jupyter
 .ipynb_checkpoints/
