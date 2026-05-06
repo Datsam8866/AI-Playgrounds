@@ -69,7 +69,7 @@ h2{font-size:14px;font-weight:600;color:var(--ac);margin-bottom:12px;}
 <header>
   <h1>📊 Portfolio Dashboard</h1>
   <div class="header-right">
-    <span class="updated">更新：2026-05-05</span>
+    <span class="updated">更新：2026-05-06</span>
     <button class="btn-update" onclick="document.getElementById('modal').classList.add('open')">⟳ 更新資料</button>
   </div>
 </header>
@@ -97,13 +97,13 @@ h2{font-size:14px;font-weight:600;color:var(--ac);margin-bottom:12px;}
     </div>
     <div class="card">
       <div class="card-label">台股市值 (TWD)</div>
-      <div class="card-value">NT$946,000</div>
+      <div class="card-value">NT$957,500</div>
       <div class="card-sub ">成本 NT$924,900</div>
     </div>
     <div class="card">
       <div class="card-label">台股損益</div>
-      <div class="card-value">NT$+21,100</div>
-      <div class="card-sub pos">+2.3%</div>
+      <div class="card-value">NT$+32,600</div>
+      <div class="card-sub pos">+3.5%</div>
     </div>
   </div>
 
@@ -271,13 +271,13 @@ h2{font-size:14px;font-weight:600;color:var(--ac);margin-bottom:12px;}
   <div class="cards">
     <div class="card">
       <div class="card-label">台股市值</div>
-      <div class="card-value">NT$946,000</div>
+      <div class="card-value">NT$957,500</div>
       <div class="card-sub ">成本 NT$924,900</div>
     </div>
     <div class="card">
       <div class="card-label">台股損益</div>
-      <div class="card-value">NT$+21,100</div>
-      <div class="card-sub pos">+2.3%</div>
+      <div class="card-value">NT$+32,600</div>
+      <div class="card-sub pos">+3.5%</div>
     </div>
     <div class="card">
       <div class="card-label">持股檔數</div>
@@ -304,10 +304,10 @@ h2{font-size:14px;font-weight:600;color:var(--ac);margin-bottom:12px;}
           <td><strong>0050</strong></td><td class="muted">元大台灣50</td>
           <td class="num">10,000</td>
           <td class="num">$92.49</td>
-          <td class="num">$94.60</td>
-          <td class="num">$945,999.98</td>
-          <td class="num pos">+21,099.98</td>
-          <td class="num pos">2.28%</td>
+          <td class="num">$95.75</td>
+          <td class="num">$957,500.00</td>
+          <td class="num pos">+32,600.00</td>
+          <td class="num pos">3.52%</td>
         </tr></tbody>
   </table>
 </div>
@@ -390,9 +390,9 @@ function barChart(id, labels, ds1, ds2){
 }
 
 // ── Overview charts ─────────────────────────────────────────────────────────
-const ovDates = ["2026-05-04", "2026-05-05"];
-const ovUsMvs = [294836.38, 291041.29];
-const ovTwMvs = [943700.0, 945999.98];
+const ovDates = ["2026-05-04", "2026-05-05", "2026-05-06"];
+const ovUsMvs = [294836.38, 291041.29, 291041.29];
+const ovTwMvs = [943700.0, 945999.98, 957500.0];
 
 lineChart('ovUsChart', ovDates, [{
   label:'美股市值 (USD)', data:ovUsMvs,
@@ -407,9 +407,9 @@ lineChart('ovTwChart', ovDates, [{
 pieChart('usPie', ["AMD", "ARM", "AVGO", "COHR", "INTC", "LITE", "NVDA", "SNDK", "TSLA", "TSM", "VOO"], [4.7, 4.2, 4.2, 3.4, 5.7, 3.7, 4.0, 4.7, 3.2, 3.7, 58.5]);
 barChart('usBar', ["AMD", "ARM", "AVGO", "COHR", "INTC", "LITE", "NVDA", "SNDK", "TSLA", "TSM"], [0, 0, 0, 0, 0, 3.8, 0, 3.8, 0, 0], [4.7, 4.2, 4.2, 3.4, 5.7, 3.7, 4.0, 4.7, 3.2, 3.7]);
 
-const usDates = ["2026-05-04", "2026-05-05"];
-const usMvs   = [294836.38, 291041.29];
-const usPnls  = [0, 57225.96];
+const usDates = ["2026-05-04", "2026-05-05", "2026-05-06"];
+const usMvs   = [294836.38, 291041.29, 291041.29];
+const usPnls  = [0, 57225.96, 57225.96];
 lineChart('usLine', usDates, [
   {label:'市值 USD', data:usMvs,  borderColor:'#38bdf8', backgroundColor:'#38bdf815', fill:true, tension:.3, pointRadius:4, yAxisID:'y'},
   {label:'損益 USD', data:usPnls, borderColor:'#22c55e', backgroundColor:'#22c55e10', fill:true, tension:.3, pointRadius:4, yAxisID:'y1'}
@@ -436,9 +436,9 @@ new Chart(document.getElementById('usLine'),{
 // ── TW charts ───────────────────────────────────────────────────────────────
 pieChart('twPie', ["0050"], [100.0]);
 
-const twDates = ["2026-05-04", "2026-05-05"];
-const twMvs   = [943700.0, 945999.98];
-const twPnls  = [18800.0, 21099.98];
+const twDates = ["2026-05-04", "2026-05-05", "2026-05-06"];
+const twMvs   = [943700.0, 945999.98, 957500.0];
+const twPnls  = [18800.0, 21099.98, 32600.0];
 new Chart(document.getElementById('twLine'),{
   type:'line',
   data:{ labels:twDates, datasets:[
