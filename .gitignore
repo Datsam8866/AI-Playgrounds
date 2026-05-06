@@ -37,6 +37,5 @@ build/
 
 # 既有子專案先不自動納入總 repo
 99_Acrhieved/
-House_Budget/
 Wall Street/
 !Buffett/Wall Street/
