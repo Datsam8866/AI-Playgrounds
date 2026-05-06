@@ -70,6 +70,49 @@ class DashboardDataTests(unittest.TestCase):
         self.assertEqual(large[0]["amount_twd"], -29305)
         self.assertEqual(large[1]["item"], "Hotel")
 
+    def test_trend_chart_template_uses_area_without_line_overlays(self):
+        html = dashboard.render_html(dashboard.build_dashboard_data(self.make_db()))
+
+        self.assertIn("function areaPath(points)", html)
+        self.assertIn("expensePoints", html)
+        self.assertNotIn("<polyline", html)
+        self.assertNotIn("linePoints", html)
+        self.assertNotIn("points('net')", html)
+        self.assertNotIn(">淨額</text>", html)
+
+    def test_category_sections_render_pie_charts_with_percent_distribution(self):
+        html = dashboard.render_html(dashboard.build_dashboard_data(self.make_db()))
+
+        self.assertIn("function drawPie", html)
+        self.assertIn("entries.sort((a, b) => b[1] - a[1])", html)
+        self.assertIn("radiusScale", html)
+        self.assertIn("pieSlicePath(startAngle, angle, radius)", html)
+        self.assertIn("pieLabel", html)
+        self.assertIn('class="pie-label"', html)
+        self.assertIn("palette-variant", html)
+        self.assertIn("#f8b4b4", html)
+        self.assertIn("#a7d8ff", html)
+        self.assertIn("pie-callout", html)
+        self.assertIn("pie-callout-value", html)
+        self.assertIn("pie-callout-share", html)
+        self.assertNotIn("分類支出</div>", html)
+        self.assertIn("pie-readable-note", html)
+        self.assertNotIn("pie-guide", html)
+        self.assertIn(">分類分布</div>", html)
+        self.assertIn("percent(value / total)", html)
+        self.assertIn("drawPie('overviewCategoryBars', categoryTotals)", html)
+        self.assertIn("drawPie('categoryBars', detail.category_expense)", html)
+        self.assertIn("drawPie('payerBars', detail.payer_expense)", html)
+
+    def test_settlement_offsets_each_person_income_before_split(self):
+        html = dashboard.render_html(dashboard.build_dashboard_data(self.make_db()))
+
+        self.assertIn("incomeByPayer", html)
+        self.assertIn("netContribution", html)
+        self.assertIn("actual[payer] - incomeByPayer[payer]", html)
+        self.assertIn("收入抵扣（TWD）", html)
+        self.assertIn("支出扣收入後", html)
+
 
 if __name__ == "__main__":
     unittest.main()

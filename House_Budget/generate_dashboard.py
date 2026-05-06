@@ -317,6 +317,73 @@ def render_html(data):
       background: var(--bad);
       border-radius: 999px;
     }
+    .pie-wrap {
+      display: grid;
+      grid-template-columns: minmax(220px, 0.9fr) minmax(210px, 1fr);
+      gap: 18px;
+      align-items: center;
+    }
+    .pie-legend {
+      display: grid;
+      gap: 7px;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+    .pie-callout {
+      display: grid;
+      grid-template-columns: 12px minmax(0, 1fr) minmax(72px, auto);
+      gap: 10px;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #edf1f6;
+    }
+    .pie-callout-title {
+      color: var(--ink);
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .pie-callout-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+    .pie-callout-share {
+      font-size: 20px;
+      line-height: 1;
+      font-weight: 800;
+      text-align: right;
+    }
+    .pie-callout-value {
+      color: var(--muted);
+      font-size: 12px;
+      text-align: right;
+      margin-top: 4px;
+    }
+    .pie-readable-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      margin-top: 4px;
+    }
+    .pie-label {
+      fill: #334155;
+      font-size: 11px;
+      font-weight: 700;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      paint-order: stroke;
+      stroke: rgba(255, 255, 255, 0.78);
+      stroke-width: 4px;
+      stroke-linejoin: round;
+    }
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -374,6 +441,7 @@ def render_html(data):
       .kpis { grid-template-columns: 1fr; }
       .value { font-size: 24px; }
       .bar-row { grid-template-columns: 1fr; gap: 4px; }
+      .pie-wrap { grid-template-columns: 1fr; }
       .settlement-callout { font-size: 22px; }
       th:nth-child(4), td:nth-child(4),
       th:nth-child(6), td:nth-child(6) { display: none; }
@@ -576,28 +644,104 @@ def render_html(data):
     }
     function drawTrend(targetId, scope, selectedMonth, months) {
       const chartMonths = months || scope.month_order.slice(-12);
-      const width = 720, height = 260, pad = 34;
-      const values = [];
-      chartMonths.forEach(month => {
+      const width = 720, height = 260, padX = 34, top = 26, bottom = 34;
+      const incomePoints = [];
+      const expensePoints = [];
+      const values = chartMonths.flatMap(month => {
         const detail = scope.months[month];
-        values.push(detail.income, detail.expense, detail.net);
+        return [detail.income, Math.abs(detail.expense)];
       });
-      const max = Math.max(1000, ...values.map(value => Math.abs(value)));
-      const x = idx => pad + (chartMonths.length <= 1 ? 0 : idx * (width - pad * 2) / (chartMonths.length - 1));
-      const y = value => height / 2 - (value / max) * (height / 2 - pad);
-      const points = key => chartMonths.map((month, idx) => `${x(idx)},${y(scope.months[month][key])}`).join(' ');
+      const max = Math.max(1000, ...values);
+      const x = idx => padX + (chartMonths.length <= 1 ? 0 : idx * (width - padX * 2) / (chartMonths.length - 1));
+      const chartBottom = height - bottom;
+      const y = value => chartBottom - (value / max) * (chartBottom - top);
+      chartMonths.forEach((month, idx) => {
+        const detail = scope.months[month];
+        incomePoints.push({ x: x(idx), y: y(detail.income), value: detail.income });
+        expensePoints.push({ x: x(idx), y: y(Math.abs(detail.expense)), value: Math.abs(detail.expense) });
+      });
+      function areaPath(points) {
+        if (!points.length) return '';
+        const line = points.map(point => `L ${point.x} ${point.y}`).join(' ');
+        return `M ${points[0].x} ${chartBottom} ${line} L ${points[points.length - 1].x} ${chartBottom} Z`;
+      }
       document.getElementById(targetId).innerHTML = `
         <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="收支趨勢">
-          <line x1="${pad}" y1="${height / 2}" x2="${width - pad}" y2="${height / 2}" stroke="#cbd5e1" />
+          <line x1="${padX}" y1="${chartBottom}" x2="${width - padX}" y2="${chartBottom}" stroke="#cbd5e1" />
           ${chartMonths.map((month, idx) => `<text x="${x(idx)}" y="${height - 8}" text-anchor="middle" font-size="11" fill="#64748b">${month.slice(5)}</text>`).join('')}
-          <polyline points="${points('income')}" fill="none" stroke="#168255" stroke-width="3" />
-          <polyline points="${points('expense')}" fill="none" stroke="#c24132" stroke-width="3" />
-          <polyline points="${points('net')}" fill="none" stroke="#2563eb" stroke-width="3" />
-          ${chartMonths.map((month, idx) => `<circle cx="${x(idx)}" cy="${y(scope.months[month].net)}" r="${month === selectedMonth ? 5 : 3}" fill="#2563eb" />`).join('')}
-          <text x="${pad}" y="16" font-size="12" fill="#168255">收入</text>
-          <text x="${pad + 46}" y="16" font-size="12" fill="#c24132">支出</text>
-          <text x="${pad + 92}" y="16" font-size="12" fill="#2563eb">淨額</text>
+          <path d="${areaPath(incomePoints)}" fill="#168255" fill-opacity="0.24" />
+          <path d="${areaPath(expensePoints)}" fill="#c24132" fill-opacity="0.34" />
+          <text x="${padX}" y="16" font-size="12" fill="#168255">收入</text>
+          <text x="${padX + 46}" y="16" font-size="12" fill="#c24132">支出</text>
         </svg>`;
+    }
+    function drawPie(targetId, data, formatter = moneyAbs) {
+      const entries = Object.entries(data)
+        .filter(([, value]) => value !== 0)
+        .map(([name, value]) => [name, Math.abs(value), value]);
+      entries.sort((a, b) => b[1] - a[1]);
+      const target = document.getElementById(targetId);
+      if (!entries.length) {
+        target.innerHTML = '<div class="empty">沒有支出資料</div>';
+        return;
+      }
+      const total = entries.reduce((sum, [, value]) => sum + value, 0);
+      const colors = ['#f8b4b4', '#a7d8ff', '#b8e6c9', '#ffd7a8', '#d9c7ff', '#aee7ef', '#f6bfd6', '#d6dde8']; // palette-variant
+      const percent = ratio => `${(ratio * 100).toFixed(ratio >= 0.1 ? 0 : 1)}%`;
+      const maxValue = Math.max(...entries.map(([, value]) => value));
+      const radiusScale = value => 44 + Math.sqrt(value / maxValue) * 34;
+      const pointOnCircle = (cx, cy, r, angle) => {
+        const radians = (angle - 90) * Math.PI / 180;
+        return { x: cx + r * Math.cos(radians), y: cy + r * Math.sin(radians) };
+      };
+      const pieSlicePath = (startAngle, endAngle, radius) => {
+        const start = pointOnCircle(92, 86, radius, startAngle);
+        const end = pointOnCircle(92, 86, radius, endAngle);
+        const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+        return `M 92 86 L ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y} Z`;
+      };
+      const pieLabel = (name, value, point) =>
+        `<text class="pie-label" x="${point.x}" y="${point.y}">${percent(value / total)}</text>`;
+      let angle = 0;
+      const labels = [];
+      const segments = entries.map(([name, value], idx) => {
+        const share = value / total;
+        const radius = radiusScale(value);
+        const startAngle = angle;
+        angle += share * 360;
+        const midAngle = startAngle + share * 180;
+        const labelPoint = pointOnCircle(92, 86, Math.max(28, radius * 0.58), midAngle);
+        if (share >= 0.06) {
+          labels.push(pieLabel(name, value, labelPoint));
+        }
+        if (share >= 0.999) {
+          return `<circle cx="92" cy="86" r="${radius}" fill="${colors[idx % colors.length]}"><title>${name} ${formatter(value)} · ${percent(value / total)}</title></circle>`;
+        }
+        return `<path d="${pieSlicePath(startAngle, angle, radius)}" fill="${colors[idx % colors.length]}"><title>${name} ${formatter(value)} · ${percent(value / total)}</title></path>`;
+      }).join('');
+      const legend = entries.map(([name, value], idx) => `
+        <div class="pie-callout">
+          <span class="swatch" style="background:${colors[idx % colors.length]}"></span>
+          <span>
+            <div class="pie-callout-title">${name}</div>
+          </span>
+          <span>
+            <div class="pie-callout-share" style="color:${colors[idx % colors.length]}">${percent(value / total)}</div>
+            <div class="pie-callout-value">${formatter(value)} TWD</div>
+          </span>
+        </div>`).join('');
+      target.innerHTML = `
+        <div class="pie-wrap">
+          <svg viewBox="0 0 190 172" role="img" aria-label="分類支出圓餅圖">
+            ${segments}
+            ${labels.join('')}
+          </svg>
+          <div>
+            <div class="label">分類分布</div>
+            <div class="pie-readable-note">右側依分類列出完整占比與金額，小扇區以列表為準。</div>
+            <div class="pie-legend">${legend}</div>
+          </div>
+        </div>`;
     }
     function drawBars(targetId, data, formatter = money) {
       const entries = Object.entries(data).filter(([, value]) => value !== 0);
@@ -648,7 +792,7 @@ def render_html(data):
       document.getElementById('overviewExpenseHint').textContent = `${months.length} 個月份，${allScope.month_order[0] || '-'} 起`;
       document.getElementById('overviewNetHint').textContent = `${allTransactions.length} 筆已換算 TWD 交易`;
       drawTrend('overviewTrendChart', allScope, allScope.latest_month, months);
-      drawBars('overviewCategoryBars', categoryTotals);
+      drawPie('overviewCategoryBars', categoryTotals);
       const yearly = { '2024': 0, '2025': 0, '2026': 0 };
       months.forEach(month => {
         const year = month.slice(0, 4);
@@ -673,8 +817,8 @@ def render_html(data):
       document.getElementById('expenseHint').textContent = `${detail.transactions.filter(tx => tx.amount_twd < 0).length} 筆支出`;
       document.getElementById('netHint').textContent = `${detail.transactions.length} 筆已換算 TWD 交易`;
       drawTrend('trendChart', scope, month, scope.month_order.slice(-12));
-      drawBars('categoryBars', detail.category_expense);
-      drawBars('payerBars', detail.payer_expense);
+      drawPie('categoryBars', detail.category_expense);
+      drawPie('payerBars', detail.payer_expense);
       renderTable('largeRows', detail.large_expenses, true);
       renderTable('txRows', detail.transactions, false);
     }
@@ -713,22 +857,32 @@ def render_html(data):
     }
     function renderSettlement() {
       const range = settlementRange();
-      const txs = allTransactions.filter(tx => tx.amount_twd < 0 && tx.month >= range.start && tx.month <= range.end);
+      const txs = allTransactions.filter(tx => tx.month >= range.start && tx.month <= range.end);
       const actual = { Sam: 0, Rita: 0 };
+      const incomeByPayer = { Sam: 0, Rita: 0 };
       const categoryMap = {};
       txs.forEach(tx => {
         const payer = tx.who === 'Rita' ? 'Rita' : 'Sam';
-        const paid = Math.abs(tx.amount_twd);
-        actual[payer] += paid;
-        if (!categoryMap[tx.category]) categoryMap[tx.category] = { Sam: 0, Rita: 0 };
-        categoryMap[tx.category][payer] += paid;
+        if (tx.amount_twd < 0) {
+          const paid = Math.abs(tx.amount_twd);
+          actual[payer] += paid;
+          if (!categoryMap[tx.category]) categoryMap[tx.category] = { Sam: 0, Rita: 0 };
+          categoryMap[tx.category][payer] += paid;
+        } else {
+          incomeByPayer[payer] += tx.amount_twd;
+        }
       });
       const samRatio = Number(samShareInput.value) / 100;
-      const totalExpense = actual.Sam + actual.Rita;
-      const due = { Sam: totalExpense * samRatio, Rita: totalExpense * (1 - samRatio) };
-      const delta = { Sam: actual.Sam - due.Sam, Rita: actual.Rita - due.Rita };
+      const netContribution = Object.fromEntries(
+        ['Sam', 'Rita'].map(payer => [payer, actual[payer] - incomeByPayer[payer]])
+      );
+      const totalNetExpense = netContribution.Sam + netContribution.Rita;
+      const due = { Sam: totalNetExpense * samRatio, Rita: totalNetExpense * (1 - samRatio) };
+      const delta = { Sam: netContribution.Sam - due.Sam, Rita: netContribution.Rita - due.Rita };
       document.getElementById('settlementRows').innerHTML = `
         <tr><td>實際支付（TWD）</td><td class="num">${moneyAbs(actual.Sam)}</td><td class="num">${moneyAbs(actual.Rita)}</td></tr>
+        <tr><td>收入抵扣（TWD）</td><td class="num">${moneyAbs(incomeByPayer.Sam)}</td><td class="num">${moneyAbs(incomeByPayer.Rita)}</td></tr>
+        <tr><td>支出扣收入後</td><td class="num ${cls(netContribution.Sam)}">${money(netContribution.Sam)}</td><td class="num ${cls(netContribution.Rita)}">${money(netContribution.Rita)}</td></tr>
         <tr><td>應付（依比例）</td><td class="num">${moneyAbs(due.Sam)}</td><td class="num">${moneyAbs(due.Rita)}</td></tr>
         <tr><td>差額</td><td class="num ${cls(delta.Sam)}">${money(delta.Sam)}</td><td class="num ${cls(delta.Rita)}">${money(delta.Rita)}</td></tr>`;
       const transfer = Math.round(Math.abs(delta.Sam));
