@@ -248,16 +248,18 @@ def is_early_season(row: dict) -> bool:
 
 
 def route_regime(row: dict) -> str:
-    return "early" if is_early_season(row) else "primary"
+    if is_early_season(row):
+        return "early"
+    return "primary" if has_primary_pitcher_features(row) else "fallback"
 
 
 def has_primary_pitcher_features(row: dict) -> bool:
     return as_float(row.get("sp_available")) >= 0.5
 
 
-def fit_xgb_model(rows: list[dict]) -> tuple[xgb.XGBClassifier, dict[str, float]]:
-    medians = fit_medians(rows, PRIMARY_FEATURES)
-    x_train = transform(rows, PRIMARY_FEATURES, medians)
+def fit_xgb_model(rows: list[dict], features: list[str]) -> tuple[xgb.XGBClassifier, dict[str, float]]:
+    medians = fit_medians(rows, features)
+    x_train = transform(rows, features, medians)
     y_train = np.array([int(row["home_win"]) for row in rows], dtype=int)
     model = xgb.XGBClassifier(**XGB_PARAMS)
     model.fit(x_train, y_train)
@@ -278,24 +280,32 @@ def fit_early_model(rows: list[dict]) -> tuple[LogisticRegression, dict[str, flo
 
 
 def train_models(train_rows: list[dict]) -> dict:
+    fallback_train = [
+        row
+        for row in train_rows
+        if not is_early_season(row)
+    ]
+    if not fallback_train:
+        raise RuntimeError("No fallback-route training rows.")
+
     primary_train = [
         row
         for row in train_rows
-        if route_regime(row) == "primary" and has_primary_pitcher_features(row)
+        if route_regime(row) == "primary"
     ]
-    if not primary_train:
-        raise RuntimeError("No primary-route training rows with sp_available=1.")
 
     early_train = [row for row in train_rows if route_regime(row) == "early"]
     return {
-        "primary": fit_xgb_model(primary_train),
+        "fallback": fit_xgb_model(fallback_train, FALLBACK_FEATURES),
+        "primary": fit_xgb_model(primary_train, PRIMARY_FEATURES) if primary_train else None,
         "early": fit_early_model(early_train),
     }
 
 
 def predict_rows(models: dict, rows: list[dict]) -> list[dict]:
     predictions = []
-    primary_model, primary_medians = models["primary"]
+    fallback_model, fallback_medians = models["fallback"]
+    primary_bundle = models["primary"]
     early_model = models["early"]
 
     for row in rows:
@@ -307,9 +317,14 @@ def predict_rows(models: dict, rows: list[dict]) -> list[dict]:
                 model, medians = early_model
                 x_test = transform([row], EARLY_MODEL_FEATURES, medians)
                 home_probability = float(model.predict_proba(x_test)[0, 1])
-        else:
+        elif route == "primary" and primary_bundle is not None:
+            primary_model, primary_medians = primary_bundle
             x_test = transform([row], PRIMARY_FEATURES, primary_medians)
             home_probability = float(primary_model.predict_proba(x_test)[0, 1])
+        else:
+            route = "fallback"
+            x_test = transform([row], FALLBACK_FEATURES, fallback_medians)
+            home_probability = float(fallback_model.predict_proba(x_test)[0, 1])
 
         predictions.append(
             {

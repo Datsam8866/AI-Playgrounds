@@ -4,13 +4,13 @@
 
 專案名稱：MoneyBall
 專案用途：多聯盟棒球勝負預測與 Dashboard 追蹤系統
-主要工作目錄：G:\其他電腦\我的電腦\AI Playgrounds\MoneyBall
+主要工作目錄：C:\Users\dat_s\OneDrive\Documents\AI Playgrounds\MoneyBall
 上層 repo：https://github.com/Datsam8866/AI-Playgrounds
 預設 branch：main
 
 ## Obsidian 對應筆記
 
-Obsidian vault：G:\其他電腦\我的電腦\Obsidian Vault
+Obsidian vault：C:\Users\dat_s\OneDrive\Documents\Obsidian Vault
 專案駕駛艙：AI Playgrounds/MoneyBall 工作筆記.md
 收工時優先更新：AI Playgrounds/MoneyBall 工作筆記.md
 
@@ -18,9 +18,9 @@ Obsidian vault：G:\其他電腦\我的電腦\Obsidian Vault
 
 ## 工作桌 + 三個家
 
-- 工作桌：G:\其他電腦\我的電腦\AI Playgrounds\MoneyBall
+- 工作桌：C:\Users\dat_s\OneDrive\Documents\AI Playgrounds\MoneyBall
 - GitHub：AI-Playgrounds repo 的 `MoneyBall/` 子目錄
-- Obsidian：G:\其他電腦\我的電腦\Obsidian Vault + AI Playgrounds/MoneyBall 工作筆記.md
+- Obsidian：C:\Users\dat_s\OneDrive\Documents\Obsidian Vault + AI Playgrounds/MoneyBall 工作筆記.md
 - Firebase：目前不使用
 
 ## 同步規則

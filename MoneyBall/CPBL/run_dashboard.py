@@ -35,18 +35,24 @@ def _has_games_for_date(conn, date_str: str) -> bool:
     return (row[0] or 0) > 0
 
 
-def _run_refresh(year: int) -> list[str]:
-    cmd = [sys.executable, str(_HERE / "cpbl_boxscore_scraper.py"),
-           "--start-year", str(year), "--end-year", str(year)]
+def _run_refresh(target: date) -> list[str]:
+    cmd = [
+        sys.executable,
+        str(ROOT_DIR / "playsport_results_sync.py"),
+        "--league",
+        "cpbl",
+        "--date",
+        target.isoformat(),
+    ]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
-                                errors="replace", timeout=180, cwd=str(_HERE))
+                                errors="replace", timeout=180, cwd=str(ROOT_DIR))
         status = "ok" if result.returncode == 0 else f"exit={result.returncode}"
-        return [f"cpbl_boxscore_scraper:{status}"]
+        return [f"playsport_results_sync:{status}"]
     except subprocess.TimeoutExpired:
-        return ["cpbl_boxscore_scraper:timeout"]
+        return ["playsport_results_sync:timeout"]
     except Exception as exc:
-        return [f"cpbl_boxscore_scraper:error({exc})"]
+        return [f"playsport_results_sync:error({exc})"]
 
 
 from cpbl_betting_ev import ev, vig_free_prob, EV_THRESHOLD, MIN_CONF
@@ -90,7 +96,7 @@ def main():
             conn.close()
 
         if not has_games and (db_latest is None or db_latest < date_str):
-            refresh_log.extend(_run_refresh(target.year))
+            refresh_log.extend(_run_refresh(target))
 
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row

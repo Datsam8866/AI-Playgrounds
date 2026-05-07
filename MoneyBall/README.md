@@ -1,6 +1,6 @@
 # MoneyBall — 多聯盟棒球勝負預測系統
 
-**最後更新：2026-05-07（SQLite 每日更新 + Windows Task Scheduler 排程）**
+**最後更新：2026-05-07（歷史資料補齊 + Walk-forward 重新評估）**
 
 ---
 
@@ -10,10 +10,10 @@ MoneyBall 是多聯盟棒球勝負預測與 Dashboard 追蹤系統，整合 `CPB
 
 | 聯盟 | 球隊數 | 資料範圍 | Walk-forward 準確率 | 高信心（最佳閾值） | 狀態 |
 |---|---:|---|---:|---:|---|
-| **CPBL** 中華職棒 | 6 | 2011–2026 | **72.7%** | p≥0.70 → 85.3% | 維運，2026 Platt re-fit 待辦 |
+| **CPBL** 中華職棒 | 6 | 2011–2026 | **55.72%** | 待重新校準 | 維運，2026 Platt re-fit 待辦 |
 | **MLB** 美國大聯盟 | 30 | 2003–2025 | **56.7%** | p≥0.675 → 70.3% | 完成，含賠率 EV，校準驗證完畢 |
 | **KBO** 韓國職棒 | 10 | 2011–2026 | **55.77%** | p≥0.60 → 64.55% | 維運，每日工具已建立 |
-| **NPB** 日本職棒 | 12 | 2006–2026 | **54.65%** | p≥0.60 → 60.38% | 維運，每日追蹤中 |
+| **NPB** 日本職棒 | 12 | 2006–2026 | **54.48%** | p≥0.60 → 61.57% | 維運，每日追蹤中 |
 
 ---
 
@@ -22,9 +22,14 @@ MoneyBall 是多聯盟棒球勝負預測與 Dashboard 追蹤系統，整合 `CPB
 ### 2026-05-07：SQLite 每日自動更新 + Task Scheduler
 
 - **MLB / KBO / NPB**：手動更新至 2026-05-06 完賽資料（MLB 新增 12 場 + 24 SP、NPB 補入 6 場）。
-- **Windows Task Scheduler**：建立 `MoneyBall_Update_14`（14:00）和 `MoneyBall_Update_22`（22:00）兩個每日排程，執行 `update_all.ps1`，自動更新四聯盟 SQLite，日誌存 `logs/update_YYYY-MM-DD.log`。
-- **CPBL scraper 重寫**：CPBL 網站改版，舊 `/box/getlive` 已消失；新 scraper 改用 `/home/getdetaillist`（按日期查詢）+ `/home/gamedetail`（單場詳情），並修正 `--refresh-range` 改為 upsert 而非先刪除（避免資料遺失）。
-- **CPBL 目前狀態**：網站 POST 全部回 307（疑似暫時性故障），待網站恢復後排程任務自動補回 2026 資料。
+- **CPBL / KBO / NPB 歷史資料補齊**：CPBL 英文站 `box/getlive` 補回 2011–2025 例行賽；KBO 官方 API 補回 2011–2025；NPB BIS archive 補回 2006–2015、NPB schedule 補回 2016–2025。
+- **訓練特徵重建**：`CPBL/game_features` 目前 2011–2026 共 3,964 筆；`KBO/game_features` 目前 2011–2026 共 10,093 筆；`NPB/game_features_npb` 目前 2011–2026 共 11,974 筆。
+- **SP 資料補足**：CPBL 從官方 raw_json 回填 2011–2025 SP；KBO / NPB 重建 pitcher features 並補爬 NPB 2016–2025 boxscore。完賽 training SP 覆蓋率：CPBL 64.6%、KBO 72.5%、NPB 80.2%、MLB 85.7%。
+- **Walk-forward 已重新評估**：補足資料後重跑 CPBL / KBO / NPB regime 評估；CPBL 2016–2025 為 55.72%，KBO 2016–2025 為 55.77%，NPB 2016–2026 為 54.48%。
+- **NPB regime 路由一致化**：NPB 改為與其他聯盟一致的 `early / fallback / primary` 三段式；成熟場次若 SP 資料不足會走 fallback，不再併入 primary。
+- **CPBL 改用 playsport.cc**：CPBL 官網 `/home/getdetaillist`、`/home/gamedetail` 連真瀏覽器站內互動都回 307，日常結果同步改走 `playsport_results_sync.py --league cpbl`。
+- **CPBL 2026-05-06 已補入**：playsport livescore 成功同步 3 場完賽資料，`CPBL/cpbl.sqlite` 最新完賽日為 `2026-05-06`。
+- **Windows Task Scheduler**：`update_all.ps1` 的 CPBL 區塊改為回補最近 15 天 playsport 結果；`MoneyBall_Update_14`（14:00）和 `MoneyBall_Update_22`（22:00）維持執行同一腳本，日誌存 `logs/update_YYYY-MM-DD.log`。
 
 ### 2026-05-06：專案初始化
 
@@ -57,13 +62,12 @@ MoneyBall 是多聯盟棒球勝負預測與 Dashboard 追蹤系統，整合 `CPB
 
 | 優先 | 聯盟 | 項目 | 狀態 |
 |---|---|---|---|
-| **A** | CPBL | 確認網站恢復後排程自動補回 2026 資料 | 等待中 |
-| **B** | CPBL | 每日追蹤：`predict_today.py --verify` + `track_high_confidence_predictions.py` | 持續進行 |
-| **C** | CPBL | Platt re-fit：累積 ≥80 場後重算 A/B | 待辦 |
-| **D** | CPBL | SP multi-season prior：SP < 5 場時加入前一年/生涯 rolling | 待辦 |
-| **E** | MLB | 觀察 `schedule date ↔ result date` 是否仍有跨日邊界案例 | 追蹤中 |
-| **F** | All | Dashboard 累積 Accuracy 歷史，追蹤各聯盟高信心準確率趨勢 | 持續進行 |
-| **G** | All | 評估更早歷史 odds / SP 回填來源 | 待辦 |
+| **A** | CPBL | 每日追蹤：`predict_today.py --verify` + `track_high_confidence_predictions.py` | 持續進行 |
+| **B** | CPBL | Platt re-fit：累積 ≥80 場後重算 A/B | 待辦 |
+| **C** | CPBL | SP multi-season prior：SP < 5 場時加入前一年/生涯 rolling | 待辦 |
+| **D** | MLB | 觀察 `schedule date ↔ result date` 是否仍有跨日邊界案例 | 追蹤中 |
+| **E** | All | Dashboard 累積 Accuracy 歷史，追蹤各聯盟高信心準確率趨勢 | 持續進行 |
+| **F** | All | 評估更早歷史 odds / SP 回填來源 | 待辦 |
 
 ---
 
@@ -110,7 +114,7 @@ Regime routing:
 
 | | CPBL | KBO | MLB | NPB |
 |---|---|---|---|---|
-| 準確率 | 72.7% | 55.77% | 56.7% | 54.65% |
+| 準確率 | 55.72% | 55.77% | 56.7% | 54.48% |
 | Platt scaling | A=1.45（待 re-fit） | 無 | 無 | 無 |
 | ELO_K | 52 | 48 | 8 | 52 |
 | home_adv | 20 | 10 | 25 | 10 |
@@ -168,6 +172,7 @@ python build_pitcher_features_npb.py
 - `npb_schedule_scraper.py` 負責比賽結果。
 - `npb_boxscore_scraper.py` 只抓先發投手，不負責結果。
 - 特徵重建必須加 `--include-scheduled`，否則未來賽程特徵會消失。
+- NPB 預測路由已分為 `early / fallback / primary`；若 `sp_available < 0.5`，會使用不含 SP 欄位的 fallback model。
 
 ---
 

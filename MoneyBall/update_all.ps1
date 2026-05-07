@@ -31,9 +31,12 @@ Log "[KBO] $out"
 
 # --- CPBL ---
 Log "[CPBL] 開始"
-Set-Location "$BaseDir\CPBL"
-$out = python cpbl_boxscore_scraper.py --start-year $Year --end-year $Year 2>&1
-Log "[CPBL] $out"
+Set-Location "$BaseDir"
+for ($i = 14; $i -ge 0; $i--) {
+    $TargetDate = (Get-Date).Date.AddDays(-$i).ToString("yyyy-MM-dd")
+    $out = python playsport_results_sync.py --league cpbl --date $TargetDate 2>&1
+    Log "[CPBL $TargetDate] $out"
+}
 
 # --- NPB (2 步驟: schedule → boxscore) ---
 Log "[NPB] schedule 開始"

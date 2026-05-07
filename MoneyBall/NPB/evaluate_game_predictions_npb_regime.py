@@ -58,6 +58,7 @@ BASE_FEATURES = [
     "vis_ra_pg",
 ]
 
+FALLBACK_FEATURES = BASE_FEATURES
 PRIMARY_FEATURES = BASE_FEATURES + [
     "diff_sp_era",
     "diff_sp_whip",
@@ -80,6 +81,7 @@ XGB_PARAMS = dict(
 )
 
 REGIME_FEATURES = {
+    "fallback": FALLBACK_FEATURES,
     "primary": PRIMARY_FEATURES,
 }
 
@@ -124,7 +126,7 @@ def is_early_season(row: dict) -> bool:
 def route_regime(row: dict) -> str:
     if is_early_season(row):
         return "early_baseline"
-    return "primary"
+    return "primary" if has_primary_pitcher_features(row) else "fallback"
 
 
 def as_float(value) -> float:
@@ -190,12 +192,13 @@ def evaluate_all(rows: list[dict]) -> None:
     all_rows = rows
 
     test_rows = [row for row in rows if int(row["season_year"]) >= TEST_START_YEAR]
-    test_rows.sort(key=lambda row: (row["game_date"], row["game_url"]))
+    test_rows.sort(key=lambda row: (row["game_date"], row.get("game_url") or ""))
 
     year_stats = defaultdict(lambda: {
         "total": 0,
         "correct": 0,
         "early_baseline": {"total": 0, "correct": 0},
+        "fallback": {"total": 0, "correct": 0},
         "primary": {"total": 0, "correct": 0},
     })
     conf_buckets = {0.60: [], 0.70: [], 0.80: []}
@@ -212,14 +215,21 @@ def evaluate_all(rows: list[dict]) -> None:
             if not train:
                 continue
 
+            fallback_train = [
+                train_row
+                for train_row in train
+                if not is_early_season(train_row)
+            ]
+            if not fallback_train:
+                continue
+            cached_models["fallback"] = fit_model(fallback_train, FALLBACK_FEATURES)
+
             primary_train = [
                 train_row
                 for train_row in train
-                if route_regime(train_row) == "primary" and has_primary_pitcher_features(train_row)
+                if route_regime(train_row) == "primary"
             ]
-            if not primary_train:
-                continue
-            cached_models["primary"] = fit_model(primary_train, PRIMARY_FEATURES)
+            cached_models["primary"] = fit_model(primary_train, PRIMARY_FEATURES) if primary_train else None
 
             early_train = [train_row for train_row in train if route_regime(train_row) == "early_baseline"]
             if len(early_train) >= EARLY_MIN_TRAIN_ROWS:
@@ -246,9 +256,14 @@ def evaluate_all(rows: list[dict]) -> None:
                 home_probability = float(lr.predict_proba(x_early)[0, 1])
             else:
                 home_probability = EARLY_BASELINE_PROBABILITY
-        else:
+        elif regime == "primary" and cached_models.get("primary") is not None:
             model, medians = cached_models["primary"]
             x_test = transform([row], PRIMARY_FEATURES, medians)
+            home_probability = float(model.predict_proba(x_test)[0, 1])
+        else:
+            regime = "fallback"
+            model, medians = cached_models["fallback"]
+            x_test = transform([row], FALLBACK_FEATURES, medians)
             home_probability = float(model.predict_proba(x_test)[0, 1])
 
         predicted_home_win = int(home_probability >= 0.5)
@@ -272,6 +287,7 @@ def evaluate_all(rows: list[dict]) -> None:
         total_correct += stats["correct"]
         total_games += stats["total"]
         early = stats["early_baseline"]
+        fallback = stats["fallback"]
         primary = stats["primary"]
         print(
             f"year={year} total={stats['total']} correct={stats['correct']} "
@@ -279,6 +295,8 @@ def evaluate_all(rows: list[dict]) -> None:
         )
         if early["total"]:
             print(f"  early_baseline: N={early['total']}   acc={early['correct'] / early['total']:.2%}")
+        if fallback["total"]:
+            print(f"  fallback:       N={fallback['total']}  acc={fallback['correct'] / fallback['total']:.2%}")
         if primary["total"]:
             print(f"  primary:        N={primary['total']}  acc={primary['correct'] / primary['total']:.2%}")
 
