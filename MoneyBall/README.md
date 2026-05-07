@@ -1,6 +1,6 @@
 # MoneyBall — 多聯盟棒球勝負預測系統
 
-**最後更新：2026-05-06（專案初始化 / 主線精簡 / Git 納管準備）**
+**最後更新：2026-05-07（SQLite 每日更新 + Windows Task Scheduler 排程）**
 
 ---
 
@@ -18,6 +18,13 @@ MoneyBall 是多聯盟棒球勝負預測與 Dashboard 追蹤系統，整合 `CPB
 ---
 
 ## 最新進度
+
+### 2026-05-07：SQLite 每日自動更新 + Task Scheduler
+
+- **MLB / KBO / NPB**：手動更新至 2026-05-06 完賽資料（MLB 新增 12 場 + 24 SP、NPB 補入 6 場）。
+- **Windows Task Scheduler**：建立 `MoneyBall_Update_14`（14:00）和 `MoneyBall_Update_22`（22:00）兩個每日排程，執行 `update_all.ps1`，自動更新四聯盟 SQLite，日誌存 `logs/update_YYYY-MM-DD.log`。
+- **CPBL scraper 重寫**：CPBL 網站改版，舊 `/box/getlive` 已消失；新 scraper 改用 `/home/getdetaillist`（按日期查詢）+ `/home/gamedetail`（單場詳情），並修正 `--refresh-range` 改為 upsert 而非先刪除（避免資料遺失）。
+- **CPBL 目前狀態**：網站 POST 全部回 307（疑似暫時性故障），待網站恢復後排程任務自動補回 2026 資料。
 
 ### 2026-05-06：專案初始化
 
@@ -50,12 +57,13 @@ MoneyBall 是多聯盟棒球勝負預測與 Dashboard 追蹤系統，整合 `CPB
 
 | 優先 | 聯盟 | 項目 | 狀態 |
 |---|---|---|---|
-| **A** | CPBL | 每日追蹤：`predict_today.py --verify` + `track_high_confidence_predictions.py` | 持續進行 |
-| **B** | CPBL | Platt re-fit：累積 ≥80 場後重算 A/B | 待辦 |
-| **C** | CPBL | SP multi-season prior：SP < 5 場時加入前一年/生涯 rolling | 待辦 |
-| **D** | MLB | 觀察 `schedule date ↔ result date` 是否仍有跨日邊界案例 | 追蹤中 |
-| **E** | All | Dashboard 累積 Accuracy 歷史，追蹤各聯盟高信心準確率趨勢 | 持續進行 |
-| **F** | All | 評估更早歷史 odds / SP 回填來源 | 待辦 |
+| **A** | CPBL | 確認網站恢復後排程自動補回 2026 資料 | 等待中 |
+| **B** | CPBL | 每日追蹤：`predict_today.py --verify` + `track_high_confidence_predictions.py` | 持續進行 |
+| **C** | CPBL | Platt re-fit：累積 ≥80 場後重算 A/B | 待辦 |
+| **D** | CPBL | SP multi-season prior：SP < 5 場時加入前一年/生涯 rolling | 待辦 |
+| **E** | MLB | 觀察 `schedule date ↔ result date` 是否仍有跨日邊界案例 | 追蹤中 |
+| **F** | All | Dashboard 累積 Accuracy 歷史，追蹤各聯盟高信心準確率趨勢 | 持續進行 |
+| **G** | All | 評估更早歷史 odds / SP 回填來源 | 待辦 |
 
 ---
 

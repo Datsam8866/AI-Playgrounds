@@ -3,7 +3,7 @@ import json
 import re
 import sqlite3
 import time
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import requests
@@ -14,6 +14,9 @@ DB_PATH = Path("cpbl.sqlite")
 SCHEMA_PATH = Path("cpbl_sqlite_schema.sql")
 TOKEN_RE = re.compile(r'name="__RequestVerificationToken" type="hidden" value="([^"]+)"')
 
+SEASON_START_MONTH = 3
+SEASON_END_MONTH = 10
+
 
 def now_text():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -23,28 +26,24 @@ def initialize_database(connection):
     connection.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
 
 
-def fetch_token(session, year, kind_code):
-    response = session.get(
-        f"{BASE_URL}/box",
-        params={"GameSno": 1, "KindCode": kind_code, "Year": year},
-        timeout=30,
-    )
+def fetch_token(session):
+    response = session.get(BASE_URL + "/", timeout=30)
     response.raise_for_status()
     match = TOKEN_RE.search(response.text)
     if not match:
-        raise RuntimeError(f"Unable to find CSRF token for year={year}, kind_code={kind_code}.")
+        raise RuntimeError("Unable to find CSRF token on CPBL homepage.")
     return match.group(1)
 
 
-def fetch_game_payload(session, token, year, game_sno, kind_code):
+def fetch_game_list(session, token, game_date_str, kind_code):
+    """POST /home/getdetaillist → list of game dicts for that date, or None on failure."""
     response = session.post(
-        f"{BASE_URL}/box/getlive",
+        f"{BASE_URL}/home/getdetaillist",
         data={
             "__RequestVerificationToken": token,
-            "GameSno": str(game_sno),
+            "GameSno": "",
             "KindCode": kind_code,
-            "Year": str(year),
-            "PrevOrNext": "",
+            "GameDate": game_date_str,
         },
         timeout=30,
         allow_redirects=False,
@@ -55,36 +54,46 @@ def fetch_game_payload(session, token, year, game_sno, kind_code):
         payload = response.json()
     except Exception:
         return None
-    raw = payload.get("GameDetailJson")
-    curt_raw = payload.get("CurtGameDetailJson")
-    if not raw and not curt_raw:
+    if not payload.get("Success"):
+        return None
+    raw = payload.get("GameADetailJson")
+    if not raw:
+        return []
+    try:
+        return json.loads(raw)
+    except Exception:
         return None
 
-    detail = None
-    if raw:
-        try:
-            rows = json.loads(raw)
-            if rows:
-                detail = rows[0]
-        except Exception:
-            detail = None
 
-    curt_detail = None
-    if curt_raw:
-        try:
-            curt_detail = json.loads(curt_raw)
-        except Exception:
-            curt_detail = None
-
-    if detail and curt_detail:
-        merged = dict(detail)
-        # CurtGameDetailJson is the live box summary and proved more reliable for
-        # current matchup / score fields than GameDetailJson on some 2026 games.
-        merged.update({k: v for k, v in curt_detail.items() if v not in (None, "")})
-        return merged
-    if curt_detail:
-        return curt_detail
-    return detail
+def fetch_game_detail(session, token, year, game_sno, kind_code, game_status):
+    """POST /home/gamedetail → CurtGameDetailJson dict, or None on failure."""
+    response = session.post(
+        f"{BASE_URL}/home/gamedetail",
+        data={
+            "__RequestVerificationToken": token,
+            "GameSno": str(game_sno),
+            "Year": str(year),
+            "KindCode": kind_code,
+            "GameStatus": str(game_status),
+        },
+        timeout=30,
+        allow_redirects=False,
+    )
+    if response.status_code != 200:
+        return None
+    try:
+        payload = response.json()
+    except Exception:
+        return None
+    if not payload.get("Success"):
+        return None
+    raw = payload.get("CurtGameDetailJson")
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except Exception:
+        return None
 
 
 def upsert_game_result(connection, year, kind_code, game_sno, payload):
@@ -123,52 +132,83 @@ def upsert_game_result(connection, year, kind_code, game_sno, payload):
     )
 
 
-def scrape_year(connection, session, year, kind_code, max_game_sno, sleep_seconds, max_consecutive_miss):
-    token = fetch_token(session, year, kind_code)
+def date_already_done(connection, year, kind_code, d):
+    """True if d is a past date that already has at least one completed game in DB."""
+    if d >= date.today():
+        return False
+    prefix = d.strftime("%Y-%m-%d")
+    row = connection.execute(
+        "SELECT COUNT(*) FROM team_game_results "
+        "WHERE season_year=? AND kind_code=? AND game_date LIKE ? AND game_status=3",
+        (year, kind_code, prefix + "%"),
+    ).fetchone()
+    return row[0] > 0
+
+
+def season_dates(year):
+    """Yield each calendar date in the CPBL season (March–October), up to today."""
+    start = date(year, SEASON_START_MONTH, 1)
+    end = min(date(year, SEASON_END_MONTH, 31), date.today())
+    d = start
+    while d <= end:
+        yield d
+        d += timedelta(days=1)
+
+
+def scrape_year(connection, session, year, kind_code, sleep_seconds, refresh):
+    token = fetch_token(session)
     hits = 0
     completed = 0
-    misses = 0
-    last_seen_sno = 0
 
-    for game_sno in range(1, max_game_sno + 1):
-        payload = fetch_game_payload(session, token, year, game_sno, kind_code)
-        if not payload:
-            misses += 1
-            if hits > 0 and misses >= max_consecutive_miss:
-                break
+    for d in season_dates(year):
+        if not refresh and date_already_done(connection, year, kind_code, d):
             continue
 
-        misses = 0
-        hits += 1
-        last_seen_sno = game_sno
-        upsert_game_result(connection, year, kind_code, game_sno, payload)
-        if int(payload.get("GameStatus") or 0) == 3:
-            completed += 1
+        date_str = d.strftime("%Y/%m/%d")
+        games = fetch_game_list(session, token, date_str, kind_code)
+        if games is None:
+            continue
+        if not games:
+            if sleep_seconds > 0:
+                time.sleep(sleep_seconds)
+            continue
 
+        for game in games:
+            game_sno = game.get("GameSno")
+            if not game_sno:
+                continue
+
+            game_status = int(game.get("GameStatus") or 0)
+            hits += 1
+
+            merged = dict(game)
+            if game_status in (2, 3, 8):
+                detail = fetch_game_detail(session, token, year, game_sno, kind_code, game_status)
+                if detail:
+                    merged.update({k: v for k, v in detail.items() if v not in (None, "")})
+                completed += 1
+                if sleep_seconds > 0:
+                    time.sleep(sleep_seconds)
+
+            upsert_game_result(connection, year, kind_code, game_sno, merged)
+
+        connection.commit()
         if sleep_seconds > 0:
             time.sleep(sleep_seconds)
 
-    connection.commit()
-    return {
-        "year": year,
-        "hits": hits,
-        "completed": completed,
-        "last_seen_sno": last_seen_sno,
-    }
+    return {"year": year, "hits": hits, "completed": completed}
 
 
 def main():
     parser = argparse.ArgumentParser(description="Scrape CPBL box score totals into SQLite.")
     parser.add_argument("--start-year", type=int, default=2011)
-    parser.add_argument("--end-year", type=int, default=2025)
+    parser.add_argument("--end-year", type=int, default=datetime.now().year)
     parser.add_argument("--kind-code", default="A")
-    parser.add_argument("--max-game-sno", type=int, default=450)
-    parser.add_argument("--sleep-seconds", type=float, default=0.05)
-    parser.add_argument("--max-consecutive-miss", type=int, default=40)
+    parser.add_argument("--sleep-seconds", type=float, default=0.1)
     parser.add_argument(
         "--refresh-range",
         action="store_true",
-        help="Delete existing rows for the selected year range before scraping.",
+        help="Re-scrape already-completed dates (upsert, does NOT delete).",
     )
     args = parser.parse_args()
 
@@ -176,20 +216,11 @@ def main():
     connection.execute("PRAGMA foreign_keys = ON")
     initialize_database(connection)
 
-    if args.refresh_range:
-        connection.execute(
-            "DELETE FROM team_game_results WHERE season_year BETWEEN ? AND ? AND kind_code = ?",
-            (args.start_year, args.end_year, args.kind_code),
-        )
-        connection.commit()
-
     session = requests.Session()
-    session.headers.update(
-        {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) CPBL-Boxscore-Scraper/1.0",
-            "Referer": f"{BASE_URL}/box",
-        }
-    )
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Referer": BASE_URL + "/",
+    })
 
     summaries = []
     try:
@@ -199,20 +230,16 @@ def main():
                 session=session,
                 year=year,
                 kind_code=args.kind_code,
-                max_game_sno=args.max_game_sno,
                 sleep_seconds=args.sleep_seconds,
-                max_consecutive_miss=args.max_consecutive_miss,
+                refresh=args.refresh_range,
             )
             summaries.append(summary)
-            print(
-                f"year={year} hits={summary['hits']} completed={summary['completed']} "
-                f"last_seen_sno={summary['last_seen_sno']}"
-            )
+            print(f"year={year} hits={summary['hits']} completed={summary['completed']}")
     finally:
         session.close()
         connection.close()
 
-    total_completed = sum(item["completed"] for item in summaries)
+    total_completed = sum(s["completed"] for s in summaries)
     print(f"saved_db={DB_PATH.resolve()}")
     print(f"years={len(summaries)}")
     print(f"completed_games={total_completed}")
