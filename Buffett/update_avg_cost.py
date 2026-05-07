@@ -5,12 +5,12 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 COSTS = {
-    "AMD":  240.98,
+    "AMD":  244.21,
     "ARM":  167.24,
     "AVGO": 268.84,
     "COHR": 333.67,
     "CRWD": 474.39,
-    "INTC":  64.83,
+    "INTC":  65.18,
     "LITE": 902.53,
     "MU":   586.45,
     "NET":  231.29,
