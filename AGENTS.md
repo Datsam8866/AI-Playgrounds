@@ -14,6 +14,8 @@ Claude 原始規則：CLAUDE.md
 Obsidian vault：C:\Users\dat_s\OneDrive\Documents\Obsidian Vault
 專案駕駛艙：AI Playgrounds/工作筆記.md
 收工時優先更新：AI Playgrounds/工作筆記.md
+House_Budget 子專案若從其目錄開工，只看：`House_Budget/AGENTS.md`
+Buffett 子專案請看子專案自己的 `Buffett/AGENTS.md`
 
 > 注意：專案駕駛艙是 Obsidian vault 裡的一篇筆記，不是工作資料夾裡的 Markdown 檔。
 
