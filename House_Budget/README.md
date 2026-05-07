@@ -1,6 +1,6 @@
 # House Budget SQLite 資料庫
 
-> 最後更新：2026-05-06（Dashboard 圖表改版）
+> 最後更新：2026-05-07（新增專案 AGENTS 與獨立工作筆記）
 
 將家庭記帳與旅遊預算 Excel 整合成單一 SQLite 資料庫，方便 SQL 查詢、月份比較與分類統計。
 
@@ -20,6 +20,7 @@
 | --- | --- |
 | `build_db.py` | 從 Excel 重建 SQLite 的匯入腳本 |
 | `generate_dashboard.py` | 從 SQLite 產生月度監控 HTML dashboard |
+| `AGENTS.md` | House_Budget 專案級規則與 Obsidian 駕駛艙入口 |
 | `house_budget.db` | SQLite 資料庫 |
 | `house_budget_dashboard.html` | 家庭收支月度監控 dashboard |
 | `AU Travel Budget.xlsx` | 澳洲旅遊費用（AUD/TWD），2024-11 至 2025-01 |
@@ -29,6 +30,13 @@
 ## 版本管理
 
 `House_Budget/` 已從上層 `.gitignore` 排除清單移除，可被 AI Playgrounds 主 repo 正常追蹤。`__pycache__/`、`.pyc` 等暫存檔仍由全域 Python 規則忽略。
+
+## 專案規則與工作筆記
+
+- 專案級規則：`AGENTS.md`
+- 即時記帳互動細節：`CLAUDE.md`
+- Obsidian 駕駛艙：`AI Playgrounds/HouseBudget工作筆記.md`
+- 若從 `House_Budget/` 開工，只看本專案 `AGENTS.md` 作為規則入口
 
 ## 重建資料庫
 
