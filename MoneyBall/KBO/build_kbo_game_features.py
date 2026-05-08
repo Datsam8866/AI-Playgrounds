@@ -467,6 +467,10 @@ def build_features(
                 "diff_split10_win_pct": diff(h_split10, a_split10, "win_pct"),
                 "diff_split5_rd_pg":    diff(h_split5,  a_split5,  "rd_per_game"),
                 "diff_split10_rd_pg":   diff(h_split10, a_split10, "rd_per_game"),
+                "diff_split5_rs_pg":    diff(h_split5,  a_split5,  "rs_per_game"),
+                "diff_split5_ra_pg":    diff(h_split5,  a_split5,  "ra_per_game"),
+                "diff_split10_rs_pg":   diff(h_split10, a_split10, "rs_per_game"),
+                "diff_split10_ra_pg":   diff(h_split10, a_split10, "ra_per_game"),
 
                 # 趨勢（5 場 vs 10 場）
                 "diff_trend_win_pct": diff(h5, a5, "win_pct") - diff(h10, a10, "win_pct")
@@ -594,6 +598,10 @@ def build_features(
                 "diff_split10_win_pct": diff(h_split10, a_split10, "win_pct"),
                 "diff_split5_rd_pg":    diff(h_split5,  a_split5,  "rd_per_game"),
                 "diff_split10_rd_pg":   diff(h_split10, a_split10, "rd_per_game"),
+                "diff_split5_rs_pg":    diff(h_split5,  a_split5,  "rs_per_game"),
+                "diff_split5_ra_pg":    diff(h_split5,  a_split5,  "ra_per_game"),
+                "diff_split10_rs_pg":   diff(h_split10, a_split10, "rs_per_game"),
+                "diff_split10_ra_pg":   diff(h_split10, a_split10, "ra_per_game"),
                 "diff_trend_win_pct": diff(h5, a5, "win_pct") - diff(h10, a10, "win_pct")
                     if (h5 and a5 and h10 and a10) else None,
                 "diff_trend_rd_pg":   diff(h5, a5, "rd_per_game") - diff(h10, a10, "rd_per_game")
@@ -641,6 +649,8 @@ CREATE TABLE game_features (
 
     diff_split5_win_pct REAL, diff_split10_win_pct REAL,
     diff_split5_rd_pg   REAL, diff_split10_rd_pg   REAL,
+    diff_split5_rs_pg   REAL, diff_split5_ra_pg    REAL,
+    diff_split10_rs_pg  REAL, diff_split10_ra_pg   REAL,
 
     diff_trend_win_pct REAL, diff_trend_rd_pg REAL,
 

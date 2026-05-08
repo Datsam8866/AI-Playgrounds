@@ -25,6 +25,7 @@ from pathlib import Path
 
 import numpy as np
 import xgboost as xgb
+from sklearn.linear_model import LogisticRegression
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
@@ -110,10 +111,10 @@ def shrink_early_probability(prob: float) -> float:
     return 0.5 + (prob - 0.5) * EARLY_PROB_SHRINK
 
 
-def platt_calibrate(p: float) -> float:
+def platt_calibrate(p: float, a: float = PLATT_A, b: float = PLATT_B) -> float:
     p = max(0.001, min(0.999, p))
     logit_p = log(p / (1.0 - p))
-    return 1.0 / (1.0 + exp(-(PLATT_A * logit_p + PLATT_B)))
+    return 1.0 / (1.0 + exp(-(a * logit_p + b)))
 
 
 def apply_confidence_guards(prob: float, weights: dict, row: dict) -> float:
@@ -576,6 +577,38 @@ def train_and_predict(train_rows: list[dict], pred_rows: list[dict]) -> list[dic
     pri_model = fit_xgb(pri_train, ADVANCED_PRIMARY_FEATURES) if pri_train else None
     early_model = fit_xgb(early_train, EARLY_FEATURES)
 
+    # ── Platt refit (if current season has enough completed games) ────────────
+    platt_a = PLATT_A
+    platt_b = PLATT_B
+    current_year = pred_rows[0].get("season_year") if pred_rows else None
+    season_rows = [r for r in train_rows if r.get("season_year") == current_year] if current_year else []
+    if len(season_rows) >= PLATT_REFIT_THRESHOLD:
+        logit_X = []
+        y_labels = []
+        for r in season_rows:
+            ep_raw = predict_xgb(early_model, r, EARLY_FEATURES)
+            ep = shrink_early_probability(ep_raw)
+            fp = predict_xgb(fb_model, r, ADVANCED_FALLBACK_FEATURES)
+            has_pri = pri_model is not None and pri_filter(r)
+            pp = predict_xgb(pri_model, r, ADVANCED_PRIMARY_FEATURES) if has_pri else None
+            w = soft_regime_weights(r, has_pri)
+            rp = w["early"] * ep + w["fallback"] * fp
+            if pp is not None:
+                rp += w["primary"] * pp
+            rp = max(0.001, min(0.999, rp))
+            logit_val = log(rp / (1.0 - rp))
+            logit_X.append([logit_val])
+            y_labels.append(int(r["home_win"]))
+        # Skip refit if only one class present
+        if len(set(y_labels)) == 2:
+            lr = LogisticRegression(C=1e9, solver="lbfgs", max_iter=1000, fit_intercept=True)
+            lr.fit(logit_X, y_labels)
+            platt_a = float(lr.coef_[0][0])
+            platt_b = float(lr.intercept_[0])
+            print(f"  [Platt refit] n={len(season_rows)}, A={platt_a:.4f}, B={platt_b:.4f}")
+        else:
+            print(f"  [Platt refit] skipped — single class in season_rows (n={len(season_rows)})")
+
     results = []
     for row in pred_rows:
         early_prob_raw = predict_xgb(early_model, row, EARLY_FEATURES)
@@ -590,7 +623,7 @@ def train_and_predict(train_rows: list[dict], pred_rows: list[dict]) -> list[dic
         raw_prob = weights["early"] * early_prob + weights["fallback"] * fallback_prob
         if primary_prob is not None:
             raw_prob += weights["primary"] * primary_prob
-        calibrated_prob = apply_confidence_guards(platt_calibrate(raw_prob), weights, row)
+        calibrated_prob = apply_confidence_guards(platt_calibrate(raw_prob, platt_a, platt_b), weights, row)
 
         results.append({
             **row,
