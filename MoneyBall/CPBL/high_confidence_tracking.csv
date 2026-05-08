@@ -1,0 +1,6 @@
+season_year,kind_code,game_date,game_sno,home_team_name,visiting_team_name,home_sp_name,visiting_sp_name,pred_side,predicted_team_name,actual_side,actual_team_name,prob_home_win,confidence,confidence_level,hit,model_used,sp_available,early_season
+2026,A,2026-04-24,33,統一獅,台鋼雄鷹,KUO Chun Lin,Andrew GAGNON,Vis,台鋼雄鷹,Home,統一獅,0.3459919185113942,0.6540080814886058,HIGH,0,advanced+SP,1,0
+2026,A,2026-04-25,37,中信兄弟,富邦悍將,YU Ting Wei,Marcelo MARTINEZ,Vis,富邦悍將,Home,中信兄弟,0.3963733113728236,0.6036266886271764,HIGH,0,advanced+SP,1,0
+2026,A,2026-04-25,38,樂天桃猿,味全龍,Nivaldo RODRIGUEZ,WANG Wei Chung,Home,樂天桃猿,Vis,味全龍,0.6261762137714557,0.6261762137714557,HIGH,0,advanced+SP,1,0
+2026,A,2026-04-29,41,味全龍,統一獅,David BUCHANAN,Pedro FERNANDEZ,Vis,統一獅,Home,味全龍,0.37496636892992796,0.625033631070072,HIGH,0,advanced+SP,1,0
+2026,A,2026-05-02,48,統一獅,樂天桃猿,KUO Yu Cheng,WEI Shuo Cheng,Vis,樂天桃猿,Home,統一獅,0.37683205586717616,0.6231679441328238,HIGH,0,advanced+SP,1,0

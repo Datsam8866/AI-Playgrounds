@@ -15,6 +15,7 @@ Outputs: mlb_walkforward.csv, mlb_model_report.md
 """
 
 import csv
+import argparse
 import sqlite3
 from collections import defaultdict
 from datetime import datetime
@@ -35,6 +36,7 @@ TEAM_BURN_IN    = 10
 STARTER_BURN_IN = 4
 EARLY_PROB_SHRINK = 0.55
 MIN_EARLY_TRAIN   = 100
+MIN_XGB_TRAIN     = 2
 
 ELO_BASE = 1500.0
 
@@ -127,6 +129,17 @@ def rest_days(last_d, cur_d):
 def nn(v, default=0.0):
     """None → default, else v."""
     return default if v is None else v
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--train-start",
+        type=int,
+        default=None,
+        help="Only use training rows with season_year >= this value.",
+    )
+    return parser.parse_args()
 
 
 # ---------------------------------------------------------------------------
@@ -409,15 +422,52 @@ def predict_xgb(model, row, features):
     return float(model.predict_proba(X)[0, 1])
 
 
+def can_fit_xgb(rows):
+    if len(rows) < MIN_XGB_TRAIN:
+        return False
+    labels = {r["home_win"] for r in rows}
+    return len(labels) >= 2
+
+
+def warn_elo_only(model_name, sample_size, reason):
+    print(
+        f"  Warning: {model_name} training unavailable "
+        f"(n={sample_size}, reason={reason}); fallback to Elo-only."
+    )
+
+
 def fit_models(train_rows):
     primary_train = [r for r in train_rows if r["sp_available"] > 0.5]
     early_train   = [r for r in train_rows if r["early_weight"] > 0.0]
     if len(early_train) < MIN_EARLY_TRAIN:
         early_train = train_rows
+
+    fallback_model = None
+    if can_fit_xgb(train_rows):
+        fallback_model = fit_xgb(train_rows, FALLBACK_FEATURES)
+    else:
+        reason = "too_few_rows" if len(train_rows) < MIN_XGB_TRAIN else "single_class"
+        warn_elo_only("fallback", len(train_rows), reason)
+
+    primary_model = None
+    if primary_train:
+        if can_fit_xgb(primary_train):
+            primary_model = fit_xgb(primary_train, PRIMARY_FEATURES)
+        else:
+            reason = "too_few_rows" if len(primary_train) < MIN_XGB_TRAIN else "single_class"
+            warn_elo_only("primary", len(primary_train), reason)
+
+    early_model = None
+    if can_fit_xgb(early_train):
+        early_model = fit_xgb(early_train, EARLY_FEATURES)
+    else:
+        reason = "too_few_rows" if len(early_train) < MIN_XGB_TRAIN else "single_class"
+        warn_elo_only("early", len(early_train), reason)
+
     return {
-        "fallback": fit_xgb(train_rows,   FALLBACK_FEATURES),
-        "primary":  fit_xgb(primary_train, PRIMARY_FEATURES) if primary_train else None,
-        "early":    fit_xgb(early_train,   EARLY_FEATURES),
+        "fallback": fallback_model,
+        "primary":  primary_model,
+        "early":    early_model,
     }
 
 
@@ -450,9 +500,18 @@ def apply_platt_scaler(scaler, prob):
 
 
 def soft_predict(models, row):
-    early_raw  = predict_xgb(models["early"],    row, EARLY_FEATURES)
-    early_prob = 0.5 + (early_raw - 0.5) * EARLY_PROB_SHRINK
-    fallback_prob = predict_xgb(models["fallback"], row, FALLBACK_FEATURES)
+    elo_prob = nn(row.get("elo_win_prob"), 0.5)
+
+    if models["early"] is not None:
+        early_raw  = predict_xgb(models["early"], row, EARLY_FEATURES)
+        early_prob = 0.5 + (early_raw - 0.5) * EARLY_PROB_SHRINK
+    else:
+        early_prob = elo_prob
+
+    if models["fallback"] is not None:
+        fallback_prob = predict_xgb(models["fallback"], row, FALLBACK_FEATURES)
+    else:
+        fallback_prob = elo_prob
 
     ew = row["early_weight"]
     fw = row["fallback_weight"]
@@ -467,12 +526,14 @@ def soft_predict(models, row):
 
     prob = ew * early_prob + fw * fallback_prob + pw * primary_prob
 
-    if ew >= 0.999:
-        label = "early"
+    if models["primary"] is None and models["fallback"] is None and models["early"] is None:
+        label = "elo_only"
+    elif ew >= 0.999:
+        label = "early" if models["early"] is not None else "early_elo_only"
     elif pw >= 0.999:
-        label = "primary"
+        label = "primary" if models["primary"] is not None else "primary_elo_only"
     elif fw >= 0.999:
-        label = "fallback"
+        label = "fallback" if models["fallback"] is not None else "fallback_elo_only"
     else:
         label = "soft_blend"
 
@@ -483,7 +544,7 @@ def soft_predict(models, row):
 # Walk-forward
 # ---------------------------------------------------------------------------
 
-def walkforward(all_rows):
+def walkforward(all_rows, train_start_year=None):
     all_results = []
     year_stats  = []
 
@@ -492,6 +553,8 @@ def walkforward(all_rows):
 
     for test_year in range(BACKTEST_START_YEAR, BACKTEST_END_YEAR + 1):
         train_rows = [r for r in all_rows if r["season_year"] <  test_year]
+        if train_start_year is not None:
+            train_rows = [r for r in train_rows if r["season_year"] >= train_start_year]
         test_rows  = [r for r in all_rows if r["season_year"] == test_year]
         if not train_rows or not test_rows:
             continue
@@ -542,17 +605,18 @@ def write_csv(results):
     print(f"\nSaved {len(results)} rows → {CSV_PATH}")
 
 
-def write_report(year_stats, results):
+def write_report(year_stats, results, train_start_year=None):
     total  = len(results)
     overall = sum(r["correct"] for r in results) / total if total else 0.0
     probs = [r["prob_home"] for r in results]
     cover_65 = sum(1 for p in probs if p >= 0.65) / total if total else 0.0
+    train_start_label = train_start_year if train_start_year is not None else 2011
 
     lines = [
         "# MLB Soft-regime XGBoost Walk-forward",
         "",
         f"Walk-forward: {BACKTEST_START_YEAR}–{BACKTEST_END_YEAR}  |  "
-        f"Train start: 2011  |  Three models: early / fallback / primary+SP",
+        f"Train start: {train_start_label}  |  Three models: early / fallback / primary+SP",
         "",
         "## Per-Year Accuracy",
         "",
@@ -588,6 +652,7 @@ def write_report(year_stats, results):
 # ---------------------------------------------------------------------------
 
 def main():
+    args = parse_args()
     conn = sqlite3.connect(DB_PATH)
     try:
         print("Building feature rows...")
@@ -595,10 +660,12 @@ def main():
         print(f"  Total rows: {len(all_rows)}")
         yrs = sorted({r["season_year"] for r in all_rows})
         print(f"  Years: {yrs[0]}–{yrs[-1]}")
+        if args.train_start is not None:
+            print(f"  Train start year filter: {args.train_start}+")
 
-        results, year_stats = walkforward(all_rows)
+        results, year_stats = walkforward(all_rows, train_start_year=args.train_start)
         write_csv(results)
-        write_report(year_stats, results)
+        write_report(year_stats, results, train_start_year=args.train_start)
     finally:
         conn.close()
     print("\nDone.")

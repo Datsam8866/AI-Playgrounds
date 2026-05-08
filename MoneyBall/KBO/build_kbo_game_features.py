@@ -94,12 +94,99 @@ def rest_days(last_date: str | None, today: str) -> int:
     return min((d1 - d0).days, REST_CAP)
 
 
+def build_park_context(conn) -> dict[int, dict]:
+    """Build prior-season park context keyed by season_year.
+
+    Each target season maps to cumulative regular-season stadium stats using only
+    seasons strictly before that year, keeping the feature walk-forward safe.
+    """
+    rows = conn.execute("""
+        SELECT season_year,
+               stadium,
+               COUNT(*) AS games,
+               SUM(home_score + away_score) AS total_runs,
+               SUM(CASE WHEN home_score > away_score THEN 1 ELSE 0 END) AS home_wins
+        FROM team_game_results
+        WHERE game_state = 3
+          AND sr_id = 0
+          AND away_score IS NOT NULL
+          AND home_score IS NOT NULL
+          AND stadium IS NOT NULL
+          AND stadium != ''
+        GROUP BY season_year, stadium
+        ORDER BY season_year, stadium
+    """).fetchall()
+
+    season_totals: dict[int, dict] = defaultdict(lambda: {
+        "league_games": 0,
+        "league_runs": 0,
+        "league_home_wins": 0,
+        "stadiums": defaultdict(lambda: {"games": 0, "runs": 0, "home_wins": 0}),
+    })
+
+    for season_year, stadium, games, total_runs, home_wins in rows:
+        bucket = season_totals[season_year]
+        bucket["league_games"] += games
+        bucket["league_runs"] += total_runs
+        bucket["league_home_wins"] += home_wins
+        bucket["stadiums"][stadium]["games"] += games
+        bucket["stadiums"][stadium]["runs"] += total_runs
+        bucket["stadiums"][stadium]["home_wins"] += home_wins
+
+    park_context: dict[int, dict] = {}
+    cum_league_games = 0
+    cum_league_runs = 0
+    cum_league_home_wins = 0
+    cum_stadiums: dict[str, dict] = defaultdict(lambda: {"games": 0, "runs": 0, "home_wins": 0})
+
+    for season_year in sorted(season_totals):
+        park_context[season_year] = {
+            "league_games": cum_league_games,
+            "league_runs": cum_league_runs,
+            "league_home_wins": cum_league_home_wins,
+            "stadiums": {stadium: stats.copy() for stadium, stats in cum_stadiums.items()},
+        }
+
+        bucket = season_totals[season_year]
+        cum_league_games += bucket["league_games"]
+        cum_league_runs += bucket["league_runs"]
+        cum_league_home_wins += bucket["league_home_wins"]
+        for stadium, stats in bucket["stadiums"].items():
+            cum_stadiums[stadium]["games"] += stats["games"]
+            cum_stadiums[stadium]["runs"] += stats["runs"]
+            cum_stadiums[stadium]["home_wins"] += stats["home_wins"]
+
+    return park_context
+
+
+def get_park_features(season_year: int, stadium: str | None, park_context: dict[int, dict]):
+    if not stadium:
+        return None, None
+
+    context = park_context.get(season_year)
+    if not context or context["league_games"] <= 0:
+        return None, None
+
+    stadium_stats = context["stadiums"].get(stadium)
+    if not stadium_stats or stadium_stats["games"] < 30:
+        return None, None
+
+    league_avg_rpg = context["league_runs"] / context["league_games"]
+    league_hw_rate = context["league_home_wins"] / context["league_games"]
+    if league_avg_rpg <= 0:
+        return None, None
+
+    stadium_avg_rpg = stadium_stats["runs"] / stadium_stats["games"]
+    stadium_hw_rate = stadium_stats["home_wins"] / stadium_stats["games"]
+    return stadium_avg_rpg / league_avg_rpg, stadium_hw_rate - league_hw_rate
+
+
 # ── load data ─────────────────────────────────────────────────────────────────
 
 def load_games(conn) -> list[dict]:
     rows = conn.execute("""
         SELECT game_id, season_year, sr_id, game_date,
-               away_code, home_code, away_score, home_score, start_time
+               away_code, home_code, away_score, home_score, start_time, stadium
         FROM team_game_results
         WHERE game_state = 3
           AND away_score IS NOT NULL AND home_score IS NOT NULL
@@ -107,7 +194,7 @@ def load_games(conn) -> list[dict]:
     """).fetchall()
 
     games = []
-    for game_id, yr, sr_id, date, away, home, as_, hs, start_time in rows:
+    for game_id, yr, sr_id, date, away, home, as_, hs, start_time, stadium in rows:
         if as_ == hs:
             continue  # 排除平局
         games.append({
@@ -121,6 +208,7 @@ def load_games(conn) -> list[dict]:
             "home_score": hs,
             "home_win":   1 if hs > as_ else 0,
             "start_time":  start_time,
+            "stadium":    stadium,
         })
     return games
 
@@ -260,7 +348,11 @@ def load_scheduled_games(target_date: date_cls, known_game_ids: set[str]) -> lis
     return scheduled
 
 
-def build_features(games: list[dict], scheduled_games: list[dict] | None = None) -> list[dict]:
+def build_features(
+    games: list[dict],
+    park_context: dict[int, dict],
+    scheduled_games: list[dict] | None = None,
+) -> list[dict]:
     # Elo 狀態
     elo: dict[str, float] = defaultdict(lambda: ELO_INIT)
     current_season: dict[str, int] = {}  # 每隊當前賽季
@@ -283,6 +375,7 @@ def build_features(games: list[dict], scheduled_games: list[dict] | None = None)
         yr   = g["season_year"]
         date = g["game_date"]
         sr   = g["sr_id"]
+        stadium = g.get("stadium")
 
         # 賽季初 Elo regression
         for team in (away, home):
@@ -332,6 +425,7 @@ def build_features(games: list[dict], scheduled_games: list[dict] | None = None)
             # 前季數據
             prev_h = season_records.get((yr - 1, home))
             prev_a = season_records.get((yr - 1, away))
+            park_factor, stadium_hwa = get_park_features(yr, stadium, park_context)
 
             def diff(a, b, key, default=None):
                 if a and b:
@@ -395,6 +489,8 @@ def build_features(games: list[dict], scheduled_games: list[dict] | None = None)
                     if (prev_h and prev_a) else None,
                 "prev_diff_pyth":    (prev_h["pyth"] - prev_a["pyth"])
                     if (prev_h and prev_a) else None,
+                "park_factor": park_factor,
+                "stadium_hwa": stadium_hwa,
             }
             features.append(row)
 
@@ -464,6 +560,7 @@ def build_features(games: list[dict], scheduled_games: list[dict] | None = None)
             a_sg = season_games.get((yr, away), 0)
             prev_h = season_records.get((yr - 1, home))
             prev_a = season_records.get((yr - 1, away))
+            park_factor, stadium_hwa = get_park_features(yr, g.get("stadium"), park_context)
 
             def diff(a, b, key, default=None):
                 if a and b:
@@ -513,6 +610,8 @@ def build_features(games: list[dict], scheduled_games: list[dict] | None = None)
                     if (prev_h and prev_a) else None,
                 "prev_diff_pyth":    (prev_h["pyth"] - prev_a["pyth"])
                     if (prev_h and prev_a) else None,
+                "park_factor": park_factor,
+                "stadium_hwa": stadium_hwa,
             }
             features.append(row)
 
@@ -550,6 +649,7 @@ CREATE TABLE game_features (
     home_season_games_before INTEGER, away_season_games_before INTEGER,
 
     prev_diff_win_pct REAL, prev_diff_rd_pg REAL, prev_diff_pyth REAL,
+    park_factor REAL, stadium_hwa REAL,
 
     -- SP features (filled by build_kbo_pitcher_features.py)
     home_sp_era_roll  REAL, home_sp_whip_roll REAL,
@@ -595,6 +695,7 @@ def main():
         print("載入比賽資料…")
         games = load_games(conn)
         print(f"  總場次（含季後賽，排除平局）: {len(games)}")
+        park_context = build_park_context(conn)
 
         scheduled = None
         if args.include_scheduled:
@@ -607,7 +708,7 @@ def main():
                 print(f"    {s['game_id']}: {s['away_code']} @ {s['home_code']}")
 
         print("計算 pre-game features…")
-        features = build_features(games, scheduled_games=scheduled)
+        features = build_features(games, park_context, scheduled_games=scheduled)
         completed_cnt = sum(1 for f in features if f["home_win"] is not None)
         scheduled_cnt = sum(1 for f in features if f["home_win"] is None)
         print(f"  有效 game_features（sr_id=0）: 完成 {completed_cnt}，排程 {scheduled_cnt}")
@@ -634,6 +735,23 @@ def main():
             GROUP BY season_year ORDER BY season_year
         """).fetchall():
             print(f"  {r[0]:<6} {r[1]:>6} {r[2]:>9}")
+
+        print(f"\n{'Stadium':<12} {'Games':>6} {'Park':>8} {'HWA':>8}")
+        for stadium, games_cnt, park_factor, stadium_hwa in conn.execute("""
+            SELECT tgr.stadium,
+                   COUNT(gf.park_factor) AS games_cnt,
+                   ROUND(AVG(gf.park_factor), 3) AS park_factor,
+                   ROUND(AVG(gf.stadium_hwa), 3) AS stadium_hwa
+            FROM game_features gf
+            JOIN team_game_results tgr ON tgr.game_id = gf.game_id
+            WHERE gf.home_win IS NOT NULL
+              AND gf.park_factor IS NOT NULL
+              AND tgr.stadium IS NOT NULL
+              AND tgr.stadium != ''
+            GROUP BY tgr.stadium
+            ORDER BY park_factor DESC, tgr.stadium
+        """).fetchall():
+            print(f"  {stadium:<12} {games_cnt:>6} {park_factor:>8} {stadium_hwa:>8}")
 
     finally:
         conn.close()

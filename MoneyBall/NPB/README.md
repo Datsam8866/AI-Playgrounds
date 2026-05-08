@@ -11,6 +11,16 @@
 
 ## NPB 專案
 
+### 最新進度（2026-05-08）
+
+#### SP FIP 特徵落地（`build_game_features_npb.py`）
+
+- 已新增 `home_sp_fip_roll`、`vis_sp_fip_roll`、`diff_sp_fip`，採最近 10 場有效先發（`ip_outs >= 3`）、不足 3 場則 `NULL`
+- FIP constant 改為每季使用 prior-season 歷史聯盟資料計算，避免看見當季未來資訊
+- rebuild 後 `game_features_npb` 共 `11,979` 筆、可用 `diff_sp_fip` 共 `6,272` 筆（完成賽事）
+- 2016–2026 的 `diff_sp_fip` 年均值大致接近 0，Spearman 對 `home_win` 多數為小幅負相關（方向符合「主場 SP FIP 較差時，主場勝率不應被錯誤抬高」）
+- 2011–2015 的 BIS 歷史先發資料存在大量純數字投手名（如 `0`、`1`），builder 已在載入時排除，避免把假投手歷史污染 FIP roll；因此早期年度的 FIP 覆蓋率仍有限
+
 ### 最新進度（2026-04-24）
 
 #### 模型結果（Walk-Forward 2016–2026，逐場滾動）
@@ -57,7 +67,7 @@
 | --- | --- | --- |
 | `team_game_results` | 25,000+ | 2006–2026 含 BIS 歷史資料 |
 | `game_starting_pitchers` | 33,000+ | 先發投手逐場成績 |
-| `game_features_npb` | 10,825 | Pre-game rolling stats（CL/PL 2011–2026） |
+| `game_features_npb` | 11,979 | Pre-game rolling stats（CL/PL 2011–2026，含新 SP FIP 欄位） |
 
 #### 爬蟲腳本
 

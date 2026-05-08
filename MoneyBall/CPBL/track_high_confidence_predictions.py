@@ -33,7 +33,7 @@ def side_label(is_home: bool) -> str:
 
 
 def confidence_level(confidence: float) -> str:
-    if confidence >= 0.600:
+    if confidence >= 0.650:
         return "HIGH"
     if confidence >= 0.550:
         return "MED"

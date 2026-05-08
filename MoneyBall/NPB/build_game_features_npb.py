@@ -29,6 +29,8 @@ TEAM_CODE_MAP = {
 
 TEAM_WINDOW = 20
 TEAM_MIN_GAMES = 10
+SP_WINDOW = 10
+SP_MIN_STARTS = 3
 ELO_K = 52.0
 ELO_HOME_ADVANTAGE = 10.0
 ELO_REGRESSION = 0.45
@@ -67,6 +69,9 @@ FEATURE_COLUMNS = [
     "diff_rest",
     "home_season_games_before",
     "vis_season_games_before",
+    "home_sp_fip_roll",
+    "vis_sp_fip_roll",
+    "diff_sp_fip",
     "diff_sp_era",
     "diff_sp_whip",
     "diff_sp_k9",
@@ -91,6 +96,22 @@ class Game:
     league_code: str | None
     game_url: str
     status: str
+
+
+@dataclass(frozen=True)
+class StartingPitcherStart:
+    season_year: int
+    game_date: date
+    game_url: str
+    team_code: str
+    pitcher_name: str
+    ip_outs: int
+    hits: int
+    hr: int
+    bb: int
+    hbp: int
+    strikeouts: int
+    earned_runs: int
 
 
 def normalize_team(code: str | None) -> str | None:
@@ -167,13 +188,185 @@ def rest_days(last_game_date: date | None, game_date: date) -> int:
     return max(0, min(10, (game_date - last_game_date).days))
 
 
+def safe_ratio(numerator: float, denominator: float) -> float | None:
+    if denominator <= 0:
+        return None
+    return numerator / denominator
+
+
+def calc_era(ip_outs: int, earned_runs: int) -> float | None:
+    return safe_ratio(27.0 * earned_runs, ip_outs)
+
+
+def calc_whip(ip_outs: int, hits: int, bb: int) -> float | None:
+    return safe_ratio(3.0 * (hits + bb), ip_outs)
+
+
+def calc_k9(ip_outs: int, strikeouts: int) -> float | None:
+    return safe_ratio(27.0 * strikeouts, ip_outs)
+
+
+def calc_fip(ip_outs: int, hr: int, bb: int, hbp: int, strikeouts: int, fip_constant: float | None) -> float | None:
+    if fip_constant is None:
+        return None
+    innings = ip_outs / 3.0
+    if innings <= 0:
+        return None
+    return ((13.0 * hr) + (3.0 * (bb + hbp)) - (2.0 * strikeouts)) / innings + fip_constant
+
+
+def summarize_pitcher_history(
+    history: list[StartingPitcherStart],
+    fip_constant: float | None,
+    window: int = SP_WINDOW,
+    min_starts: int = SP_MIN_STARTS,
+) -> dict | None:
+    subset = history[-window:]
+    if len(subset) < min_starts:
+        return None
+    ip_outs = sum(start.ip_outs for start in subset)
+    if ip_outs <= 0:
+        return None
+    hits = sum(start.hits for start in subset)
+    hr = sum(start.hr for start in subset)
+    bb = sum(start.bb for start in subset)
+    hbp = sum(start.hbp for start in subset)
+    strikeouts = sum(start.strikeouts for start in subset)
+    earned_runs = sum(start.earned_runs for start in subset)
+    return {
+        "starts": len(subset),
+        "era": calc_era(ip_outs, earned_runs),
+        "whip": calc_whip(ip_outs, hits, bb),
+        "k9": calc_k9(ip_outs, strikeouts),
+        "fip": calc_fip(ip_outs, hr, bb, hbp, strikeouts, fip_constant),
+    }
+
+
+def starter_team_code(team_side: str, home_code: str, away_code: str) -> str | None:
+    if team_side == "home":
+        return home_code
+    if team_side == "away":
+        return away_code
+    return None
+
+
+def is_valid_pitcher_name(name: str | None) -> bool:
+    if name is None:
+        return False
+    normalized = name.strip()
+    return bool(normalized) and not normalized.isdigit()
+
+
+def compute_fip_constants_by_season(starts: list[StartingPitcherStart]) -> dict[int, float | None]:
+    season_totals: dict[int, dict[str, int]] = defaultdict(
+        lambda: {"ip_outs": 0, "earned_runs": 0, "hr": 0, "bb": 0, "hbp": 0, "strikeouts": 0}
+    )
+    for start in starts:
+        if start.ip_outs <= 0:
+            continue
+        totals = season_totals[start.season_year]
+        totals["ip_outs"] += start.ip_outs
+        totals["earned_runs"] += start.earned_runs
+        totals["hr"] += start.hr
+        totals["bb"] += start.bb
+        totals["hbp"] += start.hbp
+        totals["strikeouts"] += start.strikeouts
+
+    cumulative = {"ip_outs": 0, "earned_runs": 0, "hr": 0, "bb": 0, "hbp": 0, "strikeouts": 0}
+    constants: dict[int, float | None] = {}
+    for season_year in sorted(season_totals):
+        ip_outs = cumulative["ip_outs"]
+        if ip_outs <= 0:
+            constants[season_year] = None
+        else:
+            innings = ip_outs / 3.0
+            league_era = (27.0 * cumulative["earned_runs"]) / ip_outs
+            fip_core = (
+                (13.0 * cumulative["hr"])
+                + (3.0 * (cumulative["bb"] + cumulative["hbp"]))
+                - (2.0 * cumulative["strikeouts"])
+            ) / innings
+            constants[season_year] = league_era - fip_core
+        for key, value in season_totals[season_year].items():
+            cumulative[key] += value
+    return constants
+
+
+def load_starting_pitchers(
+    conn: sqlite3.Connection,
+) -> tuple[dict[str, dict[str, StartingPitcherStart]], dict[int, float | None]]:
+    rows = conn.execute(
+        """
+        SELECT gsp.season_year,
+               tgr.game_date,
+               gsp.game_url,
+               gsp.team_code AS team_side,
+               tgr.home_code,
+               tgr.away_code,
+               tgr.status,
+               tgr.league_code,
+               gsp.pitcher_name,
+               gsp.ip_outs,
+               gsp.hits,
+               gsp.hr,
+               gsp.bb,
+               gsp.hbp,
+               gsp.strikeouts,
+               gsp.earned_runs
+        FROM game_starting_pitchers gsp
+        JOIN team_game_results tgr
+          ON tgr.game_url = gsp.game_url
+        ORDER BY tgr.game_date ASC, gsp.game_url ASC, gsp.team_code ASC
+        """
+    ).fetchall()
+
+    starters_by_game: dict[str, dict[str, StartingPitcherStart]] = defaultdict(dict)
+    completed_starts: list[StartingPitcherStart] = []
+    for row in rows:
+        home_code = normalize_team(row["home_code"])
+        away_code = normalize_team(row["away_code"])
+        team_code = starter_team_code(row["team_side"], home_code or "", away_code or "")
+        if team_code not in TEAM_CODES:
+            continue
+        league_code = league_for(home_code, away_code, row["league_code"])
+        if league_code not in VALID_LEAGUES:
+            continue
+        if not is_valid_pitcher_name(row["pitcher_name"]):
+            continue
+        start = StartingPitcherStart(
+            season_year=row["season_year"],
+            game_date=parse_date(row["game_date"]),
+            game_url=row["game_url"],
+            team_code=team_code,
+            pitcher_name=row["pitcher_name"],
+            ip_outs=row["ip_outs"] or 0,
+            hits=row["hits"] or 0,
+            hr=row["hr"] or 0,
+            bb=row["bb"] or 0,
+            hbp=row["hbp"] or 0,
+            strikeouts=row["strikeouts"] or 0,
+            earned_runs=row["earned_runs"] or 0,
+        )
+        starters_by_game[start.game_url][row["team_side"]] = start
+        if row["status"] == "completed":
+            completed_starts.append(start)
+    return starters_by_game, compute_fip_constants_by_season(completed_starts)
+
+
 class GameState:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        starters_by_game: dict[str, dict[str, StartingPitcherStart]],
+        fip_constants_by_season: dict[int, float | None],
+    ) -> None:
         self.elo = {team: 1500.0 for team in TEAM_CODES}
         self.histories: dict[tuple[int, str], list[dict]] = defaultdict(list)
+        self.pitcher_histories: dict[tuple[str, str], list[StartingPitcherStart]] = defaultdict(list)
         self.last_dates: dict[str, date] = {}
         self.current_season: int | None = None
         self.processed_completed_games = 0
+        self.starters_by_game = starters_by_game
+        self.fip_constants_by_season = fip_constants_by_season
 
     def maybe_advance_season(self, season_year: int) -> None:
         if self.current_season is None:
@@ -206,6 +399,26 @@ class GameState:
         away_streak = streak_value(away_history)
         home_rest = rest_days(self.last_dates.get(game.home_code), game.game_date)
         away_rest = rest_days(self.last_dates.get(game.away_code), game.game_date)
+        current_fip_constant = self.fip_constants_by_season.get(game.season_year)
+        game_starters = self.starters_by_game.get(game.game_url, {})
+        home_start = game_starters.get("home")
+        away_start = game_starters.get("away")
+        home_sp = (
+            summarize_pitcher_history(
+                self.pitcher_histories[(home_start.team_code, home_start.pitcher_name)],
+                current_fip_constant,
+            )
+            if home_start
+            else None
+        )
+        away_sp = (
+            summarize_pitcher_history(
+                self.pitcher_histories[(away_start.team_code, away_start.pitcher_name)],
+                current_fip_constant,
+            )
+            if away_start
+            else None
+        )
 
         row = {
             "game_url": game.game_url,
@@ -251,10 +464,29 @@ class GameState:
             "diff_rest": home_rest - away_rest,
             "home_season_games_before": len(home_history),
             "vis_season_games_before": len(away_history),
-            "diff_sp_era": None,
-            "diff_sp_whip": None,
-            "diff_sp_k9": None,
-            "sp_available": 0,
+            "home_sp_fip_roll": home_sp["fip"] if home_sp else None,
+            "vis_sp_fip_roll": away_sp["fip"] if away_sp else None,
+            "diff_sp_fip": (
+                home_sp["fip"] - away_sp["fip"]
+                if home_sp and away_sp and home_sp["fip"] is not None and away_sp["fip"] is not None
+                else None
+            ),
+            "diff_sp_era": (
+                home_sp["era"] - away_sp["era"]
+                if home_sp and away_sp and home_sp["era"] is not None and away_sp["era"] is not None
+                else None
+            ),
+            "diff_sp_whip": (
+                home_sp["whip"] - away_sp["whip"]
+                if home_sp and away_sp and home_sp["whip"] is not None and away_sp["whip"] is not None
+                else None
+            ),
+            "diff_sp_k9": (
+                home_sp["k9"] - away_sp["k9"]
+                if home_sp and away_sp and home_sp["k9"] is not None and away_sp["k9"] is not None
+                else None
+            ),
+            "sp_available": int(home_sp is not None and away_sp is not None),
             "home_win": game.home_win,
         }
         return row
@@ -279,6 +511,9 @@ class GameState:
         self.elo[game.away_code] += ELO_K * (actual_away - (1.0 - expected_home))
         self.last_dates[game.home_code] = game.game_date
         self.last_dates[game.away_code] = game.game_date
+        for start in self.starters_by_game.get(game.game_url, {}).values():
+            if start.ip_outs >= 3:
+                self.pitcher_histories[(start.team_code, start.pitcher_name)].append(start)
         self.processed_completed_games += 1
 
 
@@ -374,6 +609,9 @@ def create_table(conn: sqlite3.Connection) -> None:
             diff_rest INTEGER,
             home_season_games_before INTEGER,
             vis_season_games_before INTEGER,
+            home_sp_fip_roll REAL,
+            vis_sp_fip_roll REAL,
+            diff_sp_fip REAL,
             diff_sp_era REAL,
             diff_sp_whip REAL,
             diff_sp_k9 REAL,
@@ -382,6 +620,15 @@ def create_table(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    existing_columns = {row["name"] for row in conn.execute("PRAGMA table_info(game_features_npb)").fetchall()}
+    required_columns = {
+        "home_sp_fip_roll": "REAL",
+        "vis_sp_fip_roll": "REAL",
+        "diff_sp_fip": "REAL",
+    }
+    for column_name, column_type in required_columns.items():
+        if column_name not in existing_columns:
+            conn.execute(f"ALTER TABLE game_features_npb ADD COLUMN {column_name} {column_type}")
     conn.commit()
 
 
@@ -410,7 +657,13 @@ def insert_rows(conn: sqlite3.Connection, rows: Iterable[dict]) -> int:
 
 
 def build_features(games: list[Game], target_year: int | None, include_scheduled: bool) -> tuple[list[dict], GameState]:
-    state = GameState()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        starters_by_game, fip_constants_by_season = load_starting_pitchers(conn)
+    finally:
+        conn.close()
+    state = GameState(starters_by_game, fip_constants_by_season)
     rows = []
     for game in games:
         state.maybe_advance_season(game.season_year)

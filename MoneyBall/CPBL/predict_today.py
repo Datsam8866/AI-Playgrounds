@@ -69,7 +69,7 @@ PLATT_B = -0.056832
 CONFIDENCE_CAP = 0.85      # 建議1: 阻止 Platt 產生假極端信心（歷史前60場從未出現0.90+）
 SP_FULL_STARTS = 15        # 建議2: SP需要此出賽數才給完整路由權重
 SP_FULL_SHRINK = 0.70      # 建議2: SP active但出賽<SP_FULL_STARTS時，信心收縮至70%
-PLATT_REFIT_THRESHOLD = 80 # 建議3: 累積此場次後觸發 Platt re-fit 提示
+PLATT_REFIT_THRESHOLD = 150 # n≥150 才有足夠樣本做可靠 Platt re-fit（DeepSeek 統計驗證）
 
 # Rolling windows for team stats
 TEAM_WINDOW = 20      # long-form baseline
@@ -95,6 +95,7 @@ ADVANCED_PRIMARY_FEATURES = ADVANCED_FALLBACK_FEATURES + [
     "diff_sp_era", "diff_sp_whip", "diff_sp_k9",
     "diff_sp_ip", "sp_available",
     # sp_ip_available removed: r=1.000 with sp_available, completely redundant
+    # diff_sp_era_z deferred: requires running z-score in GameState (look-ahead-safe)
 ]
 
 EARLY_FEATURES = [
@@ -644,7 +645,7 @@ def format_report(target: date, predictions: list[dict], verify: bool, conn) -> 
     for p in predictions:
         prob = p["prob_home_win"]
         pred = "Home" if prob >= 0.5 else "Vis"
-        conf = "HIGH" if prob >= 0.60 or prob <= 0.40 else ("MED" if prob >= 0.55 or prob <= 0.45 else "LOW")
+        conf = "HIGH" if prob >= 0.65 or prob <= 0.35 else ("MED" if prob >= 0.55 or prob <= 0.45 else "LOW")
         hn = TEAM_NAMES.get(p["home_team"], p["home_team"])
         vn = TEAM_NAMES.get(p["vis_team"],  p["vis_team"])
         sp_h = (p.get("home_sp_name") or "TBD")[:20]
@@ -750,7 +751,7 @@ def main():
         for p in predictions:
             prob = p["prob_home_win"]
             pred = "Home" if prob >= 0.5 else "Vis"
-            conf = "HIGH" if abs(prob - 0.5) >= 0.10 else ("MED" if abs(prob - 0.5) >= 0.05 else "LOW")
+            conf = "HIGH" if abs(prob - 0.5) >= 0.15 else ("MED" if abs(prob - 0.5) >= 0.05 else "LOW")
             hn = TEAM_NAMES.get(p["home_team"], p["home_team"])
             vn = TEAM_NAMES.get(p["vis_team"],  p["vis_team"])
             if p.get("early_weight", 0) > 0:

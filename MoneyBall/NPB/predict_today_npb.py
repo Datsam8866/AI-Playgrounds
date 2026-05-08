@@ -55,6 +55,7 @@ PRIMARY_FEATURES = FALLBACK_FEATURES + [
     "diff_sp_era",
     "diff_sp_whip",
     "diff_sp_k9",
+    "diff_sp_fip",
     "sp_available",
 ]
 

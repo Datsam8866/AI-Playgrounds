@@ -63,6 +63,7 @@ PRIMARY_FEATURES = BASE_FEATURES + [
     "diff_sp_era",
     "diff_sp_whip",
     "diff_sp_k9",
+    "diff_sp_fip",
     "sp_available",
 ]
 
@@ -229,7 +230,12 @@ def evaluate_all(rows: list[dict]) -> None:
                 for train_row in train
                 if route_regime(train_row) == "primary"
             ]
-            cached_models["primary"] = fit_model(primary_train, PRIMARY_FEATURES) if primary_train else None
+            primary_labels = {int(r["home_win"]) for r in primary_train}
+            cached_models["primary"] = (
+                fit_model(primary_train, PRIMARY_FEATURES)
+                if primary_train and len(primary_labels) > 1
+                else None
+            )
 
             early_train = [train_row for train_row in train if route_regime(train_row) == "early_baseline"]
             if len(early_train) >= EARLY_MIN_TRAIN_ROWS:
