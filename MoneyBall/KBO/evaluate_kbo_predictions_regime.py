@@ -73,6 +73,8 @@ PRIMARY_FEATURES = FALLBACK_FEATURES + [
     "diff_sp_era", "diff_sp_whip", "diff_sp_k9", "diff_sp_ip",
     "sp_available",
     "park_factor", "stadium_hwa",
+    "diff_split5_rs_pg", "diff_split5_ra_pg",
+    "diff_split10_rs_pg", "diff_split10_ra_pg",
 ]
 
 if hasattr(sys.stdout, "reconfigure"):

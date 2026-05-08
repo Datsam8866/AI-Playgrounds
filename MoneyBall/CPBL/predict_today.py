@@ -96,7 +96,7 @@ ADVANCED_PRIMARY_FEATURES = ADVANCED_FALLBACK_FEATURES + [
     "diff_sp_era", "diff_sp_whip", "diff_sp_k9",
     "diff_sp_ip", "diff_sp_bb9", "sp_available",
     # sp_ip_available removed: r=1.000 with sp_available, completely redundant
-    # diff_sp_era_z deferred: requires running z-score in GameState (look-ahead-safe)
+    # diff_sp_era_z reverted: 6-team league ERA too noisy for z-score, -0.39pp
 ]
 
 EARLY_FEATURES = [
