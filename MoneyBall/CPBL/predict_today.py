@@ -41,7 +41,7 @@ TEAM_NAMES = {
 
 # ── Model params (same as evaluate_game_predictions_advanced.py) ─────────────
 ELO_K = 52
-ELO_REGRESSION = 0.45
+ELO_REGRESSION = 0.35  # 6-team league: high roster continuity, less regression needed
 ELO_HOME_ADV = 20  # A/B experiment 2026-04-28: adv=20 beats adv=10 on ECE (0.0562 vs 0.0608)
 LOGISTIC_L2 = 3.0
 TRAIN_START_YEAR = 2013
@@ -77,7 +77,7 @@ SP_WINDOW = 10        # pitcher rolling window
 SP_MIN_STARTS = 5
 
 # League-average prior for SP blending (2013–2025 CPBL regular season, kind_code='A')
-LEAGUE_SP_PRIOR = {"era": 5.50, "whip": 1.64, "k9": 6.82, "ip": 5.43}
+LEAGUE_SP_PRIOR = {"era": 5.50, "whip": 1.64, "k9": 6.82, "ip": 5.43, "bb9": 3.50}
 
 ADVANCED_FALLBACK_FEATURES = [
     "diff_win_pct", "diff_rs", "diff_ra", "diff_rd", "diff_pyth_wp",
@@ -93,7 +93,7 @@ ADVANCED_FALLBACK_FEATURES = [
 ]
 ADVANCED_PRIMARY_FEATURES = ADVANCED_FALLBACK_FEATURES + [
     "diff_sp_era", "diff_sp_whip", "diff_sp_k9",
-    "diff_sp_ip", "sp_available",
+    "diff_sp_ip", "diff_sp_bb9", "sp_available",
     # sp_ip_available removed: r=1.000 with sp_available, completely redundant
     # diff_sp_era_z deferred: requires running z-score in GameState (look-ahead-safe)
 ]
@@ -236,6 +236,7 @@ def sp_rolling(history, window=SP_WINDOW, min_starts=SP_MIN_STARTS, prior=None):
         "whip": (tbb + th) / tip,
         "k9":   tk  * 9 / tip,
         "ip":   tip / n,
+        "bb9":  tbb * 9 / tip,
     }
     if n >= min_starts:
         return observed
@@ -391,6 +392,7 @@ class GameState:
             row["diff_sp_whip"]     = v_sp["whip"] - h_sp["whip"]
             row["diff_sp_k9"]       = h_sp["k9"]   - v_sp["k9"]
             row["diff_sp_ip"]       = h_sp["ip"]   - v_sp["ip"]
+            row["diff_sp_bb9"]      = v_sp["bb9"]  - h_sp["bb9"]  # positive = home better control
             row["sp_available"]     = 1.0
             row["sp_ip_available"]  = 1.0
         else:
@@ -398,6 +400,7 @@ class GameState:
             row["diff_sp_whip"] = 0.0
             row["diff_sp_k9"]   = 0.0
             row["diff_sp_ip"]   = 0.0
+            row["diff_sp_bb9"]  = 0.0
             row["sp_available"] = 0.0
             row["sp_ip_available"] = 0.0
 

@@ -31,6 +31,7 @@ REPORT_PATH = Path("mlb_model_report.md")
 
 BACKTEST_START_YEAR = 2014
 BACKTEST_END_YEAR   = 2026
+ROLLING_WINDOW_YEARS = 5  # train on 5 seasons before test year (concept drift guard)
 
 TEAM_BURN_IN    = 10
 STARTER_BURN_IN = 4
@@ -56,7 +57,7 @@ FALLBACK_FEATURES = [
     "diff_split10_win_pct", "diff_split10_rd_pg",
     "diff_trend_win_pct", "diff_trend_rd_pg",
     "home_rest", "vis_rest", "diff_rest", "diff_streak",
-    "universal_dh_era", "coors_field_factor", "is_interleague",
+    "universal_dh_era", "coors_field_factor", "is_interleague", "is_pitch_clock_era",
     "home_park_factor", "series_game_no",
     "diff_pyth_residual", "diff_elo_momentum",
 ]
@@ -340,6 +341,7 @@ def build_rows(conn, cutoff_date=None):
                 "universal_dh_era":   nn(gf.get("universal_dh_era")),
                 "coors_field_factor": nn(gf.get("coors_field_factor")),
                 "is_interleague":     nn(gf.get("is_interleague")),
+                "is_pitch_clock_era": 1.0 if season_year >= 2023 else 0.0,
                 "sp_available":       sp_avail,
                 "diff_sp_era":        nn(gf.get("diff_sp_era")),
                 "diff_sp_whip":       nn(gf.get("diff_sp_whip")),
@@ -544,7 +546,7 @@ def soft_predict(models, row):
 # Walk-forward
 # ---------------------------------------------------------------------------
 
-def walkforward(all_rows, train_start_year=None):
+def walkforward(all_rows, train_start_year=None, rolling_window=False):
     all_results = []
     year_stats  = []
 
@@ -552,8 +554,10 @@ def walkforward(all_rows, train_start_year=None):
     print("  " + "-" * 42)
 
     for test_year in range(BACKTEST_START_YEAR, BACKTEST_END_YEAR + 1):
-        train_rows = [r for r in all_rows if r["season_year"] <  test_year]
-        if train_start_year is not None:
+        train_rows = [r for r in all_rows if r["season_year"] < test_year]
+        if rolling_window:
+            train_rows = [r for r in train_rows if r["season_year"] >= test_year - ROLLING_WINDOW_YEARS]
+        elif train_start_year is not None:
             train_rows = [r for r in train_rows if r["season_year"] >= train_start_year]
         test_rows  = [r for r in all_rows if r["season_year"] == test_year]
         if not train_rows or not test_rows:

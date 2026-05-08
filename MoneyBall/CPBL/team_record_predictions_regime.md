@@ -31,8 +31,8 @@ Window: `2026-04-01` to `2026-05-06`
 
 | Model | Games | Correct | Accuracy |
 | --- | ---: | ---: | ---: |
-| current advanced ensemble | 55 | 24 | 43.64% |
-| regime model | 55 | 23 | 41.82% |
+| current advanced ensemble | 55 | 25 | 45.45% |
+| regime model | 55 | 26 | 47.27% |
 
 - Games with non-zero early weight in this window: `30 / 55`
 
@@ -42,8 +42,8 @@ Window: `2026-04-08` to `2026-05-06`
 
 | Model | Games | Correct | Accuracy |
 | --- | ---: | ---: | ---: |
-| current advanced ensemble | 55 | 24 | 43.64% |
-| regime model | 55 | 23 | 41.82% |
+| current advanced ensemble | 55 | 25 | 45.45% |
+| regime model | 55 | 26 | 47.27% |
 
 - Games with non-zero early weight in this window: `30 / 55`
 
@@ -52,6 +52,6 @@ Window: `2026-04-08` to `2026-05-06`
 | Metric | Value |
 | --- | ---: |
 | Games | 2771 |
-| Accuracy | 55.72% |
+| Accuracy | 55.97% |
 | Games with non-zero early weight | 243 |
 
