@@ -23,6 +23,31 @@ from pathlib import Path
 
 import numpy as np
 import xgboost as xgb
+from sklearn.linear_model import LogisticRegression
+
+
+def _logit(p: float) -> float:
+    p = max(1e-6, min(1 - 1e-6, p))
+    return float(np.log(p / (1 - p)))
+
+
+def fit_platt(raw_probs: list, actuals: list):
+    """Fit Platt scaler. Returns LogisticRegression or None if insufficient data."""
+    if len(raw_probs) < 50:
+        return None
+    y = np.array(actuals, dtype=int)
+    if len(set(y)) < 2:
+        return None
+    X = np.array([_logit(p) for p in raw_probs]).reshape(-1, 1)
+    lr = LogisticRegression(C=1e9, solver="lbfgs", max_iter=1000, random_state=42)
+    lr.fit(X, y)
+    return lr
+
+
+def apply_platt(scaler, prob: float) -> float:
+    if scaler is None:
+        return prob
+    return float(scaler.predict_proba([[_logit(prob)]])[0, 1])
 
 DB_PATH            = Path("kbo.sqlite")
 REPORT_PATH        = Path("kbo_regime_benchmark.md")
@@ -199,12 +224,25 @@ def evaluate_walkforward(all_rows: list[dict]) -> dict:
         if not train or not test:
             continue
 
+        # Platt calibration：用 Y-1 年做校準集
+        calib_rows = [r for r in train if r["season_year"] == yr - 1]
+        pretrain_rows = [r for r in train if r["season_year"] < yr - 1]
+        platt_scaler = None
+        if pretrain_rows and calib_rows:
+            pretrain_models = train_models(pretrain_rows)
+            calib_probs   = [predict_one(pretrain_models, r)[0] for r in calib_rows]
+            calib_actuals = [r["home_win"] for r in calib_rows]
+            platt_scaler  = fit_platt(calib_probs, calib_actuals)
+
         models = train_models(train)
         yr_correct = 0
         yr_model_counts = {"early": 0, "primary": 0, "fallback": 0}
+        yr_hc65_n = 0
+        yr_hc65_hit = 0
 
         for row in test:
             prob, model_used = predict_one(models, row)
+            prob = apply_platt(platt_scaler, prob)
             pred = 1 if prob >= 0.5 else 0
             ok   = int(pred == row["home_win"])
             yr_correct += ok
@@ -220,6 +258,11 @@ def evaluate_walkforward(all_rows: list[dict]) -> dict:
                     buckets[thr][0] += ok
                     buckets[thr][1] += 1
 
+            # p>0.65 per-year tracking
+            if conf >= 0.65:
+                yr_hc65_n += 1
+                yr_hc65_hit += ok
+
         results_by_year[yr] = {
             "games":    len(test),
             "correct":  yr_correct,
@@ -230,6 +273,8 @@ def evaluate_walkforward(all_rows: list[dict]) -> dict:
               f"  (early={yr_model_counts.get('early',0)} "
               f"primary={yr_model_counts.get('primary',0)} "
               f"fallback={yr_model_counts.get('fallback',0)})")
+        hc65_acc = yr_hc65_hit / yr_hc65_n if yr_hc65_n else float('nan')
+        print(f"        p>0.65: N={yr_hc65_n}, acc={hc65_acc:.1%}" if yr_hc65_n else "        p>0.65: N=0")
 
     baseline = home_baseline(test_rows_all)
 
