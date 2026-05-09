@@ -1,6 +1,6 @@
 # MoneyBall — 多聯盟棒球勝負預測系統
 
-**最後更新：2026-05-07（歷史資料補齊 + Walk-forward 重新評估）**
+**最後更新：2026-05-09（Dashboard 四聯盟快取刷新）**
 
 ---
 
@@ -18,6 +18,19 @@ MoneyBall 是多聯盟棒球勝負預測與 Dashboard 追蹤系統，整合 `CPB
 ---
 
 ## 最新進度
+
+### 2026-05-09：Dashboard 四聯盟快取刷新
+
+- 透過 Dashboard API 重新刷新 `2026-05-09` 四聯盟快取：MLB 15 場、KBO 5 場、NPB 6 場、CPBL 3 場。
+- 四聯盟快取皆已建立於 `dashboard/data/*_2026-05-09.json`，Odds Source 皆為 `playsport.cc`，且 `has_live_odds=True`。
+- 已在本機 Dashboard `http://localhost:5555` 驗證 `2026-05-09` 不再顯示「尚未建立快取」，四聯盟頁面皆可載入今日預測。
+
+### 2026-05-08：Dashboard 資料刷新 + MLB live 特徵同步修正
+
+- 執行 `update_all.ps1` 更新四聯盟每日資料；MLB / KBO 無新增完賽資料，CPBL 最近 15 天 playsport 同步成功，NPB schedule 已確認 2026 排程。
+- 透過 Dashboard API 重新刷新 `2026-05-08` 四聯盟快取：MLB 15 場、KBO 5 場、NPB 6 場、CPBL 3 場。
+- 修正 MLB Dashboard 即時預測特徵不同步：`predict_mlb_today.py` 補上 `is_pitch_clock_era`，與 `train_mlb_model.py` 的訓練特徵一致。
+- 已在本機 Dashboard `http://localhost:5555` 驗證 MLB 分頁載入 `2026-05-08` 最新資料，Pipeline Status 顯示 Updated。
 
 ### 2026-05-07：SQLite 每日自動更新 + Task Scheduler
 
