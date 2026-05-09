@@ -1,6 +1,6 @@
 # MoneyBall — 多聯盟棒球勝負預測系統
 
-**最後更新：2026-05-09（Dashboard 四聯盟快取刷新）**
+**最後更新：2026-05-10（Dashboard 四聯盟快取刷新）**
 
 ---
 
@@ -18,6 +18,12 @@ MoneyBall 是多聯盟棒球勝負預測與 Dashboard 追蹤系統，整合 `CPB
 ---
 
 ## 最新進度
+
+### 2026-05-10：Dashboard 四聯盟快取刷新
+
+- CPBL 同步 `2026-05-10` 新增 3 場完賽資料，NPB schedule 補入 6 場、boxscore 補入 12 筆 SP。
+- 四聯盟快取建立：MLB 15 場（HIGH=1, bet=2）、KBO 5 場、NPB 6 場、CPBL 3 場（HIGH=1）。
+- MLB 今日有賠率（playsport.cc），KBO / NPB / CPBL 賠率待盤口開放後更新。
 
 ### 2026-05-09：Dashboard 四聯盟快取刷新
 
