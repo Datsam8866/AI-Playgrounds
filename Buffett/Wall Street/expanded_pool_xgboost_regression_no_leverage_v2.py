@@ -19,6 +19,7 @@ from multi_asset_logistic_baseline import (
 )
 from multi_asset_xgboost_regime_baseline import build_regime_features
 from multi_asset_xgboost_regression import compute_daily_ic, icir, run_walk_forward_regression
+from sector_etf_config import SECTOR_ETFS, TICKER_TO_SECTOR_ETF
 
 warnings.filterwarnings("ignore", category=FutureWarning, module=r"yfinance(\..*)?$")
 warnings.filterwarnings("ignore", category=FutureWarning, message=r".*ChainedAssignmentError.*")
@@ -26,9 +27,19 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=r".*ChainedAss
 
 PORTFOLIO_TICKERS = NON_LEVERAGED_EXPANDED_POOL_TICKERS
 MACRO_TICKERS = ["^VIX", "^TNX"]
-ALL_TICKERS = list(dict.fromkeys(PORTFOLIO_TICKERS + REFERENCE_TICKERS))
+ALL_TICKERS = list(dict.fromkeys(PORTFOLIO_TICKERS + REFERENCE_TICKERS + SECTOR_ETFS))
 PREDICTIONS_PATH = ROOT / "expanded_pool_xgboost_regression_no_leverage_predictions_v2.csv"
 SUMMARY_PATH = ROOT / "expanded_pool_xgboost_regression_no_leverage_summary_v2.csv"
+
+SECTOR_FEATURE_NAMES: list[str] = [
+    "sector_ret_20",
+    "sector_ret_60",
+    "sector_vs_sma200",
+    "sector_vol_20",
+    "rel_ret20_vs_sector",
+    "rel_ret60_vs_sector",
+    "sector_rank_pct",
+]
 
 
 def load_market_data_from_sqlite(
@@ -102,9 +113,115 @@ def load_macro_data_from_sqlite(start: str, end: str) -> pd.DataFrame:
     )
     return macro.merge(tnx_features, on="Date", how="outer").sort_values("Date").reset_index(drop=True)
 
+def build_sector_features(
+    features: pd.DataFrame,
+    data_all: dict[str, pd.DataFrame],
+) -> pd.DataFrame:
+    """Add sector ETF momentum features to the feature frame.
+
+    For each ticker, the corresponding sector ETF (from TICKER_TO_SECTOR_ETF)
+    contributes:
+      sector_ret_20, sector_ret_60, sector_vs_sma200, sector_vol_20
+      rel_ret20_vs_sector, rel_ret60_vs_sector
+      sector_rank_pct  (cross-sector rotation signal per date)
+
+    Tickers not in the mapping fall back to SPY.
+    """
+    import numpy as np
+
+    # ── Build per-ETF time series keyed by (Date) ──────────────────────────
+    # Store as dict: etf -> {col: Series indexed by Date}
+    sector_ts: dict[str, pd.DataFrame] = {}
+    for etf in SECTOR_ETFS + ["SPY"]:
+        if etf not in data_all or data_all[etf].empty:
+            continue
+        df = data_all[etf].sort_values("Date").reset_index(drop=True)
+        price = df["Adj Close"].astype(float)
+        sector_ts[etf] = pd.DataFrame(
+            {
+                "ret_20": price.pct_change(20).values,
+                "ret_60": price.pct_change(60).values,
+                "vs_sma200": ((price / price.rolling(200).mean()) - 1.0).values,
+                "vol_20": price.pct_change().rolling(20).std().values,
+            },
+            index=df["Date"],
+        )
+
+    if not sector_ts:
+        for col in SECTOR_FEATURE_NAMES:
+            features[col] = float("nan")
+        return features
+
+    # ── Build cross-sector rank lookup: (date, etf) -> rank_pct ────────────
+    rank_etfs = [e for e in SECTOR_ETFS if e in sector_ts]
+    if len(rank_etfs) >= 2:
+        rank_dfs = []
+        for etf in rank_etfs:
+            tmp = sector_ts[etf][["ret_20"]].copy()
+            tmp.index.name = "Date"
+            tmp = tmp.reset_index()
+            tmp["etf"] = etf
+            rank_dfs.append(tmp)
+        rank_long = pd.concat(rank_dfs, ignore_index=True)
+        rank_long["sector_rank_pct"] = rank_long.groupby("Date")["ret_20"].rank(pct=True)
+        # Build dict: (date, etf) -> rank_pct for fast lookup
+        sector_rank_lookup: dict[tuple, float] = {
+            (row.Date, row.etf): row.sector_rank_pct
+            for row in rank_long.itertuples(index=False)
+        }
+    else:
+        rank_etfs = []
+        sector_rank_lookup = {}
+
+    # ── Map each ticker to its ETF key (fall back to SPY) ──────────────────
+    out = features.copy()
+    out["_sector_etf"] = out["ticker"].map(TICKER_TO_SECTOR_ETF).fillna("SPY")
+    # Resolve unmapped ETFs to SPY if SPY is available
+    if "SPY" in sector_ts:
+        out["_sector_etf"] = out["_sector_etf"].apply(
+            lambda e: e if e in sector_ts else "SPY"
+        )
+
+    # ── Initialise output columns ───────────────────────────────────────────
+    for col in ["sector_ret_20", "sector_ret_60", "sector_vs_sma200", "sector_vol_20", "sector_rank_pct"]:
+        out[col] = np.nan
+
+    # ── Fill sector features row-by-row via vectorised date lookup ──────────
+    for etf_key, grp_mask in out.groupby("_sector_etf").groups.items():
+        ts = sector_ts.get(etf_key)
+        if ts is None:
+            continue
+
+        grp = out.loc[grp_mask]
+        dates = grp["Date"]
+
+        # Align ETF time series to the dates present in this group
+        aligned = ts.reindex(dates)
+
+        out.loc[grp_mask, "sector_ret_20"] = aligned["ret_20"].values
+        out.loc[grp_mask, "sector_ret_60"] = aligned["ret_60"].values
+        out.loc[grp_mask, "sector_vs_sma200"] = aligned["vs_sma200"].values
+        out.loc[grp_mask, "sector_vol_20"] = aligned["vol_20"].values
+
+        # sector_rank_pct
+        if sector_rank_lookup and etf_key in rank_etfs:
+            rank_vals = np.array(
+                [sector_rank_lookup.get((d, etf_key), np.nan) for d in dates]
+            )
+            out.loc[grp_mask, "sector_rank_pct"] = rank_vals
+        elif sector_rank_lookup:
+            # SPY / fallback tickers get median rank
+            out.loc[grp_mask, "sector_rank_pct"] = 0.5
+
+    out["rel_ret20_vs_sector"] = out["ret_20"] - out["sector_ret_20"]
+    out["rel_ret60_vs_sector"] = out["ret_60"] - out["sector_ret_60"]
+    out = out.drop(columns=["_sector_etf"])
+    return out
+
+
 def build_feature_columns(features: pd.DataFrame) -> list[str]:
     ticker_dummies = sorted([column for column in features.columns if column.startswith("ticker_")])
-    return BASE_NUMERIC_FEATURES + ticker_dummies
+    return BASE_NUMERIC_FEATURES + SECTOR_FEATURE_NAMES + ticker_dummies
 
 
 def get_latest_complete_end_date() -> str:
@@ -143,6 +260,7 @@ def build_latest_inference(
     base_features = build_feature_frame(portfolio_data, keep_all_rows=True)
     macro_data = load_macro_data_from_sqlite(TRAIN_START, latest_end)
     features_all = build_regime_features(base_features, data_all, macro_data, keep_all_rows=True)
+    features_all = build_sector_features(features_all, data_all)
 
     predictions_latest = build_and_predict_today(features_all, feature_columns, pd.Timestamp(latest_end))
     predictions_latest = predictions_latest.assign(
@@ -167,6 +285,7 @@ def main() -> None:
     base_features = build_feature_frame(portfolio_data)
     macro_data = load_macro_data_from_sqlite(TRAIN_START, latest_end)
     features = build_regime_features(base_features, data_all, macro_data)
+    features = build_sector_features(features, data_all)
     feature_columns = build_feature_columns(features)
 
     periods = (

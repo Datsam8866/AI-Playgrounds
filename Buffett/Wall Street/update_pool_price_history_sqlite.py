@@ -9,6 +9,10 @@ import pandas as pd
 import yfinance as yf
 
 from expanded_pool_config import DATA_END, DB_PATH, PRICE_TICKERS, ROOT, TRAIN_START
+from sector_etf_config import SECTOR_ETFS
+
+# Combined ticker list: pool tickers + sector ETFs (deduplicated, order preserved)
+_ALL_DOWNLOAD_TICKERS: list[str] = list(dict.fromkeys(PRICE_TICKERS + SECTOR_ETFS))
 
 
 def configure_runtime_dirs() -> None:
@@ -44,14 +48,14 @@ def ensure_schema(connection: sqlite3.Connection) -> None:
 
 
 def load_existing_max_dates(connection: sqlite3.Connection) -> dict[str, pd.Timestamp]:
-    placeholders = ",".join(["?"] * len(PRICE_TICKERS))
+    placeholders = ",".join(["?"] * len(_ALL_DOWNLOAD_TICKERS))
     query = f"""
     SELECT ticker, MAX(date) AS max_date
     FROM price_history
     WHERE ticker IN ({placeholders})
     GROUP BY ticker
     """
-    frame = pd.read_sql_query(query, connection, params=PRICE_TICKERS, parse_dates=["max_date"])
+    frame = pd.read_sql_query(query, connection, params=_ALL_DOWNLOAD_TICKERS, parse_dates=["max_date"])
     return {
         row["ticker"]: pd.Timestamp(row["max_date"])
         for _, row in frame.iterrows()
@@ -131,7 +135,7 @@ def main() -> None:
         max_dates = load_existing_max_dates(connection)
 
         rows: list[dict[str, str | int]] = []
-        for ticker in PRICE_TICKERS:
+        for ticker in _ALL_DOWNLOAD_TICKERS:
             existing_max = max_dates.get(ticker)
             if existing_max is not None and existing_max.normalize() >= end_date.normalize():
                 rows.append({"ticker": ticker, "status": "up_to_date", "rows_added": 0})
@@ -159,9 +163,9 @@ def main() -> None:
             WHERE ticker IN ({})
             GROUP BY ticker
             ORDER BY ticker
-            """.format(",".join(["?"] * len(PRICE_TICKERS))),
+            """.format(",".join(["?"] * len(_ALL_DOWNLOAD_TICKERS))),
             connection,
-            params=PRICE_TICKERS,
+            params=_ALL_DOWNLOAD_TICKERS,
             parse_dates=["min_date", "max_date"],
         )
 

@@ -1,2 +1,2 @@
 universe_size,historical_prediction_rows,inference_rows,predictions_rows,validation_ic_mean,validation_icir,test_ic_mean,test_icir,latest_historical_snapshot_date,latest_inference_date,predictions_csv
-42,141391,166,141557,0.022432448177086284,0.33894455870780976,0.049631448911107594,0.6635750705360949,2026-04-06,2026-05-01,expanded_pool_xgboost_regression_no_leverage_predictions_v2.csv
+42,141350,42,141392,0.026080099609980374,0.4251702296032823,0.04796300098270986,0.6704014197206326,2026-04-02,2026-05-01,expanded_pool_xgboost_regression_no_leverage_predictions_v2.csv
