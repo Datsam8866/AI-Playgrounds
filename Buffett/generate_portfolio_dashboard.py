@@ -665,16 +665,11 @@ def card(label, value, sub="", sub_class="", extra_class=""):
       {f'<div class="card-sub {sub_class}">{sub}</div>' if sub else ''}
     </div>"""
 
-def holdings_table_us(hlist, model_w, total_mv):
+def holdings_table_us(hlist, total_mv):
     rows = []
     for h in sorted(hlist, key=lambda x: -(x["mv"] or 0)):
         pnl_s  = ("+" if (h["pnl"] or 0) >= 0 else "") + fmt(h["pnl"], prefix="$", d=0)
         pct_s  = fmt(h["pct"], suffix="%")
-        mpct   = model_w.get(h["ticker"], 0) * 100
-        if mpct > 0:
-            model_cell = f'<span style="color:#22c55e">&#10003; {mpct:.1f}%</span>'
-        else:
-            model_cell = '<span style="color:#475569">&#8212; 自選</span>'
         rows.append(f"""<tr>
           <td><strong>{h['ticker']}</strong></td><td class="muted">{h['name']}</td>
           <td class="num">{fmt(h['shares'],d=0)}</td>
@@ -683,7 +678,6 @@ def holdings_table_us(hlist, model_w, total_mv):
           <td class="num">{fmt(h['mv'],prefix='$',d=0)}</td>
           <td class="num {pc(h['pnl'])}">{pnl_s}</td>
           <td class="num {pc(h['pct'])}">{pct_s}</td>
-          <td class="num model-cell" data-ticker="{h['ticker']}">{model_cell}</td>
         </tr>""")
     return "\n".join(rows)
 
@@ -767,23 +761,16 @@ def build():
     actual_sharpe = actual_benchmark_scenarios.get("QQQ", {}).get("sharpe")
     actual_sharpe_text = fmt(actual_sharpe, d=2) if actual_sharpe is not None else "—"
     voo_actual   = actual_w.get("VOO", 0) * 100
-    voo_model    = model_w.get("VOO", 0) * 100
-    voo_gap      = voo_actual - voo_model
-    off_model_n  = sum(1 for t in actual_w if model_w.get(t, 0) == 0)
-
     # US horizontal bar: all tickers sorted by actual weight desc
     bar_tickers = sorted(actual_w, key=lambda t: -actual_w[t])
     bar_actual  = [round(actual_w.get(t, 0) * 100, 1) for t in bar_tickers]
-    bar_model   = [round(model_w.get(t, 0) * 100, 1) for t in bar_tickers]
-    # Color: VOO = blue, model-recommended = green, off-model = gray
+    # Color: VOO = blue, other current holdings = green.
     bar_colors  = []
     for t in bar_tickers:
         if t == "VOO":
             bar_colors.append("#38bdf8")
-        elif model_w.get(t, 0) > 0:
-            bar_colors.append("#22c55e")
         else:
-            bar_colors.append("#475569")
+            bar_colors.append("#22c55e")
 
     # History JSON
     us_dates = json.dumps([d["date"] for d in hist["US"]])
@@ -799,18 +786,7 @@ def build():
     ov_us_mvs = json.dumps([us_mv_map.get(d) for d in all_dates])
     ov_tw_mvs = json.dumps([tw_mv_map.get(d) for d in all_dates])
 
-    # Divergence alert (show when gap > 10pp)
-    if abs(voo_gap) > 10:
-        gap_str     = f"{voo_gap:+.1f}pp"
-        alert_html  = f"""<div class="alert-box">
-    <span style="font-size:18px;margin-top:2px">&#9888;</span>
-    <div>
-      <div class="alert-title">配置偏離：VOO 實際 {voo_actual:.1f}% vs 模型建議 {voo_model:.1f}%（{gap_str}）</div>
-      <div class="alert-body">{rl} 模式下建議提高 VOO 核心比重。目前有 {off_model_n} 檔模型未推薦個股在持倉中。</div>
-    </div>
-  </div>"""
-    else:
-        alert_html = ""
+    alert_html = ""
 
     # TW model grid
     if tw_model_w:
@@ -820,13 +796,12 @@ def build():
         tw_grid     = '<div style="color:#94a3b8;padding:12px">模型配置資料未找到</div>'
         tw_util_str = "—"
 
-    us_table_html = holdings_table_us(us_h, model_w, us_total_mv)
+    us_table_html = holdings_table_us(us_h, us_total_mv)
     us_drawer_rows_html = holdings_drawer_rows_us(us_h, us_total_mv)
     tw_table_html = holdings_table_tw(tw_h)
 
     hbar_labels_js = json.dumps(bar_tickers)
     hbar_actual_js = json.dumps(bar_actual)
-    hbar_model_js  = json.dumps(bar_model)
     hbar_colors_js = json.dumps(bar_colors)
     benchmark_scenarios_js = json.dumps(benchmark_scenarios, ensure_ascii=False)
     actual_benchmark_scenarios_js = json.dumps(actual_benchmark_scenarios, ensure_ascii=False)
@@ -1001,12 +976,12 @@ tbody tr:hover{{background:var(--row-hover);}}
     {card("美股市值", f"${us_tm:,.0f}", f"成本 ${us_tc:,.0f}")}
     {card("損益", f"${us_tp:+,.0f}", f"{us_pp:+.1f}%", pc(us_pp))}
     {card("Sharpe Ratio", actual_sharpe_text, "目前實際持倉")}
-    {card("市場狀態", regime_badge, f'<span id="usStatusSub">VOO 實際 {voo_actual:.1f}%</span>', "", "warn" if abs(voo_gap) > 10 else "")}
+    {card("市場狀態", regime_badge, f'<span id="usStatusSub">VOO 實際 {voo_actual:.1f}%</span>')}
   </div>
   {alert_html}
   <div class="charts-row">
     <div class="chart-box clickable-card" id="allocationCard" onclick="openHoldingsDrawer()">
-      <h3>持倉配置：實際 vs 模型建議 <span class="chart-action">點選查看明細</span></h3>
+      <h3>持倉配置：實際持倉 <span class="chart-action">點選查看明細</span></h3>
       <div class="chart-wrap tall"><canvas id="usHBar"></canvas></div>
     </div>
     <div class="chart-box">
@@ -1020,7 +995,6 @@ tbody tr:hover{{background:var(--row-hover);}}
       <th>代號</th><th>名稱</th>
       <th class="num">股數</th><th class="num">均價</th><th class="num">現價</th>
       <th class="num">市值</th><th class="num">損益</th><th class="num">損益%</th>
-      <th class="num">模型</th>
     </tr></thead>
     <tbody>{us_table_html}</tbody>
   </table>
@@ -1183,20 +1157,12 @@ lineChart('ovTwChart', ovDates, [{{
   borderColor:'#34d399', backgroundColor:'#34d39918', fill:true, tension:.3, pointRadius:3
 }}]);
 
-// US horizontal bar: actual vs model
+// US horizontal bar: actual holdings only
 const usHBarChart = new Chart(document.getElementById('usHBar'),{{
   type:'bar',
   data:{{
     labels: {hbar_labels_js},
     datasets:[
-      {{
-        label:'模型建議 %',
-        data: {hbar_model_js},
-        backgroundColor:'#38bdf822',
-        borderColor:'#38bdf8',
-        borderWidth:1,
-        borderRadius:2
-      }},
       {{
         label:'實際持倉 %',
         data: {hbar_actual_js},
@@ -1232,7 +1198,7 @@ function modelCellHtml(weight){{
   return '<span style="color:#475569">&#8212; 自選</span>';
 }}
 function chartColors(labels, weights){{
-  return labels.map(t => t === 'VOO' ? '#38bdf8' : (weights[t] > 0 ? '#22c55e' : '#475569'));
+  return labels.map(t => t === 'VOO' ? '#38bdf8' : '#22c55e');
 }}
 function openHoldingsDrawer(){{
   document.getElementById('holdingsDrawer').classList.add('open');
@@ -1247,8 +1213,7 @@ function closeHoldingsDrawer(){{
 function setBenchmark(key){{
   const scenario = BENCHMARK_SCENARIOS[key] || BENCHMARK_SCENARIOS.QQQ;
   if (!scenario) return;
-  const weights = scenario.weights || {{}};
-  const labels = Array.from(new Set([...Object.keys(ACTUAL_WEIGHTS), ...Object.keys(weights)])).sort(
+  const labels = Object.keys(ACTUAL_WEIGHTS).sort(
     (a, b) => (ACTUAL_WEIGHTS[b] || 0) - (ACTUAL_WEIGHTS[a] || 0)
   );
 
@@ -1256,27 +1221,10 @@ function setBenchmark(key){{
   document.getElementById('benchmarkDetail').innerHTML = `Benchmark: ${{scenario.label}} &nbsp;|&nbsp; 2026Q2 current`;
   document.getElementById('regimeMsg').innerHTML = `市場 Regime：${{REGIME_LABEL}} &mdash; 目前 VOO 實際 ${{VOO_ACTUAL.toFixed(1)}}%`;
   document.getElementById('usStatusSub').textContent = `VOO 實際 ${{VOO_ACTUAL.toFixed(1)}}%`;
-  if (scenario.unavailable) {{
-    document.querySelectorAll('.model-cell').forEach(cell => {{
-      cell.innerHTML = '<span style="color:#475569">&#8212; 無資料</span>';
-    }});
-    usHBarChart.data.labels = labels;
-    usHBarChart.data.datasets[0].data = labels.map(() => 0);
-    usHBarChart.data.datasets[1].data = labels.map(t => Number(((ACTUAL_WEIGHTS[t] || 0) * 100).toFixed(1)));
-    usHBarChart.data.datasets[1].backgroundColor = chartColors(labels, weights);
-    usHBarChart.update();
-    return;
-  }}
-
-  document.querySelectorAll('.model-cell').forEach(cell => {{
-    const ticker = cell.dataset.ticker;
-    cell.innerHTML = modelCellHtml(weights[ticker] || 0);
-  }});
 
   usHBarChart.data.labels = labels;
-  usHBarChart.data.datasets[0].data = labels.map(t => Number(((weights[t] || 0) * 100).toFixed(1)));
-  usHBarChart.data.datasets[1].data = labels.map(t => Number(((ACTUAL_WEIGHTS[t] || 0) * 100).toFixed(1)));
-  usHBarChart.data.datasets[1].backgroundColor = chartColors(labels, weights);
+  usHBarChart.data.datasets[0].data = labels.map(t => Number(((ACTUAL_WEIGHTS[t] || 0) * 100).toFixed(1)));
+  usHBarChart.data.datasets[0].backgroundColor = chartColors(labels, {{}});
   usHBarChart.update();
 }}
 setBenchmark('QQQ');
