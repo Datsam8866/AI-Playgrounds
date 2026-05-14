@@ -76,6 +76,21 @@ tbody tr:hover{background:var(--row-hover);}
 .modal-action{margin-top:12px;background:var(--ac);border:none;color:#fff;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;}
 .modal-action:disabled{opacity:.55;cursor:not-allowed;}
 .update-status{margin-top:12px;background:var(--code-bg);border:1px solid var(--bd);border-radius:6px;padding:10px;font-size:12px;color:var(--code-tx);line-height:1.55;white-space:pre-wrap;max-height:220px;overflow:auto;}
+.drawer-backdrop{display:none;position:fixed;inset:0;background:#0008;z-index:90;}
+.drawer-backdrop.open{display:block;}
+.drawer{position:fixed;top:0;right:0;width:min(520px,94vw);height:100vh;background:var(--sf);border-left:1px solid var(--bd);z-index:91;transform:translateX(105%);transition:transform .2s ease;box-shadow:-20px 0 45px #0008;display:flex;flex-direction:column;}
+.drawer.open{transform:translateX(0);}
+.drawer-head{padding:18px 20px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}
+.drawer-title{font-size:16px;font-weight:700;color:var(--tx);}
+.drawer-sub{font-size:12px;color:var(--mu);margin-top:4px;}
+.drawer-close{width:30px;height:30px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--tx);cursor:pointer;font-size:18px;}
+.drawer-body{padding:16px 18px;overflow:auto;}
+.drawer-body table{font-size:12px;margin-bottom:0;}
+.drawer-body th,.drawer-body td{padding:8px 9px;}
+.drawer-name{font-size:11px;color:var(--mu);margin-top:3px;font-weight:400;}
+.clickable-card{cursor:pointer;position:relative;}
+.clickable-card:hover{border-color:var(--ac);}
+.chart-action{font-size:11px;color:var(--ac);font-weight:600;text-transform:none;letter-spacing:0;margin-left:8px;}
 .model-tile{text-align:center;padding:14px 10px;background:var(--table-head);border:1px solid var(--bd);border-radius:8px;}
 .model-ticker{font-size:11px;color:var(--mu);margin-bottom:6px;}
 .model-weight{font-size:22px;font-weight:700;}
@@ -114,8 +129,8 @@ tbody tr:hover{background:var(--row-hover);}
 
 <div class="regime-banner">
   <span style="font-size:15px">&#9888;</span>
-  <span class="msg" id="regimeMsg">市場 Regime：CAUTION &mdash; 模型建議 VOO 80.0%，目前實際 56.2%</span>
-  <span class="detail" id="benchmarkDetail">P(&gt;QQQ) 92.7% &nbsp;|&nbsp; Stage: fallback_turnover_first &nbsp;|&nbsp; 2026Q2 current</span>
+  <span class="msg" id="regimeMsg">市場 Regime：CAUTION &mdash; 目前 VOO 實際 56.2%</span>
+  <span class="detail" id="benchmarkDetail">Benchmark: QQQ &nbsp;|&nbsp; 2026Q2 current</span>
 </div>
 
 <div class="tabs">
@@ -140,15 +155,15 @@ tbody tr:hover{background:var(--row-hover);}
       <div class="card-value">$313,429</div>
       <div class="card-sub pos">成本 $240,142 ｜ +30.5%</div>
     </div>
-    <div class="card warn">
-      <div class="card-label">美股目前持倉信心</div>
-      <div class="card-value"><span id="usModelConfidence">92.7%</span></div>
-      <div class="card-sub "><span id="usModelConfidenceSub">P(&gt;QQQ) ｜ CAUTION</span></div>
+    <div class="card ">
+      <div class="card-label">Sharpe Ratio</div>
+      <div class="card-value">2.07</div>
+      <div class="card-sub ">目前實際持倉</div>
     </div>
     <div class="card ">
       <div class="card-label">台股市值 (TWD)</div>
-      <div class="card-value">NT$959,000</div>
-      <div class="card-sub pos">成本 NT$924,900 ｜ +3.7%</div>
+      <div class="card-value">NT$960,500</div>
+      <div class="card-sub pos">成本 NT$924,900 ｜ +3.8%</div>
     </div>
     <div class="card ">
       <div class="card-label">台股模型信心</div>
@@ -182,20 +197,15 @@ tbody tr:hover{background:var(--row-hover);}
       <div class="card-value">$+73,286</div>
       <div class="card-sub pos">+30.5%</div>
     </div>
+    <div class="card ">
+      <div class="card-label">Sharpe Ratio</div>
+      <div class="card-value">2.07</div>
+      <div class="card-sub ">目前實際持倉</div>
+    </div>
     <div class="card warn">
       <div class="card-label">市場狀態</div>
       <div class="card-value"><span class="regime-badge" style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b66">CAUTION</span></div>
-      <div class="card-sub "><span id="usStatusSub">VOO 模型 80.0% / 實際 56.2%</span></div>
-    </div>
-    <div class="card warn">
-      <div class="card-label">目前持倉訊號 / 風險</div>
-      <div class="card-value"><span id="signalBadge" class="signal-badge watch">Watch</span></div>
-      <div class="card-sub "><span id="riskMetrics">Sharpe — ｜ P&lt;0% — ｜ Beta —</span></div>
-    </div>
-    <div class="card warn">
-      <div class="card-label">模型 70% 門檻</div>
-      <div class="card-value"><span id="targetStatus">—</span></div>
-      <div class="card-sub "><span id="targetDetail">—</span></div>
+      <div class="card-sub "><span id="usStatusSub">VOO 實際 56.2%</span></div>
     </div>
   </div>
   <div class="alert-box">
@@ -206,8 +216,8 @@ tbody tr:hover{background:var(--row-hover);}
     </div>
   </div>
   <div class="charts-row">
-    <div class="chart-box">
-      <h3>持倉配置：實際 vs 模型建議</h3>
+    <div class="chart-box clickable-card" id="allocationCard" onclick="openHoldingsDrawer()">
+      <h3>持倉配置：實際 vs 模型建議 <span class="chart-action">點選查看明細</span></h3>
       <div class="chart-wrap tall"><canvas id="usHBar"></canvas></div>
     </div>
     <div class="chart-box">
@@ -392,13 +402,13 @@ tbody tr:hover{background:var(--row-hover);}
   <div class="cards">
     <div class="card ">
       <div class="card-label">台股市值</div>
-      <div class="card-value">NT$959,000</div>
+      <div class="card-value">NT$960,500</div>
       <div class="card-sub ">成本 NT$924,900</div>
     </div>
     <div class="card ">
       <div class="card-label">損益</div>
-      <div class="card-value">NT$+34,100</div>
-      <div class="card-sub pos">+3.7%</div>
+      <div class="card-value">NT$+35,600</div>
+      <div class="card-sub pos">+3.8%</div>
     </div>
     <div class="card ">
       <div class="card-label">模型信心</div>
@@ -430,13 +440,143 @@ tbody tr:hover{background:var(--row-hover);}
           <td><strong>0050</strong></td><td class="muted">元大台灣50</td>
           <td class="num">10,000</td>
           <td class="num">$92.49</td>
-          <td class="num">$95.90</td>
-          <td class="num">$959,000</td>
-          <td class="num pos">+$34,100</td>
-          <td class="num pos">3.69%</td>
+          <td class="num">$96.05</td>
+          <td class="num">$960,500</td>
+          <td class="num pos">+$35,600</td>
+          <td class="num pos">3.85%</td>
         </tr></tbody>
   </table>
 </div>
+
+<div class="drawer-backdrop" id="holdingsDrawerBackdrop" onclick="closeHoldingsDrawer()"></div>
+<aside class="drawer" id="holdingsDrawer" aria-hidden="true">
+  <div class="drawer-head">
+    <div>
+      <div class="drawer-title">美股持倉明細</div>
+      <div class="drawer-sub">依市值排序 ｜ 總市值 $313,429</div>
+    </div>
+    <button class="drawer-close" onclick="closeHoldingsDrawer()" aria-label="關閉持倉明細">&times;</button>
+  </div>
+  <div class="drawer-body">
+    <table>
+      <thead><tr>
+        <th>代號</th><th class="num">權重</th><th class="num">股數</th><th class="num">市值</th><th class="num">損益</th>
+      </tr></thead>
+      <tbody><tr>
+          <td><strong>VOO</strong><div class="drawer-name">Vanguard S&P 500 ETF</div></td>
+          <td class="num">56.2%</td>
+          <td class="num">258</td>
+          <td class="num">$176,266</td>
+          <td class="num pos">+$40,301<div class="drawer-name pos">29.64%</div></td>
+        </tr>
+<tr>
+          <td><strong>NVDA</strong><div class="drawer-name">NVIDIA</div></td>
+          <td class="num">7.8%</td>
+          <td class="num">107</td>
+          <td class="num">$24,387</td>
+          <td class="num pos">+$3,651<div class="drawer-name pos">17.60%</div></td>
+        </tr>
+<tr>
+          <td><strong>INTC</strong><div class="drawer-name">Intel</div></td>
+          <td class="num">3.9%</td>
+          <td class="num">103</td>
+          <td class="num">$12,166</td>
+          <td class="num pos">+$5,453<div class="drawer-name pos">81.22%</div></td>
+        </tr>
+<tr>
+          <td><strong>COHR</strong><div class="drawer-name">Coherent Corp</div></td>
+          <td class="num">3.9%</td>
+          <td class="num">30</td>
+          <td class="num">$12,126</td>
+          <td class="num pos">+$2,116<div class="drawer-name pos">21.14%</div></td>
+        </tr>
+<tr>
+          <td><strong>MU</strong><div class="drawer-name">Micron Technology</div></td>
+          <td class="num">3.8%</td>
+          <td class="num">15</td>
+          <td class="num">$11,904</td>
+          <td class="num pos">+$3,108<div class="drawer-name pos">35.33%</div></td>
+        </tr>
+<tr>
+          <td><strong>SNDK</strong><div class="drawer-name">SanDisk</div></td>
+          <td class="num">3.6%</td>
+          <td class="num">8</td>
+          <td class="num">$11,366</td>
+          <td class="num pos">+$2,773<div class="drawer-name pos">32.28%</div></td>
+        </tr>
+<tr>
+          <td><strong>LITE</strong><div class="drawer-name">Lumentum</div></td>
+          <td class="num">3.6%</td>
+          <td class="num">11</td>
+          <td class="num">$11,258</td>
+          <td class="num pos">+$1,330<div class="drawer-name pos">13.39%</div></td>
+        </tr>
+<tr>
+          <td><strong>TSM</strong><div class="drawer-name">TSMC ADR</div></td>
+          <td class="num">3.5%</td>
+          <td class="num">27</td>
+          <td class="num">$10,874</td>
+          <td class="num pos">+$3,414<div class="drawer-name pos">45.76%</div></td>
+        </tr>
+<tr>
+          <td><strong>ARM</strong><div class="drawer-name">Arm Holdings</div></td>
+          <td class="num">3.4%</td>
+          <td class="num">49</td>
+          <td class="num">$10,780</td>
+          <td class="num pos">+$2,586<div class="drawer-name pos">31.55%</div></td>
+        </tr>
+<tr>
+          <td><strong>TSLA</strong><div class="drawer-name">Tesla</div></td>
+          <td class="num">3.4%</td>
+          <td class="num">24</td>
+          <td class="num">$10,725</td>
+          <td class="num pos">+$661<div class="drawer-name pos">6.57%</div></td>
+        </tr>
+<tr>
+          <td><strong>AMD</strong><div class="drawer-name">Advanced Micro Devices</div></td>
+          <td class="num">3.4%</td>
+          <td class="num">24</td>
+          <td class="num">$10,611</td>
+          <td class="num pos">+$4,750<div class="drawer-name pos">81.04%</div></td>
+        </tr>
+<tr>
+          <td><strong>AVGO</strong><div class="drawer-name">Broadcom</div></td>
+          <td class="num">3.2%</td>
+          <td class="num">24</td>
+          <td class="num">$9,992</td>
+          <td class="num pos">+$3,106<div class="drawer-name pos">45.10%</div></td>
+        </tr>
+<tr>
+          <td><strong>CRWD</strong><div class="drawer-name">CrowdStrike</div></td>
+          <td class="num">0.2%</td>
+          <td class="num">1</td>
+          <td class="num">$561</td>
+          <td class="num pos">+$87<div class="drawer-name pos">18.26%</div></td>
+        </tr>
+<tr>
+          <td><strong>NET</strong><div class="drawer-name">Cloudflare</div></td>
+          <td class="num">0.1%</td>
+          <td class="num">1</td>
+          <td class="num">$193</td>
+          <td class="num neg">$-38<div class="drawer-name neg">-16.46%</div></td>
+        </tr>
+<tr>
+          <td><strong>PLTR</strong><div class="drawer-name">Palantir Technologies</div></td>
+          <td class="num">0.0%</td>
+          <td class="num">1</td>
+          <td class="num">$130</td>
+          <td class="num neg">$-10<div class="drawer-name neg">-6.92%</div></td>
+        </tr>
+<tr>
+          <td><strong>NOW</strong><div class="drawer-name">ServiceNow</div></td>
+          <td class="num">0.0%</td>
+          <td class="num">1</td>
+          <td class="num">$88</td>
+          <td class="num pos">+$1<div class="drawer-name pos">0.64%</div></td>
+        </tr></tbody>
+    </table>
+  </div>
+</aside>
 
 <div class="modal-overlay" id="modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal">
@@ -595,29 +735,29 @@ function modelCellHtml(weight){
 function chartColors(labels, weights){
   return labels.map(t => t === 'VOO' ? '#38bdf8' : (weights[t] > 0 ? '#22c55e' : '#475569'));
 }
+function openHoldingsDrawer(){
+  document.getElementById('holdingsDrawer').classList.add('open');
+  document.getElementById('holdingsDrawer').setAttribute('aria-hidden', 'false');
+  document.getElementById('holdingsDrawerBackdrop').classList.add('open');
+}
+function closeHoldingsDrawer(){
+  document.getElementById('holdingsDrawer').classList.remove('open');
+  document.getElementById('holdingsDrawer').setAttribute('aria-hidden', 'true');
+  document.getElementById('holdingsDrawerBackdrop').classList.remove('open');
+}
 function setBenchmark(key){
   const scenario = BENCHMARK_SCENARIOS[key] || BENCHMARK_SCENARIOS.QQQ;
-  const actualScenario = ACTUAL_BENCHMARK_SCENARIOS[key] || scenario;
   if (!scenario) return;
   const weights = scenario.weights || {};
-  const vooModel = (weights.VOO || 0) * 100;
   const labels = Array.from(new Set([...Object.keys(ACTUAL_WEIGHTS), ...Object.keys(weights)])).sort(
     (a, b) => (ACTUAL_WEIGHTS[b] || 0) - (ACTUAL_WEIGHTS[a] || 0)
   );
 
   document.getElementById('benchmarkSelect').value = scenario.key;
-  if (actualScenario.unavailable) {
-    document.getElementById('benchmarkDetail').innerHTML = `${actualScenario.label} unavailable &nbsp;|&nbsp; Actual portfolio &nbsp;|&nbsp; 2026Q2 current`;
-    document.getElementById('usModelConfidence').textContent = '—';
-    document.getElementById('usModelConfidenceSub').innerHTML = `${actualScenario.label} 無資料 ｜ ${REGIME_LABEL}`;
-    document.getElementById('regimeMsg').innerHTML = `市場 Regime：${REGIME_LABEL} &mdash; ${actualScenario.label} 價格資料不足，無法追蹤目前持倉`;
-    document.getElementById('usStatusSub').textContent = `${actualScenario.label} benchmark unavailable`;
-    const unavailableSignal = document.getElementById('signalBadge');
-    unavailableSignal.textContent = 'Unavailable';
-    unavailableSignal.className = 'signal-badge weak';
-    document.getElementById('riskMetrics').innerHTML = 'Sharpe — ｜ P&lt;0% — ｜ Beta —';
-    document.getElementById('targetStatus').textContent = scenario.targetStatus || 'Unavailable';
-    document.getElementById('targetDetail').textContent = actualScenario.detail || scenario.targetDetail || '缺少 benchmark 歷史資料';
+  document.getElementById('benchmarkDetail').innerHTML = `Benchmark: ${scenario.label} &nbsp;|&nbsp; 2026Q2 current`;
+  document.getElementById('regimeMsg').innerHTML = `市場 Regime：${REGIME_LABEL} &mdash; 目前 VOO 實際 ${VOO_ACTUAL.toFixed(1)}%`;
+  document.getElementById('usStatusSub').textContent = `VOO 實際 ${VOO_ACTUAL.toFixed(1)}%`;
+  if (scenario.unavailable) {
     document.querySelectorAll('.model-cell').forEach(cell => {
       cell.innerHTML = '<span style="color:#475569">&#8212; 無資料</span>';
     });
@@ -628,17 +768,6 @@ function setBenchmark(key){
     usHBarChart.update();
     return;
   }
-  document.getElementById('benchmarkDetail').innerHTML = `目前持倉 P(&gt;${actualScenario.label}) ${pct(actualScenario.pBeat)} &nbsp;|&nbsp; Raw bootstrap &nbsp;|&nbsp; 2026Q2 current`;
-  document.getElementById('usModelConfidence').textContent = pct(actualScenario.pBeat);
-  document.getElementById('usModelConfidenceSub').innerHTML = `目前持倉 P(&gt;${actualScenario.label}) ｜ ${REGIME_LABEL}`;
-  document.getElementById('regimeMsg').innerHTML = `市場 Regime：${REGIME_LABEL} &mdash; 目前持倉追蹤 ${actualScenario.label}（${actualScenario.ticker}）｜模型建議 VOO ${vooModel.toFixed(1)}%，目前實際 ${VOO_ACTUAL.toFixed(1)}%`;
-  document.getElementById('usStatusSub').textContent = `VOO 模型 ${vooModel.toFixed(1)}% / 實際 ${VOO_ACTUAL.toFixed(1)}%`;
-  const signal = document.getElementById('signalBadge');
-  signal.textContent = actualScenario.signal || '—';
-  signal.className = `signal-badge ${actualScenario.signalClass || 'weak'}`;
-  document.getElementById('riskMetrics').innerHTML = `Sharpe ${num(actualScenario.sharpe)} ｜ P&lt;0% ${pct(actualScenario.pLt0)} ｜ Beta ${num(actualScenario.portfolioBeta)} / ${num(actualScenario.betaCap)}`;
-  document.getElementById('targetStatus').textContent = scenario.targetStatus || 'No Strong Candidate';
-  document.getElementById('targetDetail').textContent = scenario.targetDetail || '找不到同時達到 70% 且 fully_feasible 的 portfolio';
 
   document.querySelectorAll('.model-cell').forEach(cell => {
     const ticker = cell.dataset.ticker;

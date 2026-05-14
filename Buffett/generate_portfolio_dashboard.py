@@ -687,6 +687,21 @@ def holdings_table_us(hlist, model_w, total_mv):
         </tr>""")
     return "\n".join(rows)
 
+def holdings_drawer_rows_us(hlist, total_mv):
+    rows = []
+    for h in sorted(hlist, key=lambda x: -(x["mv"] or 0)):
+        weight = (h["mv"] or 0) / total_mv * 100 if total_mv else 0
+        pnl_s = ("+" if (h["pnl"] or 0) >= 0 else "") + fmt(h["pnl"], prefix="$", d=0)
+        pct_s = fmt(h["pct"], suffix="%")
+        rows.append(f"""<tr>
+          <td><strong>{h['ticker']}</strong><div class="drawer-name">{h['name']}</div></td>
+          <td class="num">{weight:.1f}%</td>
+          <td class="num">{fmt(h['shares'], d=0)}</td>
+          <td class="num">{fmt(h['mv'], prefix='$', d=0)}</td>
+          <td class="num {pc(h['pnl'])}">{pnl_s}<div class="drawer-name {pc(h['pct'])}">{pct_s}</div></td>
+        </tr>""")
+    return "\n".join(rows)
+
 def holdings_table_tw(hlist):
     rows = []
     for h in hlist:
@@ -749,6 +764,8 @@ def build():
     actual_benchmark_scenarios = compute_actual_benchmark_scenarios(wf_frame, actual_w)
     if "QQQ" in actual_benchmark_scenarios and actual_benchmark_scenarios["QQQ"].get("pBeat") is not None:
         pb = f"{actual_benchmark_scenarios['QQQ']['pBeat']*100:.1f}%"
+    actual_sharpe = actual_benchmark_scenarios.get("QQQ", {}).get("sharpe")
+    actual_sharpe_text = fmt(actual_sharpe, d=2) if actual_sharpe is not None else "—"
     voo_actual   = actual_w.get("VOO", 0) * 100
     voo_model    = model_w.get("VOO", 0) * 100
     voo_gap      = voo_actual - voo_model
@@ -804,6 +821,7 @@ def build():
         tw_util_str = "—"
 
     us_table_html = holdings_table_us(us_h, model_w, us_total_mv)
+    us_drawer_rows_html = holdings_drawer_rows_us(us_h, us_total_mv)
     tw_table_html = holdings_table_tw(tw_h)
 
     hbar_labels_js = json.dumps(bar_tickers)
@@ -891,6 +909,21 @@ tbody tr:hover{{background:var(--row-hover);}}
 .modal-action{{margin-top:12px;background:var(--ac);border:none;color:#fff;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;}}
 .modal-action:disabled{{opacity:.55;cursor:not-allowed;}}
 .update-status{{margin-top:12px;background:var(--code-bg);border:1px solid var(--bd);border-radius:6px;padding:10px;font-size:12px;color:var(--code-tx);line-height:1.55;white-space:pre-wrap;max-height:220px;overflow:auto;}}
+.drawer-backdrop{{display:none;position:fixed;inset:0;background:#0008;z-index:90;}}
+.drawer-backdrop.open{{display:block;}}
+.drawer{{position:fixed;top:0;right:0;width:min(520px,94vw);height:100vh;background:var(--sf);border-left:1px solid var(--bd);z-index:91;transform:translateX(105%);transition:transform .2s ease;box-shadow:-20px 0 45px #0008;display:flex;flex-direction:column;}}
+.drawer.open{{transform:translateX(0);}}
+.drawer-head{{padding:18px 20px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}}
+.drawer-title{{font-size:16px;font-weight:700;color:var(--tx);}}
+.drawer-sub{{font-size:12px;color:var(--mu);margin-top:4px;}}
+.drawer-close{{width:30px;height:30px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--tx);cursor:pointer;font-size:18px;}}
+.drawer-body{{padding:16px 18px;overflow:auto;}}
+.drawer-body table{{font-size:12px;margin-bottom:0;}}
+.drawer-body th,.drawer-body td{{padding:8px 9px;}}
+.drawer-name{{font-size:11px;color:var(--mu);margin-top:3px;font-weight:400;}}
+.clickable-card{{cursor:pointer;position:relative;}}
+.clickable-card:hover{{border-color:var(--ac);}}
+.chart-action{{font-size:11px;color:var(--ac);font-weight:600;text-transform:none;letter-spacing:0;margin-left:8px;}}
 .model-tile{{text-align:center;padding:14px 10px;background:var(--table-head);border:1px solid var(--bd);border-radius:8px;}}
 .model-ticker{{font-size:11px;color:var(--mu);margin-bottom:6px;}}
 .model-weight{{font-size:22px;font-weight:700;}}
@@ -929,8 +962,8 @@ tbody tr:hover{{background:var(--row-hover);}}
 
 <div class="regime-banner">
   <span style="font-size:15px">&#9888;</span>
-  <span class="msg" id="regimeMsg">市場 Regime：{rl} &mdash; 模型建議 VOO {voo_model:.1f}%，目前實際 {voo_actual:.1f}%</span>
-  <span class="detail" id="benchmarkDetail">P(&gt;QQQ) {pb} &nbsp;|&nbsp; Stage: {stage} &nbsp;|&nbsp; 2026Q2 current</span>
+  <span class="msg" id="regimeMsg">市場 Regime：{rl} &mdash; 目前 VOO 實際 {voo_actual:.1f}%</span>
+  <span class="detail" id="benchmarkDetail">Benchmark: QQQ &nbsp;|&nbsp; 2026Q2 current</span>
 </div>
 
 <div class="tabs">
@@ -945,7 +978,7 @@ tbody tr:hover{{background:var(--row-hover);}}
   {alert_html}
   <div class="cards">
     {card("美股市值 (USD)", f"${us_tm:,.0f}", f"成本 ${us_tc:,.0f} ｜ {us_pp:+.1f}%", pc(us_pp))}
-    {card("美股目前持倉信心", f'<span id="usModelConfidence">{pb}</span>', f'<span id="usModelConfidenceSub">P(&gt;QQQ) ｜ {rl}</span>', "", "warn" if voo_gap < -10 else "")}
+    {card("Sharpe Ratio", actual_sharpe_text, "目前實際持倉")}
     {card("台股市值 (TWD)", f"NT${tw_tm:,.0f}", f"成本 NT${tw_tc:,.0f} ｜ {tw_pp:+.1f}%", pc(tw_pp))}
     {card("台股模型信心", tw_pb, "P(&gt;0050) ｜ 2026Q2")}
   </div>
@@ -967,14 +1000,13 @@ tbody tr:hover{{background:var(--row-hover);}}
   <div class="cards">
     {card("美股市值", f"${us_tm:,.0f}", f"成本 ${us_tc:,.0f}")}
     {card("損益", f"${us_tp:+,.0f}", f"{us_pp:+.1f}%", pc(us_pp))}
-    {card("市場狀態", regime_badge, f'<span id="usStatusSub">VOO 模型 {voo_model:.1f}% / 實際 {voo_actual:.1f}%</span>', "", "warn" if abs(voo_gap) > 10 else "")}
-    {card("目前持倉訊號 / 風險", '<span id="signalBadge" class="signal-badge watch">Watch</span>', '<span id="riskMetrics">Sharpe — ｜ P&lt;0% — ｜ Beta —</span>', "", "warn")}
-    {card("模型 70% 門檻", '<span id="targetStatus">—</span>', '<span id="targetDetail">—</span>', "", "warn")}
+    {card("Sharpe Ratio", actual_sharpe_text, "目前實際持倉")}
+    {card("市場狀態", regime_badge, f'<span id="usStatusSub">VOO 實際 {voo_actual:.1f}%</span>', "", "warn" if abs(voo_gap) > 10 else "")}
   </div>
   {alert_html}
   <div class="charts-row">
-    <div class="chart-box">
-      <h3>持倉配置：實際 vs 模型建議</h3>
+    <div class="chart-box clickable-card" id="allocationCard" onclick="openHoldingsDrawer()">
+      <h3>持倉配置：實際 vs 模型建議 <span class="chart-action">點選查看明細</span></h3>
       <div class="chart-wrap tall"><canvas id="usHBar"></canvas></div>
     </div>
     <div class="chart-box">
@@ -1025,6 +1057,25 @@ tbody tr:hover{{background:var(--row-hover);}}
     <tbody>{tw_table_html}</tbody>
   </table>
 </div>
+
+<div class="drawer-backdrop" id="holdingsDrawerBackdrop" onclick="closeHoldingsDrawer()"></div>
+<aside class="drawer" id="holdingsDrawer" aria-hidden="true">
+  <div class="drawer-head">
+    <div>
+      <div class="drawer-title">美股持倉明細</div>
+      <div class="drawer-sub">依市值排序 ｜ 總市值 ${us_tm:,.0f}</div>
+    </div>
+    <button class="drawer-close" onclick="closeHoldingsDrawer()" aria-label="關閉持倉明細">&times;</button>
+  </div>
+  <div class="drawer-body">
+    <table>
+      <thead><tr>
+        <th>代號</th><th class="num">權重</th><th class="num">股數</th><th class="num">市值</th><th class="num">損益</th>
+      </tr></thead>
+      <tbody>{us_drawer_rows_html}</tbody>
+    </table>
+  </div>
+</aside>
 
 <div class="modal-overlay" id="modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal">
@@ -1183,29 +1234,29 @@ function modelCellHtml(weight){{
 function chartColors(labels, weights){{
   return labels.map(t => t === 'VOO' ? '#38bdf8' : (weights[t] > 0 ? '#22c55e' : '#475569'));
 }}
+function openHoldingsDrawer(){{
+  document.getElementById('holdingsDrawer').classList.add('open');
+  document.getElementById('holdingsDrawer').setAttribute('aria-hidden', 'false');
+  document.getElementById('holdingsDrawerBackdrop').classList.add('open');
+}}
+function closeHoldingsDrawer(){{
+  document.getElementById('holdingsDrawer').classList.remove('open');
+  document.getElementById('holdingsDrawer').setAttribute('aria-hidden', 'true');
+  document.getElementById('holdingsDrawerBackdrop').classList.remove('open');
+}}
 function setBenchmark(key){{
   const scenario = BENCHMARK_SCENARIOS[key] || BENCHMARK_SCENARIOS.QQQ;
-  const actualScenario = ACTUAL_BENCHMARK_SCENARIOS[key] || scenario;
   if (!scenario) return;
   const weights = scenario.weights || {{}};
-  const vooModel = (weights.VOO || 0) * 100;
   const labels = Array.from(new Set([...Object.keys(ACTUAL_WEIGHTS), ...Object.keys(weights)])).sort(
     (a, b) => (ACTUAL_WEIGHTS[b] || 0) - (ACTUAL_WEIGHTS[a] || 0)
   );
 
   document.getElementById('benchmarkSelect').value = scenario.key;
-  if (actualScenario.unavailable) {{
-    document.getElementById('benchmarkDetail').innerHTML = `${{actualScenario.label}} unavailable &nbsp;|&nbsp; Actual portfolio &nbsp;|&nbsp; 2026Q2 current`;
-    document.getElementById('usModelConfidence').textContent = '—';
-    document.getElementById('usModelConfidenceSub').innerHTML = `${{actualScenario.label}} 無資料 ｜ ${{REGIME_LABEL}}`;
-    document.getElementById('regimeMsg').innerHTML = `市場 Regime：${{REGIME_LABEL}} &mdash; ${{actualScenario.label}} 價格資料不足，無法追蹤目前持倉`;
-    document.getElementById('usStatusSub').textContent = `${{actualScenario.label}} benchmark unavailable`;
-    const unavailableSignal = document.getElementById('signalBadge');
-    unavailableSignal.textContent = 'Unavailable';
-    unavailableSignal.className = 'signal-badge weak';
-    document.getElementById('riskMetrics').innerHTML = 'Sharpe — ｜ P&lt;0% — ｜ Beta —';
-    document.getElementById('targetStatus').textContent = scenario.targetStatus || 'Unavailable';
-    document.getElementById('targetDetail').textContent = actualScenario.detail || scenario.targetDetail || '缺少 benchmark 歷史資料';
+  document.getElementById('benchmarkDetail').innerHTML = `Benchmark: ${{scenario.label}} &nbsp;|&nbsp; 2026Q2 current`;
+  document.getElementById('regimeMsg').innerHTML = `市場 Regime：${{REGIME_LABEL}} &mdash; 目前 VOO 實際 ${{VOO_ACTUAL.toFixed(1)}}%`;
+  document.getElementById('usStatusSub').textContent = `VOO 實際 ${{VOO_ACTUAL.toFixed(1)}}%`;
+  if (scenario.unavailable) {{
     document.querySelectorAll('.model-cell').forEach(cell => {{
       cell.innerHTML = '<span style="color:#475569">&#8212; 無資料</span>';
     }});
@@ -1216,17 +1267,6 @@ function setBenchmark(key){{
     usHBarChart.update();
     return;
   }}
-  document.getElementById('benchmarkDetail').innerHTML = `目前持倉 P(&gt;${{actualScenario.label}}) ${{pct(actualScenario.pBeat)}} &nbsp;|&nbsp; Raw bootstrap &nbsp;|&nbsp; 2026Q2 current`;
-  document.getElementById('usModelConfidence').textContent = pct(actualScenario.pBeat);
-  document.getElementById('usModelConfidenceSub').innerHTML = `目前持倉 P(&gt;${{actualScenario.label}}) ｜ ${{REGIME_LABEL}}`;
-  document.getElementById('regimeMsg').innerHTML = `市場 Regime：${{REGIME_LABEL}} &mdash; 目前持倉追蹤 ${{actualScenario.label}}（${{actualScenario.ticker}}）｜模型建議 VOO ${{vooModel.toFixed(1)}}%，目前實際 ${{VOO_ACTUAL.toFixed(1)}}%`;
-  document.getElementById('usStatusSub').textContent = `VOO 模型 ${{vooModel.toFixed(1)}}% / 實際 ${{VOO_ACTUAL.toFixed(1)}}%`;
-  const signal = document.getElementById('signalBadge');
-  signal.textContent = actualScenario.signal || '—';
-  signal.className = `signal-badge ${{actualScenario.signalClass || 'weak'}}`;
-  document.getElementById('riskMetrics').innerHTML = `Sharpe ${{num(actualScenario.sharpe)}} ｜ P&lt;0% ${{pct(actualScenario.pLt0)}} ｜ Beta ${{num(actualScenario.portfolioBeta)}} / ${{num(actualScenario.betaCap)}}`;
-  document.getElementById('targetStatus').textContent = scenario.targetStatus || 'No Strong Candidate';
-  document.getElementById('targetDetail').textContent = scenario.targetDetail || '找不到同時達到 70% 且 fully_feasible 的 portfolio';
 
   document.querySelectorAll('.model-cell').forEach(cell => {{
     const ticker = cell.dataset.ticker;
