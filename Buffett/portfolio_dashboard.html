@@ -23,11 +23,6 @@ header .subtitle{font-size:12px;color:var(--mu);margin-top:2px;}
 .btn-update:hover{border-color:var(--ac);color:var(--ac);}
 .btn-icon{width:32px;height:32px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--tx);cursor:pointer;font-size:15px;display:inline-flex;align-items:center;justify-content:center;}
 .btn-icon:hover{border-color:var(--ac);color:var(--ac);}
-.benchmark-select{height:32px;border-radius:6px;border:1px solid var(--bd);background:var(--sf);color:var(--tx);padding:0 9px;font-size:12px;font-weight:600;}
-.benchmark-select:focus{outline:1px solid var(--ac);}
-.regime-banner{background:#451a03;border-bottom:2px solid #f59e0b;padding:9px 24px;display:flex;align-items:center;gap:12px;}
-.regime-banner .msg{font-size:13px;color:#fde68a;font-weight:600;}
-.regime-banner .detail{font-size:12px;color:#fcd34d;margin-left:auto;}
 .tabs{display:flex;border-bottom:1px solid var(--bd);background:var(--sf);}
 .tab{padding:12px 24px;cursor:pointer;color:var(--mu);font-size:13px;font-weight:600;border-bottom:2px solid transparent;transition:.15s;user-select:none;}
 .tab.active{color:var(--ac);border-bottom-color:var(--ac);}
@@ -98,9 +93,6 @@ tbody tr:hover{background:var(--row-hover);}
 .model-weight.core{color:var(--ac);}
 .model-weight.satellite{color:var(--tx);}
 .model-kind{font-size:11px;color:var(--mu);margin-top:4px;}
-:root[data-theme="light"] .regime-banner{background:var(--warn-bg) !important;border-bottom-color:var(--warn) !important;}
-:root[data-theme="light"] .regime-banner .msg{color:var(--warn-tx);}
-:root[data-theme="light"] .regime-banner .detail{color:var(--warn-sub);}
 @media(max-width:640px){
   .charts-row{grid-template-columns:1fr;}
   .tab{padding:10px 14px;font-size:12px;}
@@ -116,23 +108,11 @@ tbody tr:hover{background:var(--row-hover);}
     <div class="subtitle">Buffett 量化配置觀測系統</div>
   </div>
   <div class="header-right">
-    <select class="benchmark-select" id="benchmarkSelect" onchange="setBenchmark(this.value)" aria-label="選擇美股追蹤指標">
-      <option value="VOO">追蹤 VOO</option>
-      <option value="QQQ">追蹤 QQQ</option>
-      <option value="SOXX">追蹤 SOXX</option>
-      <option value="VT">追蹤 VT</option>
-    </select>
     <span class="updated">更新：2026-05-14</span>
     <button class="btn-icon" id="themeToggle" onclick="toggleTheme()" title="切換亮暗模式" aria-label="切換亮暗模式">&#9790;</button>
     <button class="btn-update" onclick="document.getElementById('modal').classList.add('open')">&#8635; 更新資料</button>
   </div>
 </header>
-
-<div class="regime-banner">
-  <span style="font-size:15px">&#9888;</span>
-  <span class="msg" id="regimeMsg">市場 Regime：CAUTION &mdash; 目前 VOO 實際 56.2%</span>
-  <span class="detail" id="benchmarkDetail">Benchmark: QQQ &nbsp;|&nbsp; 2026Q2 current</span>
-</div>
 
 <div class="tabs">
   <div class="tab active" onclick="switchTab(0)">總覽</div>
@@ -513,11 +493,10 @@ const baseScales = {
   x:{ ticks:{color:tickColor,font:{size:10}}, grid:{color:gridColor} },
   y:{ ticks:{color:tickColor}, grid:{color:gridColor} }
 };
-const BENCHMARK_SCENARIOS = {"VOO": {"key": "VOO", "label": "VOO", "ticker": "VOO", "pBeat": 0.6731857904544817, "rawPBeat": 0.91, "pBeatVoo": 0.91, "pGt5": 0.612, "pLt0": 0.20633333333333334, "sharpe": 1.7879675286869645, "stage": "fallback_turnover_first", "weights": {"AMD": 0.019999999999999997, "ARM": 0.019999999999999997, "CLS": 0.019999999999999997, "COHR": 0.019999999999999997, "INTC": 0.019999999999999997, "LITE": 0.019999999999999997, "MRVL": 0.019999999999999997, "MU": 0.019999999999999997, "SNDK": 0.019999999999999997, "VOO": 0.8, "VRT": 0.019999999999999997}, "weightsText": "AMD 2.0%, ARM 2.0%, CLS 2.0%, COHR 2.0%, INTC 2.0%, LITE 2.0%, MRVL 2.0%, MU 2.0%, SNDK 2.0%, VOO 80.0%, VRT 2.0%", "selectedSatellite": "SNDK,LITE,INTC,COHR,ARM,VRT,MRVL,CLS,MU,AMD", "portfolioBeta": 1.3157592744244286, "betaCap": 1.2, "fullyFeasible": false, "hasStrongCandidate": false, "targetStatus": "No Strong Candidate", "targetDetail": "找不到同時達到 70% 且 fully_feasible 的 portfolio", "signal": "Watch", "signalClass": "watch"}, "QQQ": {"key": "QQQ", "label": "QQQ", "ticker": "QQQ", "pBeat": 0.6718565088322508, "rawPBeat": 0.8883333333333333, "pBeatVoo": 0.91, "pGt5": 0.612, "pLt0": 0.20633333333333334, "sharpe": 1.7879675286869645, "stage": "fallback_turnover_first", "weights": {"AMD": 0.019999999999999997, "ARM": 0.019999999999999997, "CLS": 0.019999999999999997, "COHR": 0.019999999999999997, "INTC": 0.019999999999999997, "LITE": 0.019999999999999997, "MRVL": 0.019999999999999997, "MU": 0.019999999999999997, "SNDK": 0.019999999999999997, "VOO": 0.8, "VRT": 0.019999999999999997}, "weightsText": "AMD 2.0%, ARM 2.0%, CLS 2.0%, COHR 2.0%, INTC 2.0%, LITE 2.0%, MRVL 2.0%, MU 2.0%, SNDK 2.0%, VOO 80.0%, VRT 2.0%", "selectedSatellite": "SNDK,LITE,INTC,COHR,ARM,VRT,MRVL,CLS,MU,AMD", "portfolioBeta": 1.3157592744244286, "betaCap": 1.2, "fullyFeasible": false, "hasStrongCandidate": false, "targetStatus": "No Strong Candidate", "targetDetail": "找不到同時達到 70% 且 fully_feasible 的 portfolio", "signal": "Watch", "signalClass": "watch"}, "SOXX": {"key": "SOXX", "label": "SOXX", "ticker": "SOXX", "pBeat": 0.42809189869169684, "rawPBeat": 0.3526666666666667, "pBeatVoo": 0.91, "pGt5": 0.612, "pLt0": 0.20633333333333334, "sharpe": 1.7879675286869645, "stage": "fallback_turnover_first", "weights": {"AMD": 0.019999999999999997, "ARM": 0.019999999999999997, "CLS": 0.019999999999999997, "COHR": 0.019999999999999997, "INTC": 0.019999999999999997, "LITE": 0.019999999999999997, "MRVL": 0.019999999999999997, "MU": 0.019999999999999997, "SNDK": 0.019999999999999997, "VOO": 0.8, "VRT": 0.019999999999999997}, "weightsText": "AMD 2.0%, ARM 2.0%, CLS 2.0%, COHR 2.0%, INTC 2.0%, LITE 2.0%, MRVL 2.0%, MU 2.0%, SNDK 2.0%, VOO 80.0%, VRT 2.0%", "selectedSatellite": "SNDK,LITE,INTC,COHR,ARM,VRT,MRVL,CLS,MU,AMD", "portfolioBeta": 1.3157592744244286, "betaCap": 1.2, "fullyFeasible": false, "hasStrongCandidate": false, "targetStatus": "No Strong Candidate", "targetDetail": "找不到同時達到 70% 且 fully_feasible 的 portfolio", "signal": "Weak", "signalClass": "weak"}, "VT": {"key": "VT", "label": "VT", "ticker": "VT", "pBeat": 0.7061342651509278, "rawPBeat": 0.8313333333333334, "pBeatVoo": 0.91, "pGt5": 0.612, "pLt0": 0.20633333333333334, "sharpe": 1.7879675286869645, "stage": "fallback_turnover_first", "weights": {"AMD": 0.019999999999999997, "ARM": 0.019999999999999997, "CLS": 0.019999999999999997, "COHR": 0.019999999999999997, "INTC": 0.019999999999999997, "LITE": 0.019999999999999997, "MRVL": 0.019999999999999997, "MU": 0.019999999999999997, "SNDK": 0.019999999999999997, "VOO": 0.8, "VRT": 0.019999999999999997}, "weightsText": "AMD 2.0%, ARM 2.0%, CLS 2.0%, COHR 2.0%, INTC 2.0%, LITE 2.0%, MRVL 2.0%, MU 2.0%, SNDK 2.0%, VOO 80.0%, VRT 2.0%", "selectedSatellite": "SNDK,LITE,INTC,COHR,ARM,VRT,MRVL,CLS,MU,AMD", "portfolioBeta": 1.3157592744244286, "betaCap": 1.2, "fullyFeasible": false, "hasStrongCandidate": false, "targetStatus": "No Strong Candidate", "targetDetail": "找不到同時達到 70% 且 fully_feasible 的 portfolio", "signal": "Watch", "signalClass": "watch"}};
-const ACTUAL_BENCHMARK_SCENARIOS = {"VOO": {"key": "VOO", "label": "VOO", "ticker": "VOO", "pBeat": 0.922, "rawPBeat": 0.922, "pGt5": 0.7106666666666667, "pLt0": 0.164, "sharpe": 2.065185534057706, "portfolioBeta": 1.5752138347886797, "betaCap": 1.2, "signal": "Strong", "signalClass": "strong", "detail": "目前實際持倉 raw bootstrap"}, "QQQ": {"key": "QQQ", "label": "QQQ", "ticker": "QQQ", "pBeat": 0.927, "rawPBeat": 0.927, "pGt5": 0.7106666666666667, "pLt0": 0.164, "sharpe": 2.065185534057706, "portfolioBeta": 1.5752138347886797, "betaCap": 1.2, "signal": "Strong", "signalClass": "strong", "detail": "目前實際持倉 raw bootstrap"}, "SOXX": {"key": "SOXX", "label": "SOXX", "ticker": "SOXX", "pBeat": 0.528, "rawPBeat": 0.528, "pGt5": 0.702, "pLt0": 0.16533333333333333, "sharpe": 2.065185534057706, "portfolioBeta": 1.5752138347886797, "betaCap": 1.2, "signal": "Weak", "signalClass": "weak", "detail": "目前實際持倉 raw bootstrap"}, "VT": {"key": "VT", "label": "VT", "ticker": "VT", "pBeat": 0.8963333333333333, "rawPBeat": 0.8963333333333333, "pGt5": 0.713, "pLt0": 0.15233333333333332, "sharpe": 2.065185534057706, "portfolioBeta": 1.5752138347886797, "betaCap": 1.2, "signal": "Strong", "signalClass": "strong", "detail": "目前實際持倉 raw bootstrap"}};
 const ACTUAL_WEIGHTS = {"AMD": 0.03385419807332307, "ARM": 0.034395341742388806, "AVGO": 0.03188016110071321, "COHR": 0.038688214911215234, "CRWD": 0.0017899760194325484, "INTC": 0.0388169841965374, "LITE": 0.03591728238868173, "MU": 0.03798135576445787, "NET": 0.0006164398814939712, "NOW": 0.0002793298050038672, "NVDA": 0.07780855350934907, "PLTR": 0.00041556490121934556, "SNDK": 0.03626495307801664, "TSLA": 0.034218682789755296, "TSM": 0.03469448466091722, "VOO": 0.5623784771774947};
 const REGIME_LABEL = "CAUTION";
 const VOO_ACTUAL = 56.237848;
+const US_BENCHMARK_PNLS = {"VT": [0.0, 3054.89, 3054.89, 3054.89, 3054.89, 3054.89, 3054.89, 3054.89, 3054.89, 3054.89, 3054.89], "VOO": [0.0, 2313.59, 2313.59, 2313.59, 2313.59, 2313.59, 2313.59, 2313.59, 2313.59, 2313.59, 2313.59], "QQQ": [0.0, 3825.22, 3825.22, 3825.22, 3825.22, 3825.22, 3825.22, 3825.22, 3825.22, 3825.22, 3825.22], "SOXX": [0.0, 13189.35, 13189.35, 13189.35, 13189.35, 13189.35, 13189.35, 13189.35, 13189.35, 13189.35, 13189.35]};
 
 function lineChart(id, labels, datasets){
   new Chart(document.getElementById(id),{
@@ -605,31 +584,29 @@ function closeRegimeDrawer(){
   document.getElementById('regimeDrawer').setAttribute('aria-hidden', 'true');
   document.getElementById('regimeDrawerBackdrop').classList.remove('open');
 }
-function setBenchmark(key){
-  const scenario = BENCHMARK_SCENARIOS[key] || BENCHMARK_SCENARIOS.QQQ;
-  if (!scenario) return;
-  const labels = Object.keys(ACTUAL_WEIGHTS).sort(
-    (a, b) => (ACTUAL_WEIGHTS[b] || 0) - (ACTUAL_WEIGHTS[a] || 0)
-  );
-
-  document.getElementById('benchmarkSelect').value = scenario.key;
-  document.getElementById('benchmarkDetail').innerHTML = `Benchmark: ${scenario.label} &nbsp;|&nbsp; 2026Q2 current`;
-  document.getElementById('regimeMsg').innerHTML = `市場 Regime：${REGIME_LABEL} &mdash; 目前 VOO 實際 ${VOO_ACTUAL.toFixed(1)}%`;
-  document.getElementById('usStatusSub').textContent = `VOO 實際 ${VOO_ACTUAL.toFixed(1)}%`;
-
-  usHBarChart.data.labels = labels;
-  usHBarChart.data.datasets[0].data = labels.map(t => Number(((ACTUAL_WEIGHTS[t] || 0) * 100).toFixed(1)));
-  usHBarChart.data.datasets[0].backgroundColor = chartColors(labels, {});
-  usHBarChart.update();
-}
-setBenchmark('QQQ');
 
 // US P&L trend
-lineChart('usLine', ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14"], [{
-  label:'損益 USD',
+const benchmarkLineColors = {VT:'#f59e0b', VOO:'#38bdf8', QQQ:'#a78bfa', SOXX:'#ef4444'};
+const usLineDatasets = [{
+  label:'Actual Portfolio',
   data: [0, 57225.96, 57225.96, 74023.72, 62874.53, 73291.19, 73291.19, 73291.19, 78413.72, 73620.42, 73286.48],
-  borderColor:'#22c55e', backgroundColor:'#22c55e12', fill:true, tension:.3, pointRadius:3
-}]);
+  borderColor:'#22c55e', backgroundColor:'#22c55e12', fill:false, tension:.3, pointRadius:3
+}];
+for (const ticker of ['VT', 'VOO', 'QQQ', 'SOXX']) {
+  if (US_BENCHMARK_PNLS[ticker]) {
+    usLineDatasets.push({
+      label:`100% ${ticker}`,
+      data: US_BENCHMARK_PNLS[ticker],
+      borderColor: benchmarkLineColors[ticker],
+      backgroundColor: `${benchmarkLineColors[ticker]}12`,
+      borderDash: ticker === 'VOO' ? [] : [5, 4],
+      fill:false,
+      tension:.3,
+      pointRadius:2
+    });
+  }
+}
+lineChart('usLine', ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14"], usLineDatasets);
 
 // TW market value trend
 lineChart('twLine', ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14"], [{

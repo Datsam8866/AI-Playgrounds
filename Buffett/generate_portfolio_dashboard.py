@@ -621,6 +621,40 @@ def load_history():
                              "pnl": round(pnl, 2) if pnl else 0})
     return hist
 
+def build_benchmark_pnl_series(us_history, tickers=("VT", "VOO", "QQQ", "SOXX")):
+    if not us_history:
+        return {}
+    dates = [pd.Timestamp(row["date"]) for row in us_history]
+    initial_value = float(us_history[0]["mv"] or 0)
+    if initial_value <= 0:
+        return {}
+
+    prices = load_wall_street_prices(tickers)
+    if prices.empty:
+        return {}
+
+    out = {}
+    for ticker in tickers:
+        if ticker not in prices.columns:
+            continue
+        series = prices[ticker].dropna().sort_index()
+        values = []
+        start_price = None
+        for idx, date_value in enumerate(dates):
+            eligible = series.loc[series.index <= date_value]
+            if eligible.empty:
+                values.append(None)
+                continue
+            price = float(eligible.iloc[-1])
+            if idx == 0:
+                start_price = price
+            if not start_price:
+                values.append(None)
+            else:
+                values.append(round(initial_value * (price / start_price - 1.0), 2))
+        out[ticker] = values
+    return out
+
 def load_us_model():
     df  = pd.read_csv(WF_CSV)
     if "p_beat_qqq_calibrated" not in df.columns:
@@ -741,12 +775,7 @@ def build():
     holdings                      = load_holdings()
     hist                          = load_history()
     wf_frame                      = pd.read_csv(WF_CSV)
-    benchmark_scenarios           = build_benchmark_scenarios(wf_frame)
     model_w, regime, stage, p_beat = load_us_model()
-    if "QQQ" in benchmark_scenarios:
-        model_w = benchmark_scenarios["QQQ"]["weights"]
-        stage = benchmark_scenarios["QQQ"]["stage"]
-        p_beat = benchmark_scenarios["QQQ"]["pBeat"]
     tw_model_w, tw_p_beat, tw_util = load_tw_model()
 
     us_tc, us_tm, us_tp, us_pp, us_h = summarise(holdings, "US")
@@ -807,8 +836,10 @@ def build():
             bar_colors.append("#22c55e")
 
     # History JSON
+    benchmark_pnls = build_benchmark_pnl_series(hist["US"])
     us_dates = json.dumps([d["date"] for d in hist["US"]])
     us_pnls  = json.dumps([d["pnl"]  for d in hist["US"]])
+    benchmark_pnls_js = json.dumps(benchmark_pnls)
     tw_dates = json.dumps([d["date"] for d in hist["TW"]])
     tw_mvs   = json.dumps([d["mv"]   for d in hist["TW"]])
 
@@ -837,9 +868,6 @@ def build():
     hbar_labels_js = json.dumps(bar_tickers)
     hbar_actual_js = json.dumps(bar_actual)
     hbar_colors_js = json.dumps(bar_colors)
-    benchmark_scenarios_js = json.dumps(benchmark_scenarios, ensure_ascii=False)
-    actual_benchmark_scenarios_js = json.dumps(actual_benchmark_scenarios, ensure_ascii=False)
-
     html = f"""<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -865,11 +893,6 @@ header .subtitle{{font-size:12px;color:var(--mu);margin-top:2px;}}
 .btn-update:hover{{border-color:var(--ac);color:var(--ac);}}
 .btn-icon{{width:32px;height:32px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--tx);cursor:pointer;font-size:15px;display:inline-flex;align-items:center;justify-content:center;}}
 .btn-icon:hover{{border-color:var(--ac);color:var(--ac);}}
-.benchmark-select{{height:32px;border-radius:6px;border:1px solid var(--bd);background:var(--sf);color:var(--tx);padding:0 9px;font-size:12px;font-weight:600;}}
-.benchmark-select:focus{{outline:1px solid var(--ac);}}
-.regime-banner{{background:{banner_bg};border-bottom:2px solid {rc};padding:9px 24px;display:flex;align-items:center;gap:12px;}}
-.regime-banner .msg{{font-size:13px;color:#fde68a;font-weight:600;}}
-.regime-banner .detail{{font-size:12px;color:#fcd34d;margin-left:auto;}}
 .tabs{{display:flex;border-bottom:1px solid var(--bd);background:var(--sf);}}
 .tab{{padding:12px 24px;cursor:pointer;color:var(--mu);font-size:13px;font-weight:600;border-bottom:2px solid transparent;transition:.15s;user-select:none;}}
 .tab.active{{color:var(--ac);border-bottom-color:var(--ac);}}
@@ -940,9 +963,6 @@ tbody tr:hover{{background:var(--row-hover);}}
 .model-weight.core{{color:var(--ac);}}
 .model-weight.satellite{{color:var(--tx);}}
 .model-kind{{font-size:11px;color:var(--mu);margin-top:4px;}}
-:root[data-theme="light"] .regime-banner{{background:var(--warn-bg) !important;border-bottom-color:var(--warn) !important;}}
-:root[data-theme="light"] .regime-banner .msg{{color:var(--warn-tx);}}
-:root[data-theme="light"] .regime-banner .detail{{color:var(--warn-sub);}}
 @media(max-width:640px){{
   .charts-row{{grid-template-columns:1fr;}}
   .tab{{padding:10px 14px;font-size:12px;}}
@@ -958,23 +978,11 @@ tbody tr:hover{{background:var(--row-hover);}}
     <div class="subtitle">Buffett 量化配置觀測系統</div>
   </div>
   <div class="header-right">
-    <select class="benchmark-select" id="benchmarkSelect" onchange="setBenchmark(this.value)" aria-label="選擇美股追蹤指標">
-      <option value="VOO">追蹤 VOO</option>
-      <option value="QQQ">追蹤 QQQ</option>
-      <option value="SOXX">追蹤 SOXX</option>
-      <option value="VT">追蹤 VT</option>
-    </select>
     <span class="updated">更新：{TODAY}</span>
     <button class="btn-icon" id="themeToggle" onclick="toggleTheme()" title="切換亮暗模式" aria-label="切換亮暗模式">&#9790;</button>
     <button class="btn-update" onclick="document.getElementById('modal').classList.add('open')">&#8635; 更新資料</button>
   </div>
 </header>
-
-<div class="regime-banner">
-  <span style="font-size:15px">&#9888;</span>
-  <span class="msg" id="regimeMsg">市場 Regime：{rl} &mdash; 目前 VOO 實際 {voo_actual:.1f}%</span>
-  <span class="detail" id="benchmarkDetail">Benchmark: QQQ &nbsp;|&nbsp; 2026Q2 current</span>
-</div>
 
 <div class="tabs">
   <div class="tab active" onclick="switchTab(0)">總覽</div>
@@ -1178,11 +1186,10 @@ const baseScales = {{
   x:{{ ticks:{{color:tickColor,font:{{size:10}}}}, grid:{{color:gridColor}} }},
   y:{{ ticks:{{color:tickColor}}, grid:{{color:gridColor}} }}
 }};
-const BENCHMARK_SCENARIOS = {benchmark_scenarios_js};
-const ACTUAL_BENCHMARK_SCENARIOS = {actual_benchmark_scenarios_js};
 const ACTUAL_WEIGHTS = {json.dumps(actual_w)};
 const REGIME_LABEL = {json.dumps(rl)};
 const VOO_ACTUAL = {voo_actual:.6f};
+const US_BENCHMARK_PNLS = {benchmark_pnls_js};
 
 function lineChart(id, labels, datasets){{
   new Chart(document.getElementById(id),{{
@@ -1270,31 +1277,29 @@ function closeRegimeDrawer(){{
   document.getElementById('regimeDrawer').setAttribute('aria-hidden', 'true');
   document.getElementById('regimeDrawerBackdrop').classList.remove('open');
 }}
-function setBenchmark(key){{
-  const scenario = BENCHMARK_SCENARIOS[key] || BENCHMARK_SCENARIOS.QQQ;
-  if (!scenario) return;
-  const labels = Object.keys(ACTUAL_WEIGHTS).sort(
-    (a, b) => (ACTUAL_WEIGHTS[b] || 0) - (ACTUAL_WEIGHTS[a] || 0)
-  );
-
-  document.getElementById('benchmarkSelect').value = scenario.key;
-  document.getElementById('benchmarkDetail').innerHTML = `Benchmark: ${{scenario.label}} &nbsp;|&nbsp; 2026Q2 current`;
-  document.getElementById('regimeMsg').innerHTML = `市場 Regime：${{REGIME_LABEL}} &mdash; 目前 VOO 實際 ${{VOO_ACTUAL.toFixed(1)}}%`;
-  document.getElementById('usStatusSub').textContent = `VOO 實際 ${{VOO_ACTUAL.toFixed(1)}}%`;
-
-  usHBarChart.data.labels = labels;
-  usHBarChart.data.datasets[0].data = labels.map(t => Number(((ACTUAL_WEIGHTS[t] || 0) * 100).toFixed(1)));
-  usHBarChart.data.datasets[0].backgroundColor = chartColors(labels, {{}});
-  usHBarChart.update();
-}}
-setBenchmark('QQQ');
 
 // US P&L trend
-lineChart('usLine', {us_dates}, [{{
-  label:'損益 USD',
+const benchmarkLineColors = {{VT:'#f59e0b', VOO:'#38bdf8', QQQ:'#a78bfa', SOXX:'#ef4444'}};
+const usLineDatasets = [{{
+  label:'Actual Portfolio',
   data: {us_pnls},
-  borderColor:'#22c55e', backgroundColor:'#22c55e12', fill:true, tension:.3, pointRadius:3
-}}]);
+  borderColor:'#22c55e', backgroundColor:'#22c55e12', fill:false, tension:.3, pointRadius:3
+}}];
+for (const ticker of ['VT', 'VOO', 'QQQ', 'SOXX']) {{
+  if (US_BENCHMARK_PNLS[ticker]) {{
+    usLineDatasets.push({{
+      label:`100% ${{ticker}}`,
+      data: US_BENCHMARK_PNLS[ticker],
+      borderColor: benchmarkLineColors[ticker],
+      backgroundColor: `${{benchmarkLineColors[ticker]}}12`,
+      borderDash: ticker === 'VOO' ? [] : [5, 4],
+      fill:false,
+      tension:.3,
+      pointRadius:2
+    }});
+  }}
+}}
+lineChart('usLine', {us_dates}, usLineDatasets);
 
 // TW market value trend
 lineChart('twLine', {tw_dates}, [{{
