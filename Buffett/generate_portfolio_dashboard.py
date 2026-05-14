@@ -731,6 +731,21 @@ def holdings_drawer_rows_us(hlist, total_mv):
         </tr>""")
     return "\n".join(rows)
 
+def holdings_drawer_rows_tw(hlist, total_mv):
+    rows = []
+    for h in sorted(hlist, key=lambda x: -(x["mv"] or 0)):
+        weight = (h["mv"] or 0) / total_mv * 100 if total_mv else 0
+        pnl_s = ("+" if (h["pnl"] or 0) >= 0 else "") + fmt(h["pnl"], prefix="NT$", d=0)
+        pct_s = fmt(h["pct"], suffix="%")
+        rows.append(f"""<tr>
+          <td><strong>{h['ticker']}</strong><div class="drawer-name">{h['name']}</div></td>
+          <td class="num">{weight:.1f}%</td>
+          <td class="num">{fmt(h['shares'], d=0)}</td>
+          <td class="num">{fmt(h['mv'], prefix='NT$', d=0)}</td>
+          <td class="num {pc(h['pnl'])}">{pnl_s}<div class="drawer-name {pc(h['pct'])}">{pct_s}</div></td>
+        </tr>""")
+    return "\n".join(rows)
+
 def regime_condition_row(label, current, triggered, detail):
     state = "觸發" if triggered else "未觸發"
     state_class = "neg" if triggered else "pos"
@@ -836,6 +851,12 @@ def build():
         else:
             bar_colors.append("#22c55e")
 
+    tw_total_mv = sum(x["mv"] for x in tw_h if x["mv"]) or 1
+    tw_actual_w = {x["ticker"]: x["mv"] / tw_total_mv for x in tw_h if x["mv"]}
+    tw_bar_tickers = sorted(tw_actual_w, key=lambda t: -tw_actual_w[t])
+    tw_bar_actual = [round(tw_actual_w.get(t, 0) * 100, 1) for t in tw_bar_tickers]
+    tw_bar_colors = ["#34d399" if t == "0050" else "#22c55e" for t in tw_bar_tickers]
+
     # History JSON
     benchmark_pnls = build_benchmark_pnl_series(hist["US"])
     us_dates = json.dumps([d["date"] for d in hist["US"]])
@@ -864,11 +885,15 @@ def build():
 
     us_table_html = holdings_table_us(us_h, us_total_mv)
     us_drawer_rows_html = holdings_drawer_rows_us(us_h, us_total_mv)
+    tw_drawer_rows_html = holdings_drawer_rows_tw(tw_h, tw_total_mv)
     tw_table_html = holdings_table_tw(tw_h)
 
     hbar_labels_js = json.dumps(bar_tickers)
     hbar_actual_js = json.dumps(bar_actual)
     hbar_colors_js = json.dumps(bar_colors)
+    tw_hbar_labels_js = json.dumps(tw_bar_tickers)
+    tw_hbar_actual_js = json.dumps(tw_bar_actual)
+    tw_hbar_colors_js = json.dumps(tw_bar_colors)
     html = f"""<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1043,30 +1068,17 @@ tbody tr:hover{{background:var(--row-hover);}}
   <div class="cards">
     {card("台股市值", f"NT${tw_tm:,.0f}", f"成本 NT${tw_tc:,.0f}")}
     {card("損益", f"NT${tw_tp:+,.0f}", f"{tw_pp:+.1f}%", pc(tw_pp))}
-    {card("模型信心", tw_pb, f"P(&gt;0050) ｜ Utility {tw_util_str}")}
   </div>
-  <div class="chart-box" style="margin-bottom:20px">
-    <h3>2026Q2 模型建議配置</h3>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px;">
-      {tw_grid}
+  <div class="charts-row">
+    <div class="chart-box clickable-card" id="twAllocationCard" onclick="openTwHoldingsDrawer()">
+      <h3>台股持倉配置：實際持倉 <span class="chart-action">點選查看明細</span></h3>
+      <div class="chart-wrap tall"><canvas id="twHBar"></canvas></div>
     </div>
-    <div style="margin-top:12px;padding:8px 12px;background:#0f1a2e;border-radius:6px;font-size:12px;color:var(--mu)">
-      P(&gt;0050) {tw_pb} &nbsp;|&nbsp; Utility {tw_util_str} &nbsp;|&nbsp; Snapshot 2026-04-17
+    <div class="chart-box">
+      <h3>台股市值走勢 (TWD)</h3>
+      <div class="chart-wrap tall"><canvas id="twLine"></canvas></div>
     </div>
   </div>
-  <div class="chart-box" style="margin-bottom:20px">
-    <h3>台股市值走勢 (TWD)</h3>
-    <div class="chart-wrap"><canvas id="twLine"></canvas></div>
-  </div>
-  <div class="section-label">實際持倉</div>
-  <table>
-    <thead><tr>
-      <th>代號</th><th>名稱</th>
-      <th class="num">股數</th><th class="num">均價</th><th class="num">現價</th>
-      <th class="num">市值</th><th class="num">損益</th><th class="num">損益%</th>
-    </tr></thead>
-    <tbody>{tw_table_html}</tbody>
-  </table>
 </div>
 
 <div class="drawer-backdrop" id="holdingsDrawerBackdrop" onclick="closeHoldingsDrawer()"></div>
@@ -1084,6 +1096,25 @@ tbody tr:hover{{background:var(--row-hover);}}
         <th>代號</th><th class="num">權重</th><th class="num">股數</th><th class="num">市值</th><th class="num">損益</th>
       </tr></thead>
       <tbody>{us_drawer_rows_html}</tbody>
+    </table>
+  </div>
+</aside>
+
+<div class="drawer-backdrop" id="twHoldingsDrawerBackdrop" onclick="closeTwHoldingsDrawer()"></div>
+<aside class="drawer" id="twHoldingsDrawer" aria-hidden="true">
+  <div class="drawer-head">
+    <div>
+      <div class="drawer-title">台股持倉明細</div>
+      <div class="drawer-sub">依市值排序 ｜ 總市值 NT${tw_tm:,.0f}</div>
+    </div>
+    <button class="drawer-close" onclick="closeTwHoldingsDrawer()" aria-label="關閉台股持倉明細">&times;</button>
+  </div>
+  <div class="drawer-body">
+    <table>
+      <thead><tr>
+        <th>代號</th><th class="num">權重</th><th class="num">股數</th><th class="num">市值</th><th class="num">損益</th>
+      </tr></thead>
+      <tbody>{tw_drawer_rows_html}</tbody>
     </table>
   </div>
 </aside>
@@ -1188,6 +1219,7 @@ const baseScales = {{
   y:{{ ticks:{{color:tickColor}}, grid:{{color:gridColor}} }}
 }};
 const ACTUAL_WEIGHTS = {json.dumps(actual_w)};
+const TW_ACTUAL_WEIGHTS = {json.dumps(tw_actual_w)};
 const REGIME_LABEL = {json.dumps(rl)};
 const VOO_ACTUAL = {voo_actual:.6f};
 const US_BENCHMARK_PNLS = {benchmark_pnls_js};
@@ -1243,6 +1275,33 @@ const usHBarChart = new Chart(document.getElementById('usHBar'),{{
   }}
 }});
 
+const twHBarChart = new Chart(document.getElementById('twHBar'),{{
+  type:'bar',
+  data:{{
+    labels: {tw_hbar_labels_js},
+    datasets:[
+      {{
+        label:'實際持倉 %',
+        data: {tw_hbar_actual_js},
+        backgroundColor: {tw_hbar_colors_js},
+        borderRadius:2
+      }}
+    ]
+  }},
+  options:{{
+    indexAxis:'y',
+    responsive:true, maintainAspectRatio:false,
+    plugins:{{
+      legend:{{labels:{{color:tickColor,font:{{size:11}}}}}},
+      tooltip:{{callbacks:{{label:c=>`${{c.dataset.label}}: ${{c.parsed.x}}%`}}}}
+    }},
+    scales:{{
+      x:{{ticks:{{color:tickColor,callback:v=>v+'%'}},grid:{{color:gridColor}},max:100}},
+      y:{{ticks:{{color:tickColor,font:{{size:11}}}},grid:{{color:gridColor}}}}
+    }}
+  }}
+}});
+
 function pct(value, digits=1){{
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
   return `${{(Number(value) * 100).toFixed(digits)}}%`;
@@ -1267,6 +1326,16 @@ function closeHoldingsDrawer(){{
   document.getElementById('holdingsDrawer').classList.remove('open');
   document.getElementById('holdingsDrawer').setAttribute('aria-hidden', 'true');
   document.getElementById('holdingsDrawerBackdrop').classList.remove('open');
+}}
+function openTwHoldingsDrawer(){{
+  document.getElementById('twHoldingsDrawer').classList.add('open');
+  document.getElementById('twHoldingsDrawer').setAttribute('aria-hidden', 'false');
+  document.getElementById('twHoldingsDrawerBackdrop').classList.add('open');
+}}
+function closeTwHoldingsDrawer(){{
+  document.getElementById('twHoldingsDrawer').classList.remove('open');
+  document.getElementById('twHoldingsDrawer').setAttribute('aria-hidden', 'true');
+  document.getElementById('twHoldingsDrawerBackdrop').classList.remove('open');
 }}
 function openRegimeDrawer(){{
   document.getElementById('regimeDrawer').classList.add('open');
