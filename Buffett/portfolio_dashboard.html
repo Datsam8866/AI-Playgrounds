@@ -4,9 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Portfolio Dashboard</title>
+<script>
+const savedTheme = localStorage.getItem('dashboard-theme') || 'dark';
+document.documentElement.dataset.theme = savedTheme;
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
-:root{--bg:#0f172a;--sf:#1e293b;--bd:#334155;--tx:#e2e8f0;--mu:#94a3b8;--ac:#38bdf8;--pos:#22c55e;--neg:#ef4444;--warn:#f59e0b;}
+:root{--bg:#0f172a;--sf:#1e293b;--bd:#334155;--tx:#e2e8f0;--mu:#94a3b8;--ac:#38bdf8;--pos:#22c55e;--neg:#ef4444;--warn:#f59e0b;--warn-bg:#1c1507;--warn-tx:#fde68a;--warn-sub:#fcd34d;--table-head:#1a2942;--row-bd:#192233;--row-hover:#1e2d45;--code-bg:#0f172a;--code-tx:#a5f3fc;}
+:root[data-theme="light"]{--bg:#f8fafc;--sf:#ffffff;--bd:#cbd5e1;--tx:#0f172a;--mu:#475569;--ac:#0369a1;--pos:#15803d;--neg:#dc2626;--warn:#b45309;--warn-bg:#fffbeb;--warn-tx:#78350f;--warn-sub:#92400e;--table-head:#e2e8f0;--row-bd:#e2e8f0;--row-hover:#f1f5f9;--code-bg:#f1f5f9;--code-tx:#0f172a;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;min-height:100vh;}
 header{padding:12px 24px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
@@ -16,6 +21,10 @@ header .subtitle{font-size:12px;color:var(--mu);margin-top:2px;}
 .updated{color:var(--mu);font-size:12px;}
 .btn-update{background:transparent;border:1px solid var(--bd);color:var(--mu);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;}
 .btn-update:hover{border-color:var(--ac);color:var(--ac);}
+.btn-icon{width:32px;height:32px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--tx);cursor:pointer;font-size:15px;display:inline-flex;align-items:center;justify-content:center;}
+.btn-icon:hover{border-color:var(--ac);color:var(--ac);}
+.benchmark-select{height:32px;border-radius:6px;border:1px solid var(--bd);background:var(--sf);color:var(--tx);padding:0 9px;font-size:12px;font-weight:600;}
+.benchmark-select:focus{outline:1px solid var(--ac);}
 .regime-banner{background:#451a03;border-bottom:2px solid #f59e0b;padding:9px 24px;display:flex;align-items:center;gap:12px;}
 .regime-banner .msg{font-size:13px;color:#fde68a;font-weight:600;}
 .regime-banner .detail{font-size:12px;color:#fcd34d;margin-left:auto;}
@@ -27,14 +36,21 @@ header .subtitle{font-size:12px;color:var(--mu);margin-top:2px;}
 .panel.active{display:block;}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;}
 .card{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:14px 18px;}
-.card.warn{border-color:var(--warn);background:#1c1507;}
+.card.warn{border-color:var(--warn);background:var(--warn-bg);}
 .card-label{color:var(--mu);font-size:11px;text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;}
 .card-value{font-size:21px;font-weight:700;}
 .card-sub{font-size:12px;color:var(--mu);margin-top:3px;}
-.alert-box{background:#1c1507;border:1px solid var(--warn);border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:flex-start;gap:12px;}
-.alert-title{font-size:13px;font-weight:700;color:#fde68a;margin-bottom:4px;}
-.alert-body{font-size:12px;color:#fcd34d;line-height:1.6;}
+.alert-box{background:var(--warn-bg);border:1px solid var(--warn);border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:flex-start;gap:12px;color:var(--warn-tx);}
+.alert-title{font-size:13px;font-weight:700;color:var(--warn-tx);margin-bottom:4px;}
+.alert-body{font-size:12px;color:var(--warn-sub);line-height:1.6;}
 .regime-badge{display:inline-block;padding:3px 12px;border-radius:16px;font-weight:700;font-size:12px;}
+.signal-badge{display:inline-block;padding:3px 10px;border-radius:14px;font-weight:700;font-size:12px;}
+.signal-badge.strong{background:#14532d;color:#86efac;border:1px solid #22c55e66;}
+.signal-badge.watch{background:#451a03;color:#fde68a;border:1px solid #f59e0b66;}
+.signal-badge.weak{background:#450a0a;color:#fecaca;border:1px solid #ef444466;}
+:root[data-theme="light"] .signal-badge.strong{background:#dcfce7;color:#166534;border-color:#16a34a66;}
+:root[data-theme="light"] .signal-badge.watch{background:#fef3c7;color:#92400e;border-color:#d9770666;}
+:root[data-theme="light"] .signal-badge.weak{background:#fee2e2;color:#991b1b;border-color:#dc262666;}
 .charts-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
 .charts-row.wide{grid-template-columns:1fr;}
 .chart-box{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:16px;}
@@ -43,10 +59,10 @@ header .subtitle{font-size:12px;color:var(--mu);margin-top:2px;}
 .chart-wrap.tall{height:300px;}
 .section-label{font-size:11px;font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;}
 table{width:100%;border-collapse:collapse;background:var(--sf);border-radius:10px;overflow:hidden;margin-bottom:20px;}
-thead th{background:#1a2942;color:var(--mu);font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:9px 12px;text-align:left;border-bottom:1px solid var(--bd);}
-tbody td{padding:9px 12px;border-bottom:1px solid #192233;}
+thead th{background:var(--table-head);color:var(--mu);font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:9px 12px;text-align:left;border-bottom:1px solid var(--bd);}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--row-bd);}
 tbody tr:last-child td{border-bottom:none;}
-tbody tr:hover{background:#1e2d45;}
+tbody tr:hover{background:var(--row-hover);}
 .num{text-align:right;font-variant-numeric:tabular-nums;}
 .muted{color:var(--mu);font-size:12px;}
 .pos{color:var(--pos);}
@@ -55,8 +71,20 @@ tbody tr:hover{background:#1e2d45;}
 .modal-overlay.open{display:flex;}
 .modal{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:24px;max-width:520px;width:90%;}
 .modal h3{color:var(--ac);margin-bottom:12px;}
-.modal code{display:block;background:#0f172a;border:1px solid var(--bd);border-radius:6px;padding:12px;font-size:12px;color:#a5f3fc;margin:10px 0;line-height:1.6;word-break:break-all;}
+.modal code{display:block;background:var(--code-bg);border:1px solid var(--bd);border-radius:6px;padding:12px;font-size:12px;color:var(--code-tx);margin:10px 0;line-height:1.6;word-break:break-all;}
 .modal-close{margin-top:12px;background:var(--bd);border:none;color:var(--tx);padding:7px 18px;border-radius:6px;cursor:pointer;}
+.modal-action{margin-top:12px;background:var(--ac);border:none;color:#fff;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;}
+.modal-action:disabled{opacity:.55;cursor:not-allowed;}
+.update-status{margin-top:12px;background:var(--code-bg);border:1px solid var(--bd);border-radius:6px;padding:10px;font-size:12px;color:var(--code-tx);line-height:1.55;white-space:pre-wrap;max-height:220px;overflow:auto;}
+.model-tile{text-align:center;padding:14px 10px;background:var(--table-head);border:1px solid var(--bd);border-radius:8px;}
+.model-ticker{font-size:11px;color:var(--mu);margin-bottom:6px;}
+.model-weight{font-size:22px;font-weight:700;}
+.model-weight.core{color:var(--ac);}
+.model-weight.satellite{color:var(--tx);}
+.model-kind{font-size:11px;color:var(--mu);margin-top:4px;}
+:root[data-theme="light"] .regime-banner{background:var(--warn-bg) !important;border-bottom-color:var(--warn) !important;}
+:root[data-theme="light"] .regime-banner .msg{color:var(--warn-tx);}
+:root[data-theme="light"] .regime-banner .detail{color:var(--warn-sub);}
 @media(max-width:640px){
   .charts-row{grid-template-columns:1fr;}
   .tab{padding:10px 14px;font-size:12px;}
@@ -72,15 +100,22 @@ tbody tr:hover{background:#1e2d45;}
     <div class="subtitle">Buffett 量化配置觀測系統</div>
   </div>
   <div class="header-right">
+    <select class="benchmark-select" id="benchmarkSelect" onchange="setBenchmark(this.value)" aria-label="選擇美股追蹤指標">
+      <option value="VOO">追蹤 VOO</option>
+      <option value="QQQ">追蹤 QQQ</option>
+      <option value="SOXX">追蹤 SOXX</option>
+      <option value="VT">追蹤 VT</option>
+    </select>
     <span class="updated">更新：2026-05-14</span>
+    <button class="btn-icon" id="themeToggle" onclick="toggleTheme()" title="切換亮暗模式" aria-label="切換亮暗模式">&#9790;</button>
     <button class="btn-update" onclick="document.getElementById('modal').classList.add('open')">&#8635; 更新資料</button>
   </div>
 </header>
 
 <div class="regime-banner">
   <span style="font-size:15px">&#9888;</span>
-  <span class="msg">市場 Regime：CAUTION &mdash; 模型建議 VOO 92.3%，目前實際 56.3%</span>
-  <span class="detail">P(&gt;VOO) 68.4% &nbsp;|&nbsp; Stage: feasible &nbsp;|&nbsp; 2026Q2 current</span>
+  <span class="msg" id="regimeMsg">市場 Regime：CAUTION &mdash; 模型建議 VOO 80.0%，目前實際 55.9%</span>
+  <span class="detail" id="benchmarkDetail">P(&gt;QQQ) 67.2% &nbsp;|&nbsp; Stage: fallback_turnover_first &nbsp;|&nbsp; 2026Q2 current</span>
 </div>
 
 <div class="tabs">
@@ -95,25 +130,25 @@ tbody tr:hover{background:#1e2d45;}
   <div class="alert-box">
     <span style="font-size:18px;margin-top:2px">&#9888;</span>
     <div>
-      <div class="alert-title">配置偏離：VOO 實際 56.3% vs 模型建議 92.3%（-36.0pp）</div>
-      <div class="alert-body">CAUTION 模式下建議提高 VOO 核心比重。目前有 12 檔模型未推薦個股在持倉中。</div>
+      <div class="alert-title">配置偏離：VOO 實際 55.9% vs 模型建議 80.0%（-24.1pp）</div>
+      <div class="alert-body">CAUTION 模式下建議提高 VOO 核心比重。目前有 7 檔模型未推薦個股在持倉中。</div>
     </div>
   </div>
   <div class="cards">
     <div class="card ">
       <div class="card-label">美股市值 (USD)</div>
-      <div class="card-value">$311,112</div>
-      <div class="card-sub pos">成本 $237,491 ｜ +31.0%</div>
-    </div>
-    <div class="card ">
-      <div class="card-label">台股市值 (TWD)</div>
-      <div class="card-value">NT$955,000</div>
-      <div class="card-sub pos">成本 NT$924,900 ｜ +3.3%</div>
+      <div class="card-value">$315,199</div>
+      <div class="card-sub pos">成本 $237,491 ｜ +32.7%</div>
     </div>
     <div class="card warn">
       <div class="card-label">美股模型信心</div>
-      <div class="card-value">68.4%</div>
-      <div class="card-sub ">P(&gt;VOO) ｜ CAUTION</div>
+      <div class="card-value"><span id="usModelConfidence">67.2%</span></div>
+      <div class="card-sub "><span id="usModelConfidenceSub">P(&gt;QQQ) ｜ CAUTION</span></div>
+    </div>
+    <div class="card ">
+      <div class="card-label">台股市值 (TWD)</div>
+      <div class="card-value">NT$959,000</div>
+      <div class="card-sub pos">成本 NT$924,900 ｜ +3.7%</div>
     </div>
     <div class="card ">
       <div class="card-label">台股模型信心</div>
@@ -139,25 +174,35 @@ tbody tr:hover{background:#1e2d45;}
   <div class="cards">
     <div class="card ">
       <div class="card-label">美股市值</div>
-      <div class="card-value">$311,112</div>
+      <div class="card-value">$315,199</div>
       <div class="card-sub ">成本 $237,491</div>
     </div>
     <div class="card ">
       <div class="card-label">損益</div>
-      <div class="card-value">$+73,620</div>
-      <div class="card-sub pos">+31.0%</div>
+      <div class="card-value">$+77,708</div>
+      <div class="card-sub pos">+32.7%</div>
     </div>
     <div class="card warn">
       <div class="card-label">市場狀態</div>
       <div class="card-value"><span class="regime-badge" style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b66">CAUTION</span></div>
-      <div class="card-sub ">VOO 模型 92.3% / 實際 56.3%</div>
+      <div class="card-sub "><span id="usStatusSub">VOO 模型 80.0% / 實際 55.9%</span></div>
+    </div>
+    <div class="card warn">
+      <div class="card-label">訊號 / 風險</div>
+      <div class="card-value"><span id="signalBadge" class="signal-badge watch">Watch</span></div>
+      <div class="card-sub "><span id="riskMetrics">Sharpe — ｜ P&lt;0% — ｜ Beta —</span></div>
+    </div>
+    <div class="card warn">
+      <div class="card-label">70% 門檻</div>
+      <div class="card-value"><span id="targetStatus">—</span></div>
+      <div class="card-sub "><span id="targetDetail">—</span></div>
     </div>
   </div>
   <div class="alert-box">
     <span style="font-size:18px;margin-top:2px">&#9888;</span>
     <div>
-      <div class="alert-title">配置偏離：VOO 實際 56.3% vs 模型建議 92.3%（-36.0pp）</div>
-      <div class="alert-body">CAUTION 模式下建議提高 VOO 核心比重。目前有 12 檔模型未推薦個股在持倉中。</div>
+      <div class="alert-title">配置偏離：VOO 實際 55.9% vs 模型建議 80.0%（-24.1pp）</div>
+      <div class="alert-body">CAUTION 模式下建議提高 VOO 核心比重。目前有 7 檔模型未推薦個股在持倉中。</div>
     </div>
   </div>
   <div class="charts-row">
@@ -182,151 +227,151 @@ tbody tr:hover{background:#1e2d45;}
           <td><strong>VOO</strong></td><td class="muted">Vanguard S&P 500 ETF</td>
           <td class="num">258</td>
           <td class="num">$527.00</td>
-          <td class="num">$678.67</td>
-          <td class="num">$175,097</td>
-          <td class="num pos">+$39,131</td>
-          <td class="num pos">28.78%</td>
-          <td class="num"><span style="color:#22c55e">&#10003; 92.3%</span></td>
-        </tr>
-<tr>
-          <td><strong>SNDK</strong></td><td class="muted">SanDisk</td>
-          <td class="num">11</td>
-          <td class="num">$1,073.72</td>
-          <td class="num">$1,452.02</td>
-          <td class="num">$15,972</td>
-          <td class="num pos">+$4,161</td>
-          <td class="num pos">35.23%</td>
-          <td class="num"><span style="color:#22c55e">&#10003; 3.8%</span></td>
+          <td class="num">$682.41</td>
+          <td class="num">$176,062</td>
+          <td class="num pos">+$40,096</td>
+          <td class="num pos">29.49%</td>
+          <td class="num model-cell" data-ticker="VOO"><span style="color:#22c55e">&#10003; 80.0%</span></td>
         </tr>
 <tr>
           <td><strong>MU</strong></td><td class="muted">Micron Technology</td>
           <td class="num">20</td>
           <td class="num">$586.45</td>
-          <td class="num">$766.58</td>
-          <td class="num">$15,332</td>
-          <td class="num pos">+$3,603</td>
-          <td class="num pos">30.72%</td>
-          <td class="num"><span style="color:#475569">&#8212; 自選</span></td>
+          <td class="num">$803.63</td>
+          <td class="num">$16,073</td>
+          <td class="num pos">+$4,344</td>
+          <td class="num pos">37.03%</td>
+          <td class="num model-cell" data-ticker="MU"><span style="color:#22c55e">&#10003; 2.0%</span></td>
         </tr>
 <tr>
-          <td><strong>AMD</strong></td><td class="muted">Advanced Micro Devices</td>
-          <td class="num">29</td>
-          <td class="num">$244.21</td>
-          <td class="num">$448.29</td>
-          <td class="num">$13,000</td>
-          <td class="num pos">+$5,918</td>
-          <td class="num pos">83.57%</td>
-          <td class="num"><span style="color:#475569">&#8212; 自選</span></td>
+          <td><strong>SNDK</strong></td><td class="muted">SanDisk</td>
+          <td class="num">11</td>
+          <td class="num">$1,073.72</td>
+          <td class="num">$1,447.23</td>
+          <td class="num">$15,920</td>
+          <td class="num pos">+$4,109</td>
+          <td class="num pos">34.79%</td>
+          <td class="num model-cell" data-ticker="SNDK"><span style="color:#22c55e">&#10003; 2.0%</span></td>
         </tr>
 <tr>
           <td><strong>NVDA</strong></td><td class="muted">NVIDIA</td>
           <td class="num">58</td>
           <td class="num">$170.52</td>
-          <td class="num">$220.78</td>
-          <td class="num">$12,805</td>
-          <td class="num pos">+$2,915</td>
-          <td class="num pos">29.47%</td>
-          <td class="num"><span style="color:#475569">&#8212; 自選</span></td>
+          <td class="num">$225.83</td>
+          <td class="num">$13,098</td>
+          <td class="num pos">+$3,208</td>
+          <td class="num pos">32.44%</td>
+          <td class="num model-cell" data-ticker="NVDA"><span style="color:#475569">&#8212; 自選</span></td>
+        </tr>
+<tr>
+          <td><strong>AMD</strong></td><td class="muted">Advanced Micro Devices</td>
+          <td class="num">29</td>
+          <td class="num">$244.21</td>
+          <td class="num">$445.50</td>
+          <td class="num">$12,920</td>
+          <td class="num pos">+$5,837</td>
+          <td class="num pos">82.42%</td>
+          <td class="num model-cell" data-ticker="AMD"><span style="color:#22c55e">&#10003; 2.0%</span></td>
         </tr>
 <tr>
           <td><strong>INTC</strong></td><td class="muted">Intel</td>
           <td class="num">103</td>
           <td class="num">$65.18</td>
-          <td class="num">$120.61</td>
-          <td class="num">$12,423</td>
-          <td class="num pos">+$5,709</td>
-          <td class="num pos">85.04%</td>
-          <td class="num"><span style="color:#475569">&#8212; 自選</span></td>
-        </tr>
-<tr>
-          <td><strong>AVGO</strong></td><td class="muted">Broadcom</td>
-          <td class="num">29</td>
-          <td class="num">$268.84</td>
-          <td class="num">$419.30</td>
-          <td class="num">$12,160</td>
-          <td class="num pos">+$4,363</td>
-          <td class="num pos">55.97%</td>
-          <td class="num"><span style="color:#475569">&#8212; 自選</span></td>
+          <td class="num">$120.29</td>
+          <td class="num">$12,390</td>
+          <td class="num pos">+$5,676</td>
+          <td class="num pos">84.55%</td>
+          <td class="num model-cell" data-ticker="INTC"><span style="color:#22c55e">&#10003; 2.0%</span></td>
         </tr>
 <tr>
           <td><strong>COHR</strong></td><td class="muted">Coherent Corp</td>
           <td class="num">30</td>
           <td class="num">$333.67</td>
-          <td class="num">$374.01</td>
-          <td class="num">$11,220</td>
-          <td class="num pos">+$1,210</td>
-          <td class="num pos">12.09%</td>
-          <td class="num"><span style="color:#475569">&#8212; 自選</span></td>
+          <td class="num">$403.71</td>
+          <td class="num">$12,111</td>
+          <td class="num pos">+$2,101</td>
+          <td class="num pos">20.99%</td>
+          <td class="num model-cell" data-ticker="COHR"><span style="color:#22c55e">&#10003; 2.0%</span></td>
+        </tr>
+<tr>
+          <td><strong>AVGO</strong></td><td class="muted">Broadcom</td>
+          <td class="num">29</td>
+          <td class="num">$268.84</td>
+          <td class="num">$416.79</td>
+          <td class="num">$12,087</td>
+          <td class="num pos">+$4,291</td>
+          <td class="num pos">55.03%</td>
+          <td class="num model-cell" data-ticker="AVGO"><span style="color:#475569">&#8212; 自選</span></td>
         </tr>
 <tr>
           <td><strong>LITE</strong></td><td class="muted">Lumentum</td>
           <td class="num">11</td>
           <td class="num">$902.53</td>
-          <td class="num">$992.37</td>
-          <td class="num">$10,916</td>
-          <td class="num pos">+$988</td>
-          <td class="num pos">9.95%</td>
-          <td class="num"><span style="color:#22c55e">&#10003; 3.8%</span></td>
-        </tr>
-<tr>
-          <td><strong>TSM</strong></td><td class="muted">TSMC ADR</td>
-          <td class="num">27</td>
-          <td class="num">$276.31</td>
-          <td class="num">$397.28</td>
-          <td class="num">$10,727</td>
-          <td class="num pos">+$3,266</td>
-          <td class="num pos">43.78%</td>
-          <td class="num"><span style="color:#475569">&#8212; 自選</span></td>
-        </tr>
-<tr>
-          <td><strong>TSLA</strong></td><td class="muted">Tesla</td>
-          <td class="num">24</td>
-          <td class="num">$419.35</td>
-          <td class="num">$433.45</td>
-          <td class="num">$10,403</td>
-          <td class="num pos">+$338</td>
-          <td class="num pos">3.36%</td>
-          <td class="num"><span style="color:#475569">&#8212; 自選</span></td>
+          <td class="num">$1,030.37</td>
+          <td class="num">$11,334</td>
+          <td class="num pos">+$1,406</td>
+          <td class="num pos">14.16%</td>
+          <td class="num model-cell" data-ticker="LITE"><span style="color:#22c55e">&#10003; 2.0%</span></td>
         </tr>
 <tr>
           <td><strong>ARM</strong></td><td class="muted">Arm Holdings</td>
           <td class="num">49</td>
           <td class="num">$167.24</td>
-          <td class="num">$207.92</td>
-          <td class="num">$10,188</td>
-          <td class="num pos">+$1,993</td>
-          <td class="num pos">24.32%</td>
-          <td class="num"><span style="color:#475569">&#8212; 自選</span></td>
+          <td class="num">$221.21</td>
+          <td class="num">$10,839</td>
+          <td class="num pos">+$2,645</td>
+          <td class="num pos">32.27%</td>
+          <td class="num model-cell" data-ticker="ARM"><span style="color:#22c55e">&#10003; 2.0%</span></td>
+        </tr>
+<tr>
+          <td><strong>TSM</strong></td><td class="muted">TSMC ADR</td>
+          <td class="num">27</td>
+          <td class="num">$276.31</td>
+          <td class="num">$399.80</td>
+          <td class="num">$10,795</td>
+          <td class="num pos">+$3,334</td>
+          <td class="num pos">44.69%</td>
+          <td class="num model-cell" data-ticker="TSM"><span style="color:#475569">&#8212; 自選</span></td>
+        </tr>
+<tr>
+          <td><strong>TSLA</strong></td><td class="muted">Tesla</td>
+          <td class="num">24</td>
+          <td class="num">$419.35</td>
+          <td class="num">$445.27</td>
+          <td class="num">$10,686</td>
+          <td class="num pos">+$622</td>
+          <td class="num pos">6.18%</td>
+          <td class="num model-cell" data-ticker="TSLA"><span style="color:#475569">&#8212; 自選</span></td>
         </tr>
 <tr>
           <td><strong>CRWD</strong></td><td class="muted">CrowdStrike</td>
           <td class="num">1</td>
           <td class="num">$474.39</td>
-          <td class="num">$546.18</td>
-          <td class="num">$546</td>
-          <td class="num pos">+$72</td>
-          <td class="num pos">15.13%</td>
-          <td class="num"><span style="color:#475569">&#8212; 自選</span></td>
+          <td class="num">$562.57</td>
+          <td class="num">$563</td>
+          <td class="num pos">+$88</td>
+          <td class="num pos">18.59%</td>
+          <td class="num model-cell" data-ticker="CRWD"><span style="color:#475569">&#8212; 自選</span></td>
         </tr>
 <tr>
           <td><strong>NET</strong></td><td class="muted">Cloudflare</td>
           <td class="num">1</td>
           <td class="num">$231.29</td>
-          <td class="num">$186.79</td>
-          <td class="num">$187</td>
-          <td class="num neg">$-45</td>
-          <td class="num neg">-19.24%</td>
-          <td class="num"><span style="color:#475569">&#8212; 自選</span></td>
+          <td class="num">$192.62</td>
+          <td class="num">$193</td>
+          <td class="num neg">$-39</td>
+          <td class="num neg">-16.72%</td>
+          <td class="num model-cell" data-ticker="NET"><span style="color:#475569">&#8212; 自選</span></td>
         </tr>
 <tr>
           <td><strong>PLTR</strong></td><td class="muted">Palantir Technologies</td>
           <td class="num">1</td>
           <td class="num">$140.01</td>
-          <td class="num">$136.00</td>
-          <td class="num">$136</td>
-          <td class="num neg">$-4</td>
-          <td class="num neg">-2.86%</td>
-          <td class="num"><span style="color:#475569">&#8212; 自選</span></td>
+          <td class="num">$130.05</td>
+          <td class="num">$130</td>
+          <td class="num neg">$-10</td>
+          <td class="num neg">-7.11%</td>
+          <td class="num model-cell" data-ticker="PLTR"><span style="color:#475569">&#8212; 自選</span></td>
         </tr></tbody>
   </table>
 </div>
@@ -337,13 +382,13 @@ tbody tr:hover{background:#1e2d45;}
   <div class="cards">
     <div class="card ">
       <div class="card-label">台股市值</div>
-      <div class="card-value">NT$955,000</div>
+      <div class="card-value">NT$959,000</div>
       <div class="card-sub ">成本 NT$924,900</div>
     </div>
     <div class="card ">
       <div class="card-label">損益</div>
-      <div class="card-value">NT$+30,100</div>
-      <div class="card-sub pos">+3.3%</div>
+      <div class="card-value">NT$+34,100</div>
+      <div class="card-sub pos">+3.7%</div>
     </div>
     <div class="card ">
       <div class="card-label">模型信心</div>
@@ -375,10 +420,10 @@ tbody tr:hover{background:#1e2d45;}
           <td><strong>0050</strong></td><td class="muted">元大台灣50</td>
           <td class="num">10,000</td>
           <td class="num">$92.49</td>
-          <td class="num">$95.50</td>
-          <td class="num">$955,000</td>
-          <td class="num pos">+$30,100</td>
-          <td class="num pos">3.25%</td>
+          <td class="num">$95.90</td>
+          <td class="num">$959,000</td>
+          <td class="num pos">+$34,100</td>
+          <td class="num pos">3.69%</td>
         </tr></tbody>
   </table>
 </div>
@@ -386,12 +431,9 @@ tbody tr:hover{background:#1e2d45;}
 <div class="modal-overlay" id="modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal">
     <h3>&#8635; 更新資料</h3>
-    <p style="color:var(--mu);font-size:13px">在本機 Buffett 目錄執行：</p>
-    <code>python -X utf8 update_portfolio.py<br>
-python -X utf8 generate_portfolio_dashboard.py<br>
-git add Buffett/portfolio_dashboard.html<br>
-git commit -m "每日更新 Dashboard"<br>
-git push</code>
+    <p style="color:var(--mu);font-size:13px">按下後會在本機依序更新持倉、重新產生 dashboard，並只提交與推送 dashboard HTML。</p>
+    <button class="modal-action" id="runUpdateBtn" onclick="runDashboardUpdate()">一鍵更新並推送</button>
+    <div class="update-status" id="updateStatus">待執行。若按鈕無法連線，請用 python -X utf8 dashboard_server.py 開啟本機 dashboard server。</div>
     <p style="color:var(--mu);font-size:12px;margin-top:8px">推送後約 30 秒 GitHub Pages 自動更新。</p>
     <button class="modal-close" onclick="document.getElementById('modal').classList.remove('open')">關閉</button>
   </div>
@@ -405,11 +447,68 @@ function switchTab(i){
   panels.forEach((p,j)=>p.classList.toggle('active',i===j));
 }
 
-const gridColor = '#334155', tickColor = '#94a3b8';
+function themeValue(name){
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+let gridColor = themeValue('--bd');
+let tickColor = themeValue('--mu');
+function syncThemeButton(){
+  const btn = document.getElementById('themeToggle');
+  if (!btn) return;
+  const isLight = document.documentElement.dataset.theme === 'light';
+  btn.innerHTML = isLight ? '&#9788;' : '&#9790;';
+  btn.title = isLight ? '切換深色模式' : '切換淺色模式';
+}
+function applyChartTheme(){
+  gridColor = themeValue('--bd');
+  tickColor = themeValue('--mu');
+  Object.values(Chart.instances || {}).forEach(chart => {
+    Object.values(chart.options.scales || {}).forEach(scale => {
+      if (scale.ticks) scale.ticks.color = tickColor;
+      if (scale.grid) scale.grid.color = gridColor;
+    });
+    if (chart.options.plugins?.legend?.labels) chart.options.plugins.legend.labels.color = tickColor;
+    chart.update();
+  });
+}
+function toggleTheme(){
+  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('dashboard-theme', next);
+  syncThemeButton();
+  applyChartTheme();
+}
+syncThemeButton();
+async function runDashboardUpdate(){
+  const button = document.getElementById('runUpdateBtn');
+  const status = document.getElementById('updateStatus');
+  button.disabled = true;
+  status.textContent = '更新中，請不要關閉視窗...';
+  try {
+    const response = await fetch('/api/update', { method:'POST' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result = await response.json();
+    const lines = [result.ok ? '完成：' + result.message : '失敗：' + result.message];
+    for (const step of result.steps || []) {
+      lines.push(`\n[${step.code === 0 ? 'OK' : 'ERR'}] ${step.label}`);
+      if (step.output) lines.push(step.output);
+    }
+    status.textContent = lines.join('\n');
+    if (result.ok) setTimeout(() => window.location.reload(), 1200);
+  } catch (error) {
+    status.textContent = '無法連線到本機更新服務。請先執行：\npython -X utf8 dashboard_server.py\n\n錯誤：' + error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
 const baseScales = {
   x:{ ticks:{color:tickColor,font:{size:10}}, grid:{color:gridColor} },
   y:{ ticks:{color:tickColor}, grid:{color:gridColor} }
 };
+const BENCHMARK_SCENARIOS = {"VOO": {"key": "VOO", "label": "VOO", "ticker": "VOO", "pBeat": 0.6731857904544817, "rawPBeat": 0.91, "pBeatVoo": 0.91, "pGt5": 0.612, "pLt0": 0.20633333333333334, "sharpe": 1.7879675286869645, "stage": "fallback_turnover_first", "weights": {"AMD": 0.019999999999999997, "ARM": 0.019999999999999997, "CLS": 0.019999999999999997, "COHR": 0.019999999999999997, "INTC": 0.019999999999999997, "LITE": 0.019999999999999997, "MRVL": 0.019999999999999997, "MU": 0.019999999999999997, "SNDK": 0.019999999999999997, "VOO": 0.8, "VRT": 0.019999999999999997}, "weightsText": "AMD 2.0%, ARM 2.0%, CLS 2.0%, COHR 2.0%, INTC 2.0%, LITE 2.0%, MRVL 2.0%, MU 2.0%, SNDK 2.0%, VOO 80.0%, VRT 2.0%", "selectedSatellite": "SNDK,LITE,INTC,COHR,ARM,VRT,MRVL,CLS,MU,AMD", "portfolioBeta": 1.3157592744244286, "betaCap": 1.2, "fullyFeasible": false, "hasStrongCandidate": false, "targetStatus": "No Strong Candidate", "targetDetail": "找不到同時達到 70% 且 fully_feasible 的 portfolio", "signal": "Watch", "signalClass": "watch"}, "QQQ": {"key": "QQQ", "label": "QQQ", "ticker": "QQQ", "pBeat": 0.6718565088322508, "rawPBeat": 0.8883333333333333, "pBeatVoo": 0.91, "pGt5": 0.612, "pLt0": 0.20633333333333334, "sharpe": 1.7879675286869645, "stage": "fallback_turnover_first", "weights": {"AMD": 0.019999999999999997, "ARM": 0.019999999999999997, "CLS": 0.019999999999999997, "COHR": 0.019999999999999997, "INTC": 0.019999999999999997, "LITE": 0.019999999999999997, "MRVL": 0.019999999999999997, "MU": 0.019999999999999997, "SNDK": 0.019999999999999997, "VOO": 0.8, "VRT": 0.019999999999999997}, "weightsText": "AMD 2.0%, ARM 2.0%, CLS 2.0%, COHR 2.0%, INTC 2.0%, LITE 2.0%, MRVL 2.0%, MU 2.0%, SNDK 2.0%, VOO 80.0%, VRT 2.0%", "selectedSatellite": "SNDK,LITE,INTC,COHR,ARM,VRT,MRVL,CLS,MU,AMD", "portfolioBeta": 1.3157592744244286, "betaCap": 1.2, "fullyFeasible": false, "hasStrongCandidate": false, "targetStatus": "No Strong Candidate", "targetDetail": "找不到同時達到 70% 且 fully_feasible 的 portfolio", "signal": "Watch", "signalClass": "watch"}, "SOXX": {"key": "SOXX", "label": "SOXX", "ticker": "SOXX", "pBeat": 0.42809189869169684, "rawPBeat": 0.3526666666666667, "pBeatVoo": 0.91, "pGt5": 0.612, "pLt0": 0.20633333333333334, "sharpe": 1.7879675286869645, "stage": "fallback_turnover_first", "weights": {"AMD": 0.019999999999999997, "ARM": 0.019999999999999997, "CLS": 0.019999999999999997, "COHR": 0.019999999999999997, "INTC": 0.019999999999999997, "LITE": 0.019999999999999997, "MRVL": 0.019999999999999997, "MU": 0.019999999999999997, "SNDK": 0.019999999999999997, "VOO": 0.8, "VRT": 0.019999999999999997}, "weightsText": "AMD 2.0%, ARM 2.0%, CLS 2.0%, COHR 2.0%, INTC 2.0%, LITE 2.0%, MRVL 2.0%, MU 2.0%, SNDK 2.0%, VOO 80.0%, VRT 2.0%", "selectedSatellite": "SNDK,LITE,INTC,COHR,ARM,VRT,MRVL,CLS,MU,AMD", "portfolioBeta": 1.3157592744244286, "betaCap": 1.2, "fullyFeasible": false, "hasStrongCandidate": false, "targetStatus": "No Strong Candidate", "targetDetail": "找不到同時達到 70% 且 fully_feasible 的 portfolio", "signal": "Weak", "signalClass": "weak"}, "VT": {"key": "VT", "label": "VT", "ticker": "VT", "pBeat": 0.7061342651509278, "rawPBeat": 0.8313333333333334, "pBeatVoo": 0.91, "pGt5": 0.612, "pLt0": 0.20633333333333334, "sharpe": 1.7879675286869645, "stage": "fallback_turnover_first", "weights": {"AMD": 0.019999999999999997, "ARM": 0.019999999999999997, "CLS": 0.019999999999999997, "COHR": 0.019999999999999997, "INTC": 0.019999999999999997, "LITE": 0.019999999999999997, "MRVL": 0.019999999999999997, "MU": 0.019999999999999997, "SNDK": 0.019999999999999997, "VOO": 0.8, "VRT": 0.019999999999999997}, "weightsText": "AMD 2.0%, ARM 2.0%, CLS 2.0%, COHR 2.0%, INTC 2.0%, LITE 2.0%, MRVL 2.0%, MU 2.0%, SNDK 2.0%, VOO 80.0%, VRT 2.0%", "selectedSatellite": "SNDK,LITE,INTC,COHR,ARM,VRT,MRVL,CLS,MU,AMD", "portfolioBeta": 1.3157592744244286, "betaCap": 1.2, "fullyFeasible": false, "hasStrongCandidate": false, "targetStatus": "No Strong Candidate", "targetDetail": "找不到同時達到 70% 且 fully_feasible 的 portfolio", "signal": "Watch", "signalClass": "watch"}};
+const ACTUAL_WEIGHTS = {"AMD": 0.04098835208027798, "ARM": 0.03438868751147982, "AVGO": 0.0383468812879491, "COHR": 0.038424259301258, "CRWD": 0.0017848072704059477, "INTC": 0.03930805043957176, "LITE": 0.03595842327187534, "MU": 0.0509918643638101, "NET": 0.0006111053970791986, "NVDA": 0.04155510493980288, "PLTR": 0.0004125960999362727, "SNDK": 0.05050623412565938, "TSLA": 0.033903881259442964, "TSM": 0.03424690211358211, "VOO": 0.5585728505378692};
+const REGIME_LABEL = "CAUTION";
+const VOO_ACTUAL = 55.857285;
 
 function lineChart(id, labels, datasets){
   new Chart(document.getElementById(id),{
@@ -424,25 +523,25 @@ function lineChart(id, labels, datasets){
 }
 
 // Overview charts
-const ovDates = ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13"];
+const ovDates = ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14"];
 lineChart('ovUsChart', ovDates, [{
-  label:'損益 USD', data:[57345.16, 53550.06999999998, 53550.06999999998, 82922.51999999999, 62874.53, 73291.18999999997, 73291.18999999997, 73291.18999999997, 78413.72, 73620.42000000001],
+  label:'損益 USD', data:[57345.16, 53550.06999999998, 53550.06999999998, 82922.51999999999, 62874.53, 73291.18999999997, 73291.18999999997, 73291.18999999997, 78413.72, 73620.42000000001, 77708.07999999999],
   borderColor:'#22c55e', backgroundColor:'#22c55e15', fill:true, tension:.3, pointRadius:3
 }]);
 lineChart('ovTwChart', ovDates, [{
-  label:'市值 TWD', data:[943700.0, 945999.98, 957500.0, 957500.0, 957500.0, 957500.0, 970000.0, 970000.0, 969000.02, 969000.02],
+  label:'市值 TWD', data:[943700.0, 945999.98, 957500.0, 957500.0, 957500.0, 957500.0, 970000.0, 970000.0, 969000.02, 969000.02, 969000.02],
   borderColor:'#34d399', backgroundColor:'#34d39918', fill:true, tension:.3, pointRadius:3
 }]);
 
 // US horizontal bar: actual vs model
-new Chart(document.getElementById('usHBar'),{
+const usHBarChart = new Chart(document.getElementById('usHBar'),{
   type:'bar',
   data:{
-    labels: ["VOO", "SNDK", "MU", "AMD", "NVDA", "INTC", "AVGO", "COHR", "LITE", "TSM", "TSLA", "ARM", "CRWD", "NET", "PLTR"],
+    labels: ["VOO", "MU", "SNDK", "NVDA", "AMD", "INTC", "COHR", "AVGO", "LITE", "ARM", "TSM", "TSLA", "CRWD", "NET", "PLTR"],
     datasets:[
       {
         label:'模型建議 %',
-        data: [92.3, 3.8, 0, 0, 0, 0, 0, 0, 3.8, 0, 0, 0, 0, 0, 0],
+        data: [80.0, 2.0, 2.0, 0, 2.0, 2.0, 2.0, 0, 2.0, 2.0, 0, 0, 0, 0, 0],
         backgroundColor:'#38bdf822',
         borderColor:'#38bdf8',
         borderWidth:1,
@@ -450,8 +549,8 @@ new Chart(document.getElementById('usHBar'),{
       },
       {
         label:'實際持倉 %',
-        data: [56.3, 5.1, 4.9, 4.2, 4.1, 4.0, 3.9, 3.6, 3.5, 3.4, 3.3, 3.3, 0.2, 0.1, 0.0],
-        backgroundColor: ["#38bdf8", "#22c55e", "#475569", "#475569", "#475569", "#475569", "#475569", "#475569", "#22c55e", "#475569", "#475569", "#475569", "#475569", "#475569", "#475569"],
+        data: [55.9, 5.1, 5.1, 4.2, 4.1, 3.9, 3.8, 3.8, 3.6, 3.4, 3.4, 3.4, 0.2, 0.1, 0.0],
+        backgroundColor: ["#38bdf8", "#22c55e", "#22c55e", "#475569", "#22c55e", "#22c55e", "#22c55e", "#475569", "#22c55e", "#22c55e", "#475569", "#475569", "#475569", "#475569", "#475569"],
         borderRadius:2
       }
     ]
@@ -470,17 +569,89 @@ new Chart(document.getElementById('usHBar'),{
   }
 });
 
+function pct(value, digits=1){
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+  return `${(Number(value) * 100).toFixed(digits)}%`;
+}
+function num(value, digits=2){
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+  return Number(value).toFixed(digits);
+}
+function modelCellHtml(weight){
+  if (weight > 0) return `<span style="color:#22c55e">&#10003; ${(weight * 100).toFixed(1)}%</span>`;
+  return '<span style="color:#475569">&#8212; 自選</span>';
+}
+function chartColors(labels, weights){
+  return labels.map(t => t === 'VOO' ? '#38bdf8' : (weights[t] > 0 ? '#22c55e' : '#475569'));
+}
+function setBenchmark(key){
+  const scenario = BENCHMARK_SCENARIOS[key] || BENCHMARK_SCENARIOS.QQQ;
+  if (!scenario) return;
+  const weights = scenario.weights || {};
+  const vooModel = (weights.VOO || 0) * 100;
+  const labels = Array.from(new Set([...Object.keys(ACTUAL_WEIGHTS), ...Object.keys(weights)])).sort(
+    (a, b) => (ACTUAL_WEIGHTS[b] || 0) - (ACTUAL_WEIGHTS[a] || 0)
+  );
+
+  document.getElementById('benchmarkSelect').value = scenario.key;
+  if (scenario.unavailable) {
+    document.getElementById('benchmarkDetail').innerHTML = `${scenario.label} unavailable &nbsp;|&nbsp; Stage: unavailable &nbsp;|&nbsp; 2026Q2 current`;
+    document.getElementById('usModelConfidence').textContent = '—';
+    document.getElementById('usModelConfidenceSub').innerHTML = `${scenario.label} 無資料 ｜ ${REGIME_LABEL}`;
+    document.getElementById('regimeMsg').innerHTML = `市場 Regime：${REGIME_LABEL} &mdash; ${scenario.label} 價格資料不足，無法追蹤`;
+    document.getElementById('usStatusSub').textContent = `${scenario.label} benchmark unavailable`;
+    const unavailableSignal = document.getElementById('signalBadge');
+    unavailableSignal.textContent = 'Unavailable';
+    unavailableSignal.className = 'signal-badge weak';
+    document.getElementById('riskMetrics').innerHTML = 'Sharpe — ｜ P&lt;0% — ｜ Beta —';
+    document.getElementById('targetStatus').textContent = scenario.targetStatus || 'Unavailable';
+    document.getElementById('targetDetail').textContent = scenario.targetDetail || '缺少 benchmark 歷史資料';
+    document.querySelectorAll('.model-cell').forEach(cell => {
+      cell.innerHTML = '<span style="color:#475569">&#8212; 無資料</span>';
+    });
+    usHBarChart.data.labels = labels;
+    usHBarChart.data.datasets[0].data = labels.map(() => 0);
+    usHBarChart.data.datasets[1].data = labels.map(t => Number(((ACTUAL_WEIGHTS[t] || 0) * 100).toFixed(1)));
+    usHBarChart.data.datasets[1].backgroundColor = chartColors(labels, weights);
+    usHBarChart.update();
+    return;
+  }
+  document.getElementById('benchmarkDetail').innerHTML = `P(&gt;${scenario.label}) ${pct(scenario.pBeat)} &nbsp;|&nbsp; Stage: ${scenario.stage} &nbsp;|&nbsp; 2026Q2 current`;
+  document.getElementById('usModelConfidence').textContent = pct(scenario.pBeat);
+  document.getElementById('usModelConfidenceSub').innerHTML = `P(&gt;${scenario.label}) ｜ ${REGIME_LABEL}`;
+  document.getElementById('regimeMsg').innerHTML = `市場 Regime：${REGIME_LABEL} &mdash; 追蹤 ${scenario.label}（${scenario.ticker}）｜模型建議 VOO ${vooModel.toFixed(1)}%，目前實際 ${VOO_ACTUAL.toFixed(1)}%`;
+  document.getElementById('usStatusSub').textContent = `VOO 模型 ${vooModel.toFixed(1)}% / 實際 ${VOO_ACTUAL.toFixed(1)}%`;
+  const signal = document.getElementById('signalBadge');
+  signal.textContent = scenario.signal || '—';
+  signal.className = `signal-badge ${scenario.signalClass || 'weak'}`;
+  document.getElementById('riskMetrics').innerHTML = `Sharpe ${num(scenario.sharpe)} ｜ P&lt;0% ${pct(scenario.pLt0)} ｜ Beta ${num(scenario.portfolioBeta)} / ${num(scenario.betaCap)}`;
+  document.getElementById('targetStatus').textContent = scenario.targetStatus || 'No Strong Candidate';
+  document.getElementById('targetDetail').textContent = scenario.targetDetail || '找不到同時達到 70% 且 fully_feasible 的 portfolio';
+
+  document.querySelectorAll('.model-cell').forEach(cell => {
+    const ticker = cell.dataset.ticker;
+    cell.innerHTML = modelCellHtml(weights[ticker] || 0);
+  });
+
+  usHBarChart.data.labels = labels;
+  usHBarChart.data.datasets[0].data = labels.map(t => Number(((weights[t] || 0) * 100).toFixed(1)));
+  usHBarChart.data.datasets[1].data = labels.map(t => Number(((ACTUAL_WEIGHTS[t] || 0) * 100).toFixed(1)));
+  usHBarChart.data.datasets[1].backgroundColor = chartColors(labels, weights);
+  usHBarChart.update();
+}
+setBenchmark('QQQ');
+
 // US P&L trend
-lineChart('usLine', ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13"], [{
+lineChart('usLine', ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14"], [{
   label:'損益 USD',
-  data: [0, 57225.96, 57225.96, 74023.72, 62874.53, 73291.19, 73291.19, 73291.19, 78413.72, 73620.42],
+  data: [0, 57225.96, 57225.96, 74023.72, 62874.53, 73291.19, 73291.19, 73291.19, 78413.72, 73620.42, 77708.08],
   borderColor:'#22c55e', backgroundColor:'#22c55e12', fill:true, tension:.3, pointRadius:3
 }]);
 
 // TW market value trend
-lineChart('twLine', ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13"], [{
+lineChart('twLine', ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14"], [{
   label:'市值 TWD',
-  data: [943700.0, 945999.98, 957500.0, 957500.0, 957500.0, 957500.0, 970000.0, 970000.0, 969000.02, 969000.02],
+  data: [943700.0, 945999.98, 957500.0, 957500.0, 957500.0, 957500.0, 970000.0, 970000.0, 969000.02, 969000.02, 969000.02],
   borderColor:'#34d399', backgroundColor:'#34d39918', fill:true, tension:.3, pointRadius:3
 }]);
 </script>
