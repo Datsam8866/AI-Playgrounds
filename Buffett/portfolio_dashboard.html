@@ -504,7 +504,7 @@ function lineChart(id, labels, datasets){
     data:{ labels, datasets },
     options:{
       responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ labels:{color:tickColor} } },
+      plugins:{ legend:{ labels:{color:tickColor, usePointStyle:true, pointStyle:'line', boxWidth:42, boxHeight:4} } },
       scales: baseScales
     }
   });
