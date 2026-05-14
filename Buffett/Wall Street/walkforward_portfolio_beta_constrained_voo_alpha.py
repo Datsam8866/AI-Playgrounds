@@ -49,6 +49,7 @@ OUTPUT_PATH = ROOT / "walkforward_portfolio_beta_constrained_voo_alpha.csv"
 PREV_OUTPUT_PATH = ROOT / "walkforward_portfolio_beta_constrained.csv"
 UNIVERSE = NON_LEVERAGED_EXPANDED_POOL_TICKERS
 RECENT_START = pd.Period("2024Q1", freq="Q")
+QQQ_BENCHMARK = "QQQ"
 
 BETA_WINDOW = 252
 PORTFOLIO_BETA_CAP = {
@@ -228,7 +229,8 @@ def evaluate_window(
                         continue
 
                     active_weights = weights[weights > 0].copy()
-                    history_prices = prices.loc[prices.index < forecast_start, active_weights.index].dropna(how="any")
+                    bootstrap_cols = sorted(set(active_weights.index.tolist() + [QQQ_BENCHMARK]))
+                    history_prices = prices.loc[prices.index < forecast_start, bootstrap_cols].dropna(how="any")
                     history_returns = history_prices.pct_change().dropna(how="any")
                     history_days = int(len(history_returns))
                     if history_days < MIN_HISTORY_DAYS:
@@ -243,12 +245,23 @@ def evaluate_window(
                         block_size=BOOTSTRAP_BLOCK,
                         seed=seed,
                     )
+                    _port_for_qqq, qqq_outcomes = block_bootstrap_paired(
+                        asset_returns=history_returns,
+                        portfolio_weights=active_weights.sort_index(),
+                        benchmark_ticker=QQQ_BENCHMARK,
+                        horizon_days=horizon_days,
+                        n_sims=RUN_N_SIMS,
+                        block_size=BOOTSTRAP_BLOCK,
+                        seed=seed,
+                    )
                     p_beat_voo = float(np.mean(port_outcomes > voo_outcomes))
+                    p_beat_qqq = float(np.mean(_port_for_qqq > qqq_outcomes))
                     p_gt_5 = float(np.mean(port_outcomes > 0.05))
                     p_lt_0 = float(np.mean(port_outcomes < 0.0))
-                    hist_sharpe = compute_historical_sharpe(history_returns, active_weights.sort_index())
+                    active_history_returns = history_returns[active_weights.index]
+                    hist_sharpe = compute_historical_sharpe(active_history_returns, active_weights.sort_index())
                     turnover = one_way_turnover(active_weights.sort_index(), previous_weights)
-                    tracking_error = tracking_error_vs_voo(history_returns, active_weights.sort_index())
+                    tracking_error = tracking_error_vs_voo(active_history_returns, active_weights.sort_index())
                     theme_weight = max_theme_weight(active_weights.sort_index())
 
                     turnover_violation = violation_amount(turnover, turnover_cap)
@@ -282,6 +295,7 @@ def evaluate_window(
                         "historical_sharpe": hist_sharpe,
                         "pred_mean": float(np.mean(port_outcomes)),
                         "p_beat_voo": p_beat_voo,
+                        "p_beat_qqq": p_beat_qqq,
                         "p_gt_5": p_gt_5,
                         "p_lt_0": p_lt_0,
                         "regime_label": regime_label,
@@ -313,7 +327,7 @@ def evaluate_window(
 
     results = pd.DataFrame(rows)
     results["score_combined_z"] = (
-        zscore(results["p_beat_voo"])
+        zscore(results["p_beat_qqq"])
         - zscore(results["p_lt_0"])
         + 0.3 * zscore(results["historical_sharpe"].fillna(0.0))
     )
@@ -375,20 +389,38 @@ def compute_voo_quarterly_returns(report: pd.DataFrame, prices: pd.DataFrame) ->
     return pd.Series(returns, dtype=float, name="voo_return")
 
 
-def calibrate_p_beat_voo(report: pd.DataFrame, voo_returns: pd.Series) -> pd.DataFrame:
-    """Expanding Platt walk-forward calibration for p_beat_voo.
-    event_beat_voo = (realized_return > voo_return) for each historical quarter."""
+def compute_benchmark_quarterly_returns(report: pd.DataFrame, prices: pd.DataFrame, benchmark_ticker: str) -> pd.Series:
+    returns: dict[str, float] = {}
+    benchmark_weights = pd.Series({benchmark_ticker: 1.0}, dtype=float)
+    realized = report[report["realized_return"].notna()].copy()
+    for row in realized.itertuples(index=False):
+        forecast_start = pd.Timestamp(row.forecast_start)
+        forecast_end = pd.Timestamp(row.forecast_end)
+        benchmark_return, _ = realized_buyandhold_return(prices, benchmark_weights, forecast_start, forecast_end)
+        returns[str(row.period)] = benchmark_return
+    return pd.Series(returns, dtype=float, name=f"{benchmark_ticker.lower()}_return")
+
+
+def calibrate_p_beat_benchmark(
+    report: pd.DataFrame,
+    benchmark_returns: pd.Series,
+    raw_col: str,
+    output_col: str,
+    event_col: str,
+    benchmark_return_col: str,
+) -> pd.DataFrame:
+    """Expanding Platt walk-forward calibration for a beat-benchmark probability."""
     from sklearn.linear_model import LogisticRegression
 
     EPS = 1e-6
     MIN_TRAIN = 8
 
     out = report.copy()
-    out["voo_return_for_calib"] = out["period"].map(voo_returns)
+    out[benchmark_return_col] = out["period"].map(benchmark_returns)
     realized_mask = out["realized_return"].notna()
-    out["event_beat_voo"] = np.where(
+    out[event_col] = np.where(
         realized_mask,
-        (out["realized_return"] > out["voo_return_for_calib"]).astype(float),
+        (out["realized_return"] > out[benchmark_return_col]).astype(float),
         np.nan,
     )
 
@@ -397,12 +429,12 @@ def calibrate_p_beat_voo(report: pd.DataFrame, voo_returns: pd.Series) -> pd.Dat
 
     for idx in range(len(realized)):
         row = realized.iloc[idx]
-        raw_prob = float(row["raw_p_beat_voo"])
+        raw_prob = float(row[raw_col])
         if idx < MIN_TRAIN:
             calibrated[str(row["period"])] = raw_prob
             continue
-        x_train = np.clip(realized.iloc[:idx]["raw_p_beat_voo"].to_numpy(dtype=float), EPS, 1 - EPS)
-        y_train = realized.iloc[:idx]["event_beat_voo"].astype(int).to_numpy()
+        x_train = np.clip(realized.iloc[:idx][raw_col].to_numpy(dtype=float), EPS, 1 - EPS)
+        y_train = realized.iloc[:idx][event_col].astype(int).to_numpy()
         if len(np.unique(y_train)) < 2:
             calibrated[str(row["period"])] = raw_prob
             continue
@@ -413,9 +445,9 @@ def calibrate_p_beat_voo(report: pd.DataFrame, voo_returns: pd.Series) -> pd.Dat
 
     current_rows = out[~realized_mask]
     if not current_rows.empty:
-        raw_prob = float(current_rows.iloc[0]["raw_p_beat_voo"])
-        x_train = np.clip(realized["raw_p_beat_voo"].to_numpy(dtype=float), EPS, 1 - EPS)
-        y_train = realized["event_beat_voo"].astype(int).to_numpy()
+        raw_prob = float(current_rows.iloc[0][raw_col])
+        x_train = np.clip(realized[raw_col].to_numpy(dtype=float), EPS, 1 - EPS)
+        y_train = realized[event_col].astype(int).to_numpy()
         if len(np.unique(y_train)) >= 2:
             model = LogisticRegression(solver="lbfgs")
             model.fit(x_train.reshape(-1, 1), y_train)
@@ -424,9 +456,34 @@ def calibrate_p_beat_voo(report: pd.DataFrame, voo_returns: pd.Series) -> pd.Dat
         else:
             calibrated[str(current_rows.iloc[0]["period"])] = raw_prob
 
-    out["p_beat_voo_calibrated"] = out["period"].map(calibrated).fillna(out["raw_p_beat_voo"])
-    out = out.drop(columns=["voo_return_for_calib", "event_beat_voo"])
+    out[output_col] = out["period"].map(calibrated).fillna(out[raw_col])
+    out = out.drop(columns=[benchmark_return_col, event_col])
     return out
+
+
+def calibrate_p_beat_voo(report: pd.DataFrame, voo_returns: pd.Series) -> pd.DataFrame:
+    """Expanding Platt walk-forward calibration for p_beat_voo.
+    event_beat_voo = (realized_return > voo_return) for each historical quarter."""
+    return calibrate_p_beat_benchmark(
+        report=report,
+        benchmark_returns=voo_returns,
+        raw_col="raw_p_beat_voo",
+        output_col="p_beat_voo_calibrated",
+        event_col="event_beat_voo",
+        benchmark_return_col="voo_return_for_calib",
+    )
+
+
+def calibrate_p_beat_qqq(report: pd.DataFrame, qqq_returns: pd.Series) -> pd.DataFrame:
+    """Expanding Platt walk-forward calibration for p_beat_qqq."""
+    return calibrate_p_beat_benchmark(
+        report=report,
+        benchmark_returns=qqq_returns,
+        raw_col="raw_p_beat_qqq",
+        output_col="p_beat_qqq_calibrated",
+        event_col="event_beat_qqq",
+        benchmark_return_col="qqq_return_for_calib",
+    )
 
 
 def performance_summary(frame: pd.DataFrame) -> dict[str, float]:
@@ -543,13 +600,17 @@ def main() -> None:
 
     report = pd.DataFrame(rows)
     report["raw_p_beat_voo"] = report["p_beat_voo"]
+    report["raw_p_beat_qqq"] = report["p_beat_qqq"]
     report = append_platt_calibration_columns(report)
     report["p_gt_5"] = report["p_gt_5_calibrated"]
     report["p_lt_0"] = report["p_lt_0_calibrated"]
     new_realized = report[report["realized_return"].notna()].copy()
     voo_returns = compute_voo_quarterly_returns(new_realized, prices)
+    qqq_returns = compute_benchmark_quarterly_returns(new_realized, prices, QQQ_BENCHMARK)
     report = calibrate_p_beat_voo(report, voo_returns)
+    report = calibrate_p_beat_qqq(report, qqq_returns)
     report["p_beat_voo"] = report["p_beat_voo_calibrated"]
+    report["p_beat_qqq"] = report["p_beat_qqq_calibrated"]
     report.to_csv(OUTPUT_PATH, index=False)
 
     if not PREV_OUTPUT_PATH.exists():

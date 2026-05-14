@@ -11,13 +11,19 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 import pandas as pd
+import numpy as np
 
 ROOT    = Path(__file__).parent
 DB_PATH = ROOT / "portfolio.sqlite"
 WF_CSV  = ROOT / "Wall Street" / "walkforward_portfolio_beta_constrained_voo_alpha.csv"
+WS_DB   = ROOT / "Wall Street" / "stock_forecast.sqlite"
 TW_WF   = ROOT / "TWSE" / "tw_0050_walkforward.csv"
 OUT     = ROOT / "portfolio_dashboard.html"
 TODAY   = str(date.today())
+QQQ_BENCHMARK = "QQQ"
+BOOTSTRAP_SIMS = 3000
+BOOTSTRAP_BLOCK = 20
+MIN_CALIBRATION_ROWS = 8
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -26,6 +32,436 @@ def fmt(v, prefix="", suffix="", d=2):
 
 def pc(v):
     return "pos" if (v or 0) >= 0 else "neg"
+
+def parse_weights(text):
+    weights = {}
+    for part in str(text).split(","):
+        tok = part.strip().rsplit(" ", 1)
+        if len(tok) == 2:
+            try:
+                ticker, weight = tok[0].strip(), float(tok[1].replace("%", "")) / 100
+            except ValueError:
+                continue
+            weights[ticker] = weights.get(ticker, 0) + weight
+    return pd.Series(weights, dtype=float)
+
+def estimate_horizon_days(start, end):
+    return max(int(round(252 * (end - start).days / 365.25)), 1)
+
+def block_bootstrap_paired(asset_returns, portfolio_weights, benchmark_ticker, horizon_days, seed):
+    tickers = list(portfolio_weights.index)
+    if benchmark_ticker not in tickers:
+        tickers = [benchmark_ticker] + tickers
+    matrix = asset_returns[tickers].to_numpy(dtype=float)
+    port_w = portfolio_weights.reindex(tickers).fillna(0.0).to_numpy(dtype=float)
+    bench_w = np.zeros(len(tickers), dtype=float)
+    bench_w[tickers.index(benchmark_ticker)] = 1.0
+
+    max_start = matrix.shape[0] - BOOTSTRAP_BLOCK
+    if max_start < 0:
+        return np.array([]), np.array([])
+
+    rng = np.random.default_rng(seed)
+    port_results = np.empty(BOOTSTRAP_SIMS, dtype=float)
+    bench_results = np.empty(BOOTSTRAP_SIMS, dtype=float)
+    for idx in range(BOOTSTRAP_SIMS):
+        blocks = []
+        days = 0
+        while days < horizon_days:
+            start = int(rng.integers(0, max_start + 1))
+            block = matrix[start : start + BOOTSTRAP_BLOCK]
+            blocks.append(block)
+            days += len(block)
+        sampled = np.vstack(blocks)[:horizon_days]
+        port_results[idx] = float(np.prod(1.0 + sampled @ port_w) - 1.0)
+        bench_results[idx] = float(np.prod(1.0 + sampled @ bench_w) - 1.0)
+    return port_results, bench_results
+
+def load_wall_street_prices(tickers):
+    if not WS_DB.exists():
+        return pd.DataFrame()
+    tickers = sorted(set(tickers))
+    placeholders = ",".join(["?"] * len(tickers))
+    with sqlite3.connect(WS_DB) as conn:
+        rows = pd.read_sql_query(
+            f"""
+            SELECT date, ticker, adj_close
+            FROM price_history
+            WHERE ticker IN ({placeholders})
+            ORDER BY date
+            """,
+            conn,
+            params=tickers,
+        )
+    if rows.empty:
+        return pd.DataFrame()
+    rows["date"] = pd.to_datetime(rows["date"])
+    return rows.pivot(index="date", columns="ticker", values="adj_close").sort_index()
+
+def merge_benchmark_prices(prices, benchmark_ticker):
+    if benchmark_ticker in prices.columns:
+        return prices
+    benchmark_prices = load_wall_street_prices([benchmark_ticker])
+    if benchmark_prices.empty or benchmark_ticker not in benchmark_prices.columns:
+        return prices
+    return prices.join(benchmark_prices[[benchmark_ticker]], how="left")
+
+def realized_single_ticker_return(prices, ticker, start, end):
+    window = prices.loc[(prices.index >= start) & (prices.index <= min(end, prices.index.max())), [ticker]].dropna()
+    if len(window) < 2:
+        return np.nan
+    return float(window.iloc[-1, 0] / window.iloc[0, 0] - 1.0)
+
+def calibrate_probability(raw_probs, events, current_raw):
+    try:
+        from sklearn.linear_model import LogisticRegression
+    except Exception:
+        return current_raw
+
+    raw_probs = np.asarray(raw_probs, dtype=float)
+    events = np.asarray(events, dtype=int)
+    if len(raw_probs) < MIN_CALIBRATION_ROWS or len(np.unique(events)) < 2:
+        return current_raw
+    eps = 1e-6
+    model = LogisticRegression(solver="lbfgs")
+    model.fit(np.clip(raw_probs, eps, 1 - eps).reshape(-1, 1), events)
+    return float(model.predict_proba(np.array([[np.clip(current_raw, eps, 1 - eps)]]))[0, 1])
+
+def compute_p_beat_qqq(frame):
+    all_tickers = {QQQ_BENCHMARK}
+    parsed_weights = []
+    for weights_text in frame["weights"]:
+        weights = parse_weights(weights_text)
+        parsed_weights.append(weights)
+        all_tickers.update(weights.index.tolist())
+
+    prices = load_wall_street_prices(all_tickers)
+    if prices.empty or QQQ_BENCHMARK not in prices.columns:
+        frame["raw_p_beat_qqq"] = np.nan
+        frame["p_beat_qqq_calibrated"] = np.nan
+        return frame
+
+    out = frame.copy()
+    raw_values = []
+    qqq_returns = []
+    for idx, row in out.reset_index(drop=True).iterrows():
+        weights = parsed_weights[idx]
+        start = pd.Timestamp(row["forecast_start"])
+        end = pd.Timestamp(row["forecast_end"])
+        period_dates = prices.loc[(prices.index >= start) & (prices.index <= min(end, prices.index.max()))].index
+        if pd.notna(row.get("realized_return")) and len(period_dates) >= 2:
+            horizon_days = max(len(period_dates) - 1, 1)
+        else:
+            horizon_days = estimate_horizon_days(start, end)
+
+        active_tickers = sorted(set(weights.index.tolist() + [QQQ_BENCHMARK]))
+        if any(ticker not in prices.columns for ticker in active_tickers):
+            raw_values.append(np.nan)
+            qqq_returns.append(realized_single_ticker_return(prices, QQQ_BENCHMARK, start, end))
+            continue
+        history_prices = prices.loc[prices.index < start, active_tickers].dropna(how="any")
+        history_returns = history_prices.pct_change().dropna(how="any")
+        if len(history_returns) < BOOTSTRAP_BLOCK:
+            raw_values.append(np.nan)
+        else:
+            seed = int(start.year * 10 + start.quarter)
+            port, bench = block_bootstrap_paired(history_returns, weights.sort_index(), QQQ_BENCHMARK, horizon_days, seed)
+            raw_values.append(float(np.mean(port > bench)) if len(port) else np.nan)
+        qqq_returns.append(realized_single_ticker_return(prices, QQQ_BENCHMARK, start, end))
+
+    out["raw_p_beat_qqq"] = raw_values
+    out["qqq_return_for_calib"] = qqq_returns
+    realized = out[out["realized_return"].notna() & out["raw_p_beat_qqq"].notna() & out["qqq_return_for_calib"].notna()].copy()
+    realized["event_beat_qqq"] = (realized["realized_return"] > realized["qqq_return_for_calib"]).astype(int)
+
+    calibrated = {}
+    for idx in range(len(realized)):
+        row = realized.iloc[idx]
+        raw_prob = float(row["raw_p_beat_qqq"])
+        if idx < MIN_CALIBRATION_ROWS:
+            calibrated[str(row["period"])] = raw_prob
+            continue
+        train = realized.iloc[:idx]
+        calibrated[str(row["period"])] = calibrate_probability(
+            train["raw_p_beat_qqq"].to_numpy(dtype=float),
+            train["event_beat_qqq"].to_numpy(dtype=int),
+            raw_prob,
+        )
+
+    current = out[out["realized_return"].isna() & out["raw_p_beat_qqq"].notna()]
+    if not current.empty:
+        raw_prob = float(current.iloc[-1]["raw_p_beat_qqq"])
+        calibrated[str(current.iloc[-1]["period"])] = calibrate_probability(
+            realized["raw_p_beat_qqq"].to_numpy(dtype=float),
+            realized["event_beat_qqq"].to_numpy(dtype=int),
+            raw_prob,
+        )
+
+    out["p_beat_qqq_calibrated"] = out["period"].map(calibrated).fillna(out["raw_p_beat_qqq"])
+    return out.drop(columns=["qqq_return_for_calib"], errors="ignore")
+
+def compute_report_benchmark_calibration(frame, benchmark_ticker):
+    all_tickers = {benchmark_ticker}
+    parsed_weights = []
+    for weights_text in frame["weights"]:
+        weights = parse_weights(weights_text)
+        parsed_weights.append(weights)
+        all_tickers.update(weights.index.tolist())
+
+    prices = load_wall_street_prices(all_tickers)
+    if prices.empty or benchmark_ticker not in prices.columns:
+        return [], [], np.nan
+
+    raw_values = []
+    benchmark_returns = []
+    for idx, row in frame.reset_index(drop=True).iterrows():
+        weights = parsed_weights[idx]
+        start = pd.Timestamp(row["forecast_start"])
+        end = pd.Timestamp(row["forecast_end"])
+        period_dates = prices.loc[(prices.index >= start) & (prices.index <= min(end, prices.index.max()))].index
+        if pd.notna(row.get("realized_return")) and len(period_dates) >= 2:
+            horizon_days = max(len(period_dates) - 1, 1)
+        else:
+            horizon_days = estimate_horizon_days(start, end)
+
+        active_tickers = sorted(set(weights.index.tolist() + [benchmark_ticker]))
+        if any(ticker not in prices.columns for ticker in active_tickers):
+            raw_values.append(np.nan)
+            benchmark_returns.append(realized_single_ticker_return(prices, benchmark_ticker, start, end))
+            continue
+        history_prices = prices.loc[prices.index < start, active_tickers].dropna(how="any")
+        history_returns = history_prices.pct_change().dropna(how="any")
+        if len(history_returns) < BOOTSTRAP_BLOCK:
+            raw_values.append(np.nan)
+        else:
+            seed = int(start.year * 10 + start.quarter)
+            port, bench = block_bootstrap_paired(history_returns, weights.sort_index(), benchmark_ticker, horizon_days, seed)
+            raw_values.append(float(np.mean(port > bench)) if len(port) else np.nan)
+        benchmark_returns.append(realized_single_ticker_return(prices, benchmark_ticker, start, end))
+
+    work = frame.copy()
+    work["raw_p_beat_benchmark"] = raw_values
+    work["benchmark_return_for_calib"] = benchmark_returns
+    realized = work[
+        work["realized_return"].notna()
+        & work["raw_p_beat_benchmark"].notna()
+        & work["benchmark_return_for_calib"].notna()
+    ].copy()
+    if realized.empty:
+        return [], [], np.nan
+    events = (realized["realized_return"] > realized["benchmark_return_for_calib"]).astype(int).to_numpy()
+    return realized["raw_p_beat_benchmark"].to_numpy(dtype=float), events, raw_values[-1]
+
+def local_zscore(values):
+    series = pd.Series(values, dtype=float)
+    std = series.std(ddof=0)
+    if std == 0 or pd.isna(std):
+        return pd.Series(np.zeros(len(series)), index=series.index)
+    return (series - series.mean()) / std
+
+def compute_current_benchmark_scenario(frame, benchmark_key, benchmark_ticker, display_label):
+    sys.path.insert(0, str((ROOT / "Wall Street").resolve()))
+    import walkforward_portfolio_beta_constrained_voo_alpha as model
+    from expanded_pool_config import CORE_TICKER, DB_PATH as WS_MODEL_DB_PATH
+    from portfolio_pool_probability_quarterly_walkforward_combined_z_regime import (
+        CURRENT_DATE,
+        build_regime_frame,
+        compute_historical_sharpe,
+        load_macro_history,
+        load_predictions,
+        load_prices_with_spy,
+        pick_latest_inference_snapshot,
+        pick_regime_on_or_before,
+    )
+    from portfolio_pool_probability_quarterly_walkforward_combined_z_regime_constrained import (
+        THEME_CAP_BY_REGIME,
+        TRACKING_ERROR_CAP_BY_REGIME,
+        TURNOVER_CAP_BY_REGIME,
+        candidate_grid_for_regime,
+        max_theme_weight,
+        one_way_turnover,
+        tracking_error_vs_voo,
+        violation_amount,
+    )
+    from portfolio_pool_probability_quarterly_walkforward_voo_core_no_leverage_p5_fixed import available_tickers
+
+    predictions = load_predictions()
+    with sqlite3.connect(WS_MODEL_DB_PATH) as conn:
+        prices = load_prices_with_spy(conn)
+        macro = load_macro_history(conn)
+    prices = merge_benchmark_prices(prices, benchmark_ticker)
+
+    beta_frame = model.compute_rolling_beta(prices[sorted(set(model.UNIVERSE + [model.SPY_TICKER]))], CORE_TICKER, window=model.BETA_WINDOW)
+    regime = build_regime_frame(prices, macro)
+    snapshot, snapshot_date = pick_latest_inference_snapshot(predictions, CURRENT_DATE.normalize())
+    forecast_start = snapshot_date
+    forecast_end = CURRENT_DATE.to_period("Q").end_time.normalize()
+    horizon_days = estimate_horizon_days(forecast_start, forecast_end)
+    regime_row = pick_regime_on_or_before(regime, forecast_start)
+    regime_label = str(regime_row["regime_label"])
+    previous_weights = parse_weights(frame[frame["realized_return"].notna()].iloc[-1]["weights"]).sort_index()
+
+    turnover_cap = TURNOVER_CAP_BY_REGIME[regime_label]
+    tracking_error_cap = TRACKING_ERROR_CAP_BY_REGIME[regime_label]
+    theme_cap = THEME_CAP_BY_REGIME[regime_label]
+    beta_cap = model.PORTFOLIO_BETA_CAP[regime_label]
+    available = available_tickers(prices, forecast_start)
+    voo_candidates, topk_candidates, cap_candidates, mode_candidates = candidate_grid_for_regime(regime_label)
+    seed = int(forecast_start.year * 10 + forecast_start.quarter)
+    rows = []
+
+    for voo_core_weight in voo_candidates:
+        for top_k in topk_candidates:
+            for satellite_cap in cap_candidates:
+                for satellite_mode in mode_candidates:
+                    try:
+                        weights, selected = model.build_voo_core_weights(
+                            snapshot, available, voo_core_weight, top_k, satellite_cap, satellite_mode
+                        )
+                    except ValueError:
+                        continue
+                    active = weights[weights > 0].copy().sort_index()
+                    cols = sorted(set(active.index.tolist() + [benchmark_ticker]))
+                    if any(ticker not in prices.columns for ticker in cols):
+                        continue
+                    history_prices = prices.loc[prices.index < forecast_start, cols].dropna(how="any")
+                    history_returns = history_prices.pct_change().dropna(how="any")
+                    if len(history_returns) < 60:
+                        continue
+                    port, bench = block_bootstrap_paired(history_returns, active, benchmark_ticker, horizon_days, seed)
+                    port_voo, voo = block_bootstrap_paired(history_returns, active, CORE_TICKER, horizon_days, seed)
+                    active_returns = history_returns[active.index]
+                    turnover = one_way_turnover(active, previous_weights)
+                    tracking_error = tracking_error_vs_voo(active_returns, active)
+                    theme_weight = max_theme_weight(active)
+                    total_violation = (
+                        violation_amount(turnover, turnover_cap)
+                        + violation_amount(tracking_error, tracking_error_cap)
+                        + violation_amount(theme_weight, theme_cap)
+                    )
+                    beta, beta_skipped = model.compute_portfolio_beta(prices, beta_frame, active, forecast_start, CORE_TICKER, model.BETA_WINDOW)
+                    beta_violation = 0.0 if beta_skipped or pd.isna(beta) else violation_amount(beta, beta_cap)
+                    beta_feasible = True if beta_skipped else beta <= beta_cap
+                    rows.append({
+                        "weights": active.to_dict(),
+                        "weights_text": ", ".join(f"{ticker} {weight * 100:.1f}%" for ticker, weight in active.items()),
+                        "selected_satellite": ",".join(selected),
+                        "p_beat": float(np.mean(port > bench)),
+                        "p_beat_voo": float(np.mean(port_voo > voo)),
+                        "p_gt_5": float(np.mean(port > 0.05)),
+                        "p_lt_0": float(np.mean(port < 0.0)),
+                        "pred_mean": float(np.mean(port)),
+                        "historical_sharpe": compute_historical_sharpe(active_returns, active),
+                        "turnover": turnover,
+                        "tracking_error": tracking_error,
+                        "theme_weight": theme_weight,
+                        "portfolio_beta": beta,
+                        "beta_cap": beta_cap,
+                        "beta_feasible": bool(beta_feasible),
+                        "total_violation": total_violation,
+                        "turnover_violation": violation_amount(turnover, turnover_cap),
+                        "tracking_error_violation": violation_amount(tracking_error, tracking_error_cap),
+                        "theme_violation": violation_amount(theme_weight, theme_cap),
+                        "beta_violation": beta_violation,
+                        "fully_feasible": bool(total_violation <= 1e-12 and beta_feasible),
+                    })
+
+    results = pd.DataFrame(rows)
+    if results.empty:
+        return None
+    results["score"] = local_zscore(results["p_beat"]) - local_zscore(results["p_lt_0"]) + 0.3 * local_zscore(results["historical_sharpe"].fillna(0.0))
+    feasible = results[results["fully_feasible"]].copy()
+    if not feasible.empty:
+        best = feasible.sort_values(["score", "historical_sharpe", "p_gt_5", "pred_mean"], ascending=[False, False, False, False]).iloc[0]
+        stage = "feasible"
+    else:
+        best = results.sort_values(
+            ["turnover_violation", "total_violation", "beta_violation", "tracking_error_violation", "theme_violation", "score", "historical_sharpe", "p_gt_5", "pred_mean"],
+            ascending=[True, True, True, True, True, False, False, False, False],
+        ).iloc[0]
+        stage = "fallback_turnover_first"
+
+    strong_candidates = results[(results["p_beat"] >= 0.70) & (results["fully_feasible"])].copy()
+    has_strong_candidate = not strong_candidates.empty
+    if has_strong_candidate:
+        strong = strong_candidates.sort_values(
+            ["p_beat", "score", "historical_sharpe", "p_gt_5"],
+            ascending=[False, False, False, False],
+        ).iloc[0]
+        target_status = "Strong Candidate"
+        target_detail = f"{strong['p_beat'] * 100:.1f}% ｜ {strong['weights_text']}"
+    else:
+        target_status = "No Strong Candidate"
+        target_detail = "找不到同時達到 70% 且 fully_feasible 的 portfolio"
+
+    raw_probs, events, _current_existing_raw = compute_report_benchmark_calibration(frame, benchmark_ticker)
+    calibrated = calibrate_probability(raw_probs, events, float(best["p_beat"]))
+    return {
+        "key": benchmark_key,
+        "label": display_label,
+        "ticker": benchmark_ticker,
+        "pBeat": calibrated,
+        "rawPBeat": float(best["p_beat"]),
+        "pBeatVoo": float(best["p_beat_voo"]),
+        "pGt5": float(best["p_gt_5"]),
+        "pLt0": float(best["p_lt_0"]),
+        "sharpe": float(best["historical_sharpe"]),
+        "stage": stage,
+        "weights": best["weights"],
+        "weightsText": best["weights_text"],
+        "selectedSatellite": best["selected_satellite"],
+        "portfolioBeta": None if pd.isna(best["portfolio_beta"]) else float(best["portfolio_beta"]),
+        "betaCap": float(best["beta_cap"]),
+        "fullyFeasible": bool(best["fully_feasible"]),
+        "hasStrongCandidate": has_strong_candidate,
+        "targetStatus": target_status,
+        "targetDetail": target_detail,
+    }
+
+def build_benchmark_scenarios(frame):
+    scenarios = {}
+    for key, ticker, label in [("VOO", "VOO", "VOO"), ("QQQ", "QQQ", "QQQ"), ("SOXX", "SOXX", "SOXX"), ("VT", "VT", "VT")]:
+        scenario = compute_current_benchmark_scenario(frame, key, ticker, label)
+        if scenario:
+            scenarios[key] = scenario
+        elif key == "VT":
+            scenarios[key] = {
+                "key": "VT",
+                "label": "VT",
+                "ticker": "VT",
+                "unavailable": True,
+                "pBeat": None,
+                "rawPBeat": None,
+                "pBeatVoo": None,
+                "pGt5": None,
+                "pLt0": None,
+                "sharpe": None,
+                "stage": "unavailable",
+                "weights": {},
+                "weightsText": "",
+                "selectedSatellite": "",
+                "portfolioBeta": None,
+                "betaCap": None,
+                "fullyFeasible": False,
+                "hasStrongCandidate": False,
+                "targetStatus": "Unavailable",
+                "targetDetail": "價格庫目前沒有 VT 歷史資料，無法計算 benchmark",
+                "signal": "Unavailable",
+                "signalClass": "weak",
+            }
+    for scenario in scenarios.values():
+        p_beat = scenario.get("pBeat")
+        fully_feasible = bool(scenario.get("fullyFeasible"))
+        if p_beat is not None and p_beat >= 0.70 and fully_feasible:
+            scenario["signal"] = "Strong"
+            scenario["signalClass"] = "strong"
+        elif p_beat is not None and p_beat >= 0.60:
+            scenario["signal"] = "Watch"
+            scenario["signalClass"] = "watch"
+        else:
+            scenario["signal"] = "Weak"
+            scenario["signalClass"] = "weak"
+    return scenarios
 
 # ── data loading ──────────────────────────────────────────────────────────────
 
@@ -73,17 +509,14 @@ def load_history():
 
 def load_us_model():
     df  = pd.read_csv(WF_CSV)
+    if "p_beat_qqq_calibrated" not in df.columns:
+        df = compute_p_beat_qqq(df)
     row = df[df["period"].str.contains("current", na=False)].iloc[-1]
-    w   = {}
-    for part in str(row["weights"]).split(","):
-        tok = part.strip().rsplit(" ", 1)
-        if len(tok) == 2:
-            t, v = tok[0].strip(), float(tok[1].replace("%","")) / 100
-            w[t] = w.get(t, 0) + v
+    w   = parse_weights(row["weights"]).to_dict()
     return (w,
             row.get("regime_label", "unknown"),
             row.get("selection_stage", "unknown"),
-            row.get("p_beat_voo_calibrated", None))
+            row.get("p_beat_qqq_calibrated", None))
 
 def load_tw_model():
     try:
@@ -136,7 +569,7 @@ def holdings_table_us(hlist, model_w, total_mv):
           <td class="num">{fmt(h['mv'],prefix='$',d=0)}</td>
           <td class="num {pc(h['pnl'])}">{pnl_s}</td>
           <td class="num {pc(h['pct'])}">{pct_s}</td>
-          <td class="num">{model_cell}</td>
+          <td class="num model-cell" data-ticker="{h['ticker']}">{model_cell}</td>
         </tr>""")
     return "\n".join(rows)
 
@@ -162,11 +595,11 @@ def tw_model_grid(tw_model_w):
     for ticker, weight in items:
         is_core  = "0050" in ticker
         label    = "核心" if is_core else "衛星"
-        color    = "#38bdf8" if is_core else "#e2e8f0"
-        cards.append(f"""<div style="text-align:center;padding:14px 10px;background:#1a2942;border-radius:8px;">
-          <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">{ticker}</div>
-          <div style="font-size:22px;font-weight:700;color:{color}">{weight*100:.0f}%</div>
-          <div style="font-size:11px;color:#64748b;margin-top:4px">{label}</div>
+        kind     = "core" if is_core else "satellite"
+        cards.append(f"""<div class="model-tile">
+          <div class="model-ticker">{ticker}</div>
+          <div class="model-weight {kind}">{weight*100:.0f}%</div>
+          <div class="model-kind">{label}</div>
         </div>""")
     return "\n".join(cards)
 
@@ -175,7 +608,13 @@ def tw_model_grid(tw_model_w):
 def build():
     holdings                      = load_holdings()
     hist                          = load_history()
+    wf_frame                      = pd.read_csv(WF_CSV)
+    benchmark_scenarios           = build_benchmark_scenarios(wf_frame)
     model_w, regime, stage, p_beat = load_us_model()
+    if "QQQ" in benchmark_scenarios:
+        model_w = benchmark_scenarios["QQQ"]["weights"]
+        stage = benchmark_scenarios["QQQ"]["stage"]
+        p_beat = benchmark_scenarios["QQQ"]["pBeat"]
     tw_model_w, tw_p_beat, tw_util = load_tw_model()
 
     us_tc, us_tm, us_tp, us_pp, us_h = summarise(holdings, "US")
@@ -254,6 +693,7 @@ def build():
     hbar_actual_js = json.dumps(bar_actual)
     hbar_model_js  = json.dumps(bar_model)
     hbar_colors_js = json.dumps(bar_colors)
+    benchmark_scenarios_js = json.dumps(benchmark_scenarios, ensure_ascii=False)
 
     html = f"""<!DOCTYPE html>
 <html lang="zh-TW">
@@ -261,9 +701,14 @@ def build():
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Portfolio Dashboard</title>
+<script>
+const savedTheme = localStorage.getItem('dashboard-theme') || 'dark';
+document.documentElement.dataset.theme = savedTheme;
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
-:root{{--bg:#0f172a;--sf:#1e293b;--bd:#334155;--tx:#e2e8f0;--mu:#94a3b8;--ac:#38bdf8;--pos:#22c55e;--neg:#ef4444;--warn:#f59e0b;}}
+:root{{--bg:#0f172a;--sf:#1e293b;--bd:#334155;--tx:#e2e8f0;--mu:#94a3b8;--ac:#38bdf8;--pos:#22c55e;--neg:#ef4444;--warn:#f59e0b;--warn-bg:#1c1507;--warn-tx:#fde68a;--warn-sub:#fcd34d;--table-head:#1a2942;--row-bd:#192233;--row-hover:#1e2d45;--code-bg:#0f172a;--code-tx:#a5f3fc;}}
+:root[data-theme="light"]{{--bg:#f8fafc;--sf:#ffffff;--bd:#cbd5e1;--tx:#0f172a;--mu:#475569;--ac:#0369a1;--pos:#15803d;--neg:#dc2626;--warn:#b45309;--warn-bg:#fffbeb;--warn-tx:#78350f;--warn-sub:#92400e;--table-head:#e2e8f0;--row-bd:#e2e8f0;--row-hover:#f1f5f9;--code-bg:#f1f5f9;--code-tx:#0f172a;}}
 *{{box-sizing:border-box;margin:0;padding:0;}}
 body{{background:var(--bg);color:var(--tx);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;min-height:100vh;}}
 header{{padding:12px 24px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}}
@@ -273,6 +718,10 @@ header .subtitle{{font-size:12px;color:var(--mu);margin-top:2px;}}
 .updated{{color:var(--mu);font-size:12px;}}
 .btn-update{{background:transparent;border:1px solid var(--bd);color:var(--mu);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;}}
 .btn-update:hover{{border-color:var(--ac);color:var(--ac);}}
+.btn-icon{{width:32px;height:32px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--tx);cursor:pointer;font-size:15px;display:inline-flex;align-items:center;justify-content:center;}}
+.btn-icon:hover{{border-color:var(--ac);color:var(--ac);}}
+.benchmark-select{{height:32px;border-radius:6px;border:1px solid var(--bd);background:var(--sf);color:var(--tx);padding:0 9px;font-size:12px;font-weight:600;}}
+.benchmark-select:focus{{outline:1px solid var(--ac);}}
 .regime-banner{{background:{banner_bg};border-bottom:2px solid {rc};padding:9px 24px;display:flex;align-items:center;gap:12px;}}
 .regime-banner .msg{{font-size:13px;color:#fde68a;font-weight:600;}}
 .regime-banner .detail{{font-size:12px;color:#fcd34d;margin-left:auto;}}
@@ -284,14 +733,21 @@ header .subtitle{{font-size:12px;color:var(--mu);margin-top:2px;}}
 .panel.active{{display:block;}}
 .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;}}
 .card{{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:14px 18px;}}
-.card.warn{{border-color:var(--warn);background:#1c1507;}}
+.card.warn{{border-color:var(--warn);background:var(--warn-bg);}}
 .card-label{{color:var(--mu);font-size:11px;text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;}}
 .card-value{{font-size:21px;font-weight:700;}}
 .card-sub{{font-size:12px;color:var(--mu);margin-top:3px;}}
-.alert-box{{background:#1c1507;border:1px solid var(--warn);border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:flex-start;gap:12px;}}
-.alert-title{{font-size:13px;font-weight:700;color:#fde68a;margin-bottom:4px;}}
-.alert-body{{font-size:12px;color:#fcd34d;line-height:1.6;}}
+.alert-box{{background:var(--warn-bg);border:1px solid var(--warn);border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:flex-start;gap:12px;color:var(--warn-tx);}}
+.alert-title{{font-size:13px;font-weight:700;color:var(--warn-tx);margin-bottom:4px;}}
+.alert-body{{font-size:12px;color:var(--warn-sub);line-height:1.6;}}
 .regime-badge{{display:inline-block;padding:3px 12px;border-radius:16px;font-weight:700;font-size:12px;}}
+.signal-badge{{display:inline-block;padding:3px 10px;border-radius:14px;font-weight:700;font-size:12px;}}
+.signal-badge.strong{{background:#14532d;color:#86efac;border:1px solid #22c55e66;}}
+.signal-badge.watch{{background:#451a03;color:#fde68a;border:1px solid #f59e0b66;}}
+.signal-badge.weak{{background:#450a0a;color:#fecaca;border:1px solid #ef444466;}}
+:root[data-theme="light"] .signal-badge.strong{{background:#dcfce7;color:#166534;border-color:#16a34a66;}}
+:root[data-theme="light"] .signal-badge.watch{{background:#fef3c7;color:#92400e;border-color:#d9770666;}}
+:root[data-theme="light"] .signal-badge.weak{{background:#fee2e2;color:#991b1b;border-color:#dc262666;}}
 .charts-row{{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}}
 .charts-row.wide{{grid-template-columns:1fr;}}
 .chart-box{{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:16px;}}
@@ -300,10 +756,10 @@ header .subtitle{{font-size:12px;color:var(--mu);margin-top:2px;}}
 .chart-wrap.tall{{height:300px;}}
 .section-label{{font-size:11px;font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;}}
 table{{width:100%;border-collapse:collapse;background:var(--sf);border-radius:10px;overflow:hidden;margin-bottom:20px;}}
-thead th{{background:#1a2942;color:var(--mu);font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:9px 12px;text-align:left;border-bottom:1px solid var(--bd);}}
-tbody td{{padding:9px 12px;border-bottom:1px solid #192233;}}
+thead th{{background:var(--table-head);color:var(--mu);font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:9px 12px;text-align:left;border-bottom:1px solid var(--bd);}}
+tbody td{{padding:9px 12px;border-bottom:1px solid var(--row-bd);}}
 tbody tr:last-child td{{border-bottom:none;}}
-tbody tr:hover{{background:#1e2d45;}}
+tbody tr:hover{{background:var(--row-hover);}}
 .num{{text-align:right;font-variant-numeric:tabular-nums;}}
 .muted{{color:var(--mu);font-size:12px;}}
 .pos{{color:var(--pos);}}
@@ -312,8 +768,20 @@ tbody tr:hover{{background:#1e2d45;}}
 .modal-overlay.open{{display:flex;}}
 .modal{{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:24px;max-width:520px;width:90%;}}
 .modal h3{{color:var(--ac);margin-bottom:12px;}}
-.modal code{{display:block;background:#0f172a;border:1px solid var(--bd);border-radius:6px;padding:12px;font-size:12px;color:#a5f3fc;margin:10px 0;line-height:1.6;word-break:break-all;}}
+.modal code{{display:block;background:var(--code-bg);border:1px solid var(--bd);border-radius:6px;padding:12px;font-size:12px;color:var(--code-tx);margin:10px 0;line-height:1.6;word-break:break-all;}}
 .modal-close{{margin-top:12px;background:var(--bd);border:none;color:var(--tx);padding:7px 18px;border-radius:6px;cursor:pointer;}}
+.modal-action{{margin-top:12px;background:var(--ac);border:none;color:#fff;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;}}
+.modal-action:disabled{{opacity:.55;cursor:not-allowed;}}
+.update-status{{margin-top:12px;background:var(--code-bg);border:1px solid var(--bd);border-radius:6px;padding:10px;font-size:12px;color:var(--code-tx);line-height:1.55;white-space:pre-wrap;max-height:220px;overflow:auto;}}
+.model-tile{{text-align:center;padding:14px 10px;background:var(--table-head);border:1px solid var(--bd);border-radius:8px;}}
+.model-ticker{{font-size:11px;color:var(--mu);margin-bottom:6px;}}
+.model-weight{{font-size:22px;font-weight:700;}}
+.model-weight.core{{color:var(--ac);}}
+.model-weight.satellite{{color:var(--tx);}}
+.model-kind{{font-size:11px;color:var(--mu);margin-top:4px;}}
+:root[data-theme="light"] .regime-banner{{background:var(--warn-bg) !important;border-bottom-color:var(--warn) !important;}}
+:root[data-theme="light"] .regime-banner .msg{{color:var(--warn-tx);}}
+:root[data-theme="light"] .regime-banner .detail{{color:var(--warn-sub);}}
 @media(max-width:640px){{
   .charts-row{{grid-template-columns:1fr;}}
   .tab{{padding:10px 14px;font-size:12px;}}
@@ -329,15 +797,22 @@ tbody tr:hover{{background:#1e2d45;}}
     <div class="subtitle">Buffett 量化配置觀測系統</div>
   </div>
   <div class="header-right">
+    <select class="benchmark-select" id="benchmarkSelect" onchange="setBenchmark(this.value)" aria-label="選擇美股追蹤指標">
+      <option value="VOO">追蹤 VOO</option>
+      <option value="QQQ">追蹤 QQQ</option>
+      <option value="SOXX">追蹤 SOXX</option>
+      <option value="VT">追蹤 VT</option>
+    </select>
     <span class="updated">更新：{TODAY}</span>
+    <button class="btn-icon" id="themeToggle" onclick="toggleTheme()" title="切換亮暗模式" aria-label="切換亮暗模式">&#9790;</button>
     <button class="btn-update" onclick="document.getElementById('modal').classList.add('open')">&#8635; 更新資料</button>
   </div>
 </header>
 
 <div class="regime-banner">
   <span style="font-size:15px">&#9888;</span>
-  <span class="msg">市場 Regime：{rl} &mdash; 模型建議 VOO {voo_model:.1f}%，目前實際 {voo_actual:.1f}%</span>
-  <span class="detail">P(&gt;VOO) {pb} &nbsp;|&nbsp; Stage: {stage} &nbsp;|&nbsp; 2026Q2 current</span>
+  <span class="msg" id="regimeMsg">市場 Regime：{rl} &mdash; 模型建議 VOO {voo_model:.1f}%，目前實際 {voo_actual:.1f}%</span>
+  <span class="detail" id="benchmarkDetail">P(&gt;QQQ) {pb} &nbsp;|&nbsp; Stage: {stage} &nbsp;|&nbsp; 2026Q2 current</span>
 </div>
 
 <div class="tabs">
@@ -352,8 +827,8 @@ tbody tr:hover{{background:#1e2d45;}}
   {alert_html}
   <div class="cards">
     {card("美股市值 (USD)", f"${us_tm:,.0f}", f"成本 ${us_tc:,.0f} ｜ {us_pp:+.1f}%", pc(us_pp))}
+    {card("美股模型信心", f'<span id="usModelConfidence">{pb}</span>', f'<span id="usModelConfidenceSub">P(&gt;QQQ) ｜ {rl}</span>', "", "warn" if voo_gap < -10 else "")}
     {card("台股市值 (TWD)", f"NT${tw_tm:,.0f}", f"成本 NT${tw_tc:,.0f} ｜ {tw_pp:+.1f}%", pc(tw_pp))}
-    {card("美股模型信心", pb, f"P(&gt;VOO) ｜ {rl}", "", "warn" if voo_gap < -10 else "")}
     {card("台股模型信心", tw_pb, "P(&gt;0050) ｜ 2026Q2")}
   </div>
   <div class="charts-row">
@@ -374,7 +849,9 @@ tbody tr:hover{{background:#1e2d45;}}
   <div class="cards">
     {card("美股市值", f"${us_tm:,.0f}", f"成本 ${us_tc:,.0f}")}
     {card("損益", f"${us_tp:+,.0f}", f"{us_pp:+.1f}%", pc(us_pp))}
-    {card("市場狀態", regime_badge, f"VOO 模型 {voo_model:.1f}% / 實際 {voo_actual:.1f}%", "", "warn" if abs(voo_gap) > 10 else "")}
+    {card("市場狀態", regime_badge, f'<span id="usStatusSub">VOO 模型 {voo_model:.1f}% / 實際 {voo_actual:.1f}%</span>', "", "warn" if abs(voo_gap) > 10 else "")}
+    {card("訊號 / 風險", '<span id="signalBadge" class="signal-badge watch">Watch</span>', '<span id="riskMetrics">Sharpe — ｜ P&lt;0% — ｜ Beta —</span>', "", "warn")}
+    {card("70% 門檻", '<span id="targetStatus">—</span>', '<span id="targetDetail">—</span>', "", "warn")}
   </div>
   {alert_html}
   <div class="charts-row">
@@ -434,12 +911,9 @@ tbody tr:hover{{background:#1e2d45;}}
 <div class="modal-overlay" id="modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal">
     <h3>&#8635; 更新資料</h3>
-    <p style="color:var(--mu);font-size:13px">在本機 Buffett 目錄執行：</p>
-    <code>python -X utf8 update_portfolio.py<br>
-python -X utf8 generate_portfolio_dashboard.py<br>
-git add Buffett/portfolio_dashboard.html<br>
-git commit -m "每日更新 Dashboard"<br>
-git push</code>
+    <p style="color:var(--mu);font-size:13px">按下後會在本機依序更新持倉、重新產生 dashboard，並只提交與推送 dashboard HTML。</p>
+    <button class="modal-action" id="runUpdateBtn" onclick="runDashboardUpdate()">一鍵更新並推送</button>
+    <div class="update-status" id="updateStatus">待執行。若按鈕無法連線，請用 python -X utf8 dashboard_server.py 開啟本機 dashboard server。</div>
     <p style="color:var(--mu);font-size:12px;margin-top:8px">推送後約 30 秒 GitHub Pages 自動更新。</p>
     <button class="modal-close" onclick="document.getElementById('modal').classList.remove('open')">關閉</button>
   </div>
@@ -453,11 +927,68 @@ function switchTab(i){{
   panels.forEach((p,j)=>p.classList.toggle('active',i===j));
 }}
 
-const gridColor = '#334155', tickColor = '#94a3b8';
+function themeValue(name){{
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}}
+let gridColor = themeValue('--bd');
+let tickColor = themeValue('--mu');
+function syncThemeButton(){{
+  const btn = document.getElementById('themeToggle');
+  if (!btn) return;
+  const isLight = document.documentElement.dataset.theme === 'light';
+  btn.innerHTML = isLight ? '&#9788;' : '&#9790;';
+  btn.title = isLight ? '切換深色模式' : '切換淺色模式';
+}}
+function applyChartTheme(){{
+  gridColor = themeValue('--bd');
+  tickColor = themeValue('--mu');
+  Object.values(Chart.instances || {{}}).forEach(chart => {{
+    Object.values(chart.options.scales || {{}}).forEach(scale => {{
+      if (scale.ticks) scale.ticks.color = tickColor;
+      if (scale.grid) scale.grid.color = gridColor;
+    }});
+    if (chart.options.plugins?.legend?.labels) chart.options.plugins.legend.labels.color = tickColor;
+    chart.update();
+  }});
+}}
+function toggleTheme(){{
+  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('dashboard-theme', next);
+  syncThemeButton();
+  applyChartTheme();
+}}
+syncThemeButton();
+async function runDashboardUpdate(){{
+  const button = document.getElementById('runUpdateBtn');
+  const status = document.getElementById('updateStatus');
+  button.disabled = true;
+  status.textContent = '更新中，請不要關閉視窗...';
+  try {{
+    const response = await fetch('/api/update', {{ method:'POST' }});
+    if (!response.ok) throw new Error(`HTTP ${{response.status}}`);
+    const result = await response.json();
+    const lines = [result.ok ? '完成：' + result.message : '失敗：' + result.message];
+    for (const step of result.steps || []) {{
+      lines.push(`\\n[${{step.code === 0 ? 'OK' : 'ERR'}}] ${{step.label}}`);
+      if (step.output) lines.push(step.output);
+    }}
+    status.textContent = lines.join('\\n');
+    if (result.ok) setTimeout(() => window.location.reload(), 1200);
+  }} catch (error) {{
+    status.textContent = '無法連線到本機更新服務。請先執行：\\npython -X utf8 dashboard_server.py\\n\\n錯誤：' + error.message;
+  }} finally {{
+    button.disabled = false;
+  }}
+}}
 const baseScales = {{
   x:{{ ticks:{{color:tickColor,font:{{size:10}}}}, grid:{{color:gridColor}} }},
   y:{{ ticks:{{color:tickColor}}, grid:{{color:gridColor}} }}
 }};
+const BENCHMARK_SCENARIOS = {benchmark_scenarios_js};
+const ACTUAL_WEIGHTS = {json.dumps(actual_w)};
+const REGIME_LABEL = {json.dumps(rl)};
+const VOO_ACTUAL = {voo_actual:.6f};
 
 function lineChart(id, labels, datasets){{
   new Chart(document.getElementById(id),{{
@@ -483,7 +1014,7 @@ lineChart('ovTwChart', ovDates, [{{
 }}]);
 
 // US horizontal bar: actual vs model
-new Chart(document.getElementById('usHBar'),{{
+const usHBarChart = new Chart(document.getElementById('usHBar'),{{
   type:'bar',
   data:{{
     labels: {hbar_labels_js},
@@ -517,6 +1048,78 @@ new Chart(document.getElementById('usHBar'),{{
     }}
   }}
 }});
+
+function pct(value, digits=1){{
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+  return `${{(Number(value) * 100).toFixed(digits)}}%`;
+}}
+function num(value, digits=2){{
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+  return Number(value).toFixed(digits);
+}}
+function modelCellHtml(weight){{
+  if (weight > 0) return `<span style="color:#22c55e">&#10003; ${{(weight * 100).toFixed(1)}}%</span>`;
+  return '<span style="color:#475569">&#8212; 自選</span>';
+}}
+function chartColors(labels, weights){{
+  return labels.map(t => t === 'VOO' ? '#38bdf8' : (weights[t] > 0 ? '#22c55e' : '#475569'));
+}}
+function setBenchmark(key){{
+  const scenario = BENCHMARK_SCENARIOS[key] || BENCHMARK_SCENARIOS.QQQ;
+  if (!scenario) return;
+  const weights = scenario.weights || {{}};
+  const vooModel = (weights.VOO || 0) * 100;
+  const labels = Array.from(new Set([...Object.keys(ACTUAL_WEIGHTS), ...Object.keys(weights)])).sort(
+    (a, b) => (ACTUAL_WEIGHTS[b] || 0) - (ACTUAL_WEIGHTS[a] || 0)
+  );
+
+  document.getElementById('benchmarkSelect').value = scenario.key;
+  if (scenario.unavailable) {{
+    document.getElementById('benchmarkDetail').innerHTML = `${{scenario.label}} unavailable &nbsp;|&nbsp; Stage: unavailable &nbsp;|&nbsp; 2026Q2 current`;
+    document.getElementById('usModelConfidence').textContent = '—';
+    document.getElementById('usModelConfidenceSub').innerHTML = `${{scenario.label}} 無資料 ｜ ${{REGIME_LABEL}}`;
+    document.getElementById('regimeMsg').innerHTML = `市場 Regime：${{REGIME_LABEL}} &mdash; ${{scenario.label}} 價格資料不足，無法追蹤`;
+    document.getElementById('usStatusSub').textContent = `${{scenario.label}} benchmark unavailable`;
+    const unavailableSignal = document.getElementById('signalBadge');
+    unavailableSignal.textContent = 'Unavailable';
+    unavailableSignal.className = 'signal-badge weak';
+    document.getElementById('riskMetrics').innerHTML = 'Sharpe — ｜ P&lt;0% — ｜ Beta —';
+    document.getElementById('targetStatus').textContent = scenario.targetStatus || 'Unavailable';
+    document.getElementById('targetDetail').textContent = scenario.targetDetail || '缺少 benchmark 歷史資料';
+    document.querySelectorAll('.model-cell').forEach(cell => {{
+      cell.innerHTML = '<span style="color:#475569">&#8212; 無資料</span>';
+    }});
+    usHBarChart.data.labels = labels;
+    usHBarChart.data.datasets[0].data = labels.map(() => 0);
+    usHBarChart.data.datasets[1].data = labels.map(t => Number(((ACTUAL_WEIGHTS[t] || 0) * 100).toFixed(1)));
+    usHBarChart.data.datasets[1].backgroundColor = chartColors(labels, weights);
+    usHBarChart.update();
+    return;
+  }}
+  document.getElementById('benchmarkDetail').innerHTML = `P(&gt;${{scenario.label}}) ${{pct(scenario.pBeat)}} &nbsp;|&nbsp; Stage: ${{scenario.stage}} &nbsp;|&nbsp; 2026Q2 current`;
+  document.getElementById('usModelConfidence').textContent = pct(scenario.pBeat);
+  document.getElementById('usModelConfidenceSub').innerHTML = `P(&gt;${{scenario.label}}) ｜ ${{REGIME_LABEL}}`;
+  document.getElementById('regimeMsg').innerHTML = `市場 Regime：${{REGIME_LABEL}} &mdash; 追蹤 ${{scenario.label}}（${{scenario.ticker}}）｜模型建議 VOO ${{vooModel.toFixed(1)}}%，目前實際 ${{VOO_ACTUAL.toFixed(1)}}%`;
+  document.getElementById('usStatusSub').textContent = `VOO 模型 ${{vooModel.toFixed(1)}}% / 實際 ${{VOO_ACTUAL.toFixed(1)}}%`;
+  const signal = document.getElementById('signalBadge');
+  signal.textContent = scenario.signal || '—';
+  signal.className = `signal-badge ${{scenario.signalClass || 'weak'}}`;
+  document.getElementById('riskMetrics').innerHTML = `Sharpe ${{num(scenario.sharpe)}} ｜ P&lt;0% ${{pct(scenario.pLt0)}} ｜ Beta ${{num(scenario.portfolioBeta)}} / ${{num(scenario.betaCap)}}`;
+  document.getElementById('targetStatus').textContent = scenario.targetStatus || 'No Strong Candidate';
+  document.getElementById('targetDetail').textContent = scenario.targetDetail || '找不到同時達到 70% 且 fully_feasible 的 portfolio';
+
+  document.querySelectorAll('.model-cell').forEach(cell => {{
+    const ticker = cell.dataset.ticker;
+    cell.innerHTML = modelCellHtml(weights[ticker] || 0);
+  }});
+
+  usHBarChart.data.labels = labels;
+  usHBarChart.data.datasets[0].data = labels.map(t => Number(((weights[t] || 0) * 100).toFixed(1)));
+  usHBarChart.data.datasets[1].data = labels.map(t => Number(((ACTUAL_WEIGHTS[t] || 0) * 100).toFixed(1)));
+  usHBarChart.data.datasets[1].backgroundColor = chartColors(labels, weights);
+  usHBarChart.update();
+}}
+setBenchmark('QQQ');
 
 // US P&L trend
 lineChart('usLine', {us_dates}, [{{
