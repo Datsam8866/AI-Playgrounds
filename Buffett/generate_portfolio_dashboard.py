@@ -621,7 +621,7 @@ def load_history():
                              "pnl": round(pnl, 2) if pnl else 0})
     return hist
 
-def build_benchmark_pnl_series(us_history, tickers=("VT", "VOO", "QQQ", "SOXX")):
+def build_benchmark_pnl_series(us_history, tickers=("VT", "VOO", "QQQ", "SOXX"), base_date="2026-01-01"):
     if not us_history:
         return {}
     dates = [pd.Timestamp(row["date"]) for row in us_history]
@@ -634,24 +634,25 @@ def build_benchmark_pnl_series(us_history, tickers=("VT", "VOO", "QQQ", "SOXX"))
         return {}
 
     out = {}
+    base_ts = pd.Timestamp(base_date)
     for ticker in tickers:
         if ticker not in prices.columns:
             continue
         series = prices[ticker].dropna().sort_index()
+        base_window = series.loc[series.index >= base_ts]
+        if base_window.empty:
+            continue
+        base_price = float(base_window.iloc[0])
+        if base_price <= 0:
+            continue
         values = []
-        start_price = None
-        for idx, date_value in enumerate(dates):
+        for date_value in dates:
             eligible = series.loc[series.index <= date_value]
             if eligible.empty:
                 values.append(None)
                 continue
             price = float(eligible.iloc[-1])
-            if idx == 0:
-                start_price = price
-            if not start_price:
-                values.append(None)
-            else:
-                values.append(round(initial_value * (price / start_price - 1.0), 2))
+            values.append(round(initial_value * (price / base_price - 1.0), 2))
         out[ticker] = values
     return out
 
@@ -1292,7 +1293,8 @@ for (const ticker of ['VT', 'VOO', 'QQQ', 'SOXX']) {{
       data: US_BENCHMARK_PNLS[ticker],
       borderColor: benchmarkLineColors[ticker],
       backgroundColor: `${{benchmarkLineColors[ticker]}}12`,
-      borderDash: ticker === 'VOO' ? [] : [5, 4],
+      borderDash: [2, 4],
+      borderWidth: 3,
       fill:false,
       tension:.3,
       pointRadius:2
