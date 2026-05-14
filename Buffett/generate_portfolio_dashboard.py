@@ -18,6 +18,7 @@ DB_PATH = ROOT / "portfolio.sqlite"
 WF_CSV  = ROOT / "Wall Street" / "walkforward_portfolio_beta_constrained_voo_alpha.csv"
 WS_DB   = ROOT / "Wall Street" / "stock_forecast.sqlite"
 TW_WF   = ROOT / "TWSE" / "tw_0050_walkforward.csv"
+TW_DB   = ROOT / "TWSE" / "tw_stock_forecast.sqlite"
 OUT     = ROOT / "portfolio_dashboard.html"
 TODAY   = str(date.today())
 QQQ_BENCHMARK = "QQQ"
@@ -479,6 +480,73 @@ def annualized_sharpe(daily_returns):
         return np.nan
     return float(np.sqrt(252.0) * daily_returns.mean() / std)
 
+def load_tw_price_series(ticker="0050.TW"):
+    if not TW_DB.exists():
+        return pd.Series(dtype=float)
+    with sqlite3.connect(TW_DB) as conn:
+        rows = pd.read_sql_query(
+            """
+            SELECT date, adj_close
+            FROM tw_price_history
+            WHERE ticker = ?
+            ORDER BY date
+            """,
+            conn,
+            params=[ticker],
+            parse_dates=["date"],
+        )
+    if rows.empty:
+        return pd.Series(dtype=float)
+    return rows.set_index("date")["adj_close"].astype(float).dropna().sort_index()
+
+def compute_tw_actual_metrics():
+    prices = load_tw_price_series("0050.TW")
+    if prices.empty:
+        return {
+            "sharpe": np.nan,
+            "label": "unknown",
+            "risk_score": 0,
+            "rows_html": "",
+        }
+
+    returns = prices.pct_change().dropna()
+    sharpe = annualized_sharpe(returns.tail(252))
+    latest_price = float(prices.iloc[-1])
+    sma60 = float(prices.rolling(60).mean().iloc[-1])
+    sma200 = float(prices.rolling(200).mean().iloc[-1])
+    vol20 = float(returns.tail(20).std(ddof=1) * np.sqrt(252.0))
+    vol252 = float(returns.tail(252).std(ddof=1) * np.sqrt(252.0))
+
+    checks = [
+        (
+            "0050 < 200 日均線",
+            f"{(latest_price / sma200 - 1.0) * 100:+.2f}%" if sma200 else "—",
+            latest_price < sma200,
+            "0050 低於長期趨勢時計 1 分",
+        ),
+        (
+            "0050 < 60 日均線",
+            f"{(latest_price / sma60 - 1.0) * 100:+.2f}%" if sma60 else "—",
+            latest_price < sma60,
+            "0050 低於中期趨勢時計 1 分",
+        ),
+        (
+            "20 日波動率 > 1 年波動率",
+            f"{vol20 * 100:.2f}% / {vol252 * 100:.2f}%",
+            vol20 > vol252,
+            "短期波動高於一年常態時計 1 分",
+        ),
+    ]
+    risk_score = sum(1 for _, _, triggered, _ in checks if triggered)
+    label = "risk_off" if risk_score >= 2 else "caution" if risk_score == 1 else "risk_on"
+    rows_html = "\n".join(regime_condition_row(label_text, current, triggered, detail) for label_text, current, triggered, detail in checks)
+    return {
+        "sharpe": sharpe,
+        "label": label,
+        "risk_score": risk_score,
+        "rows_html": rows_html,
+    }
+
 def compute_actual_portfolio_beta(history_returns, portfolio_returns, benchmark_ticker="VOO"):
     if benchmark_ticker not in history_returns.columns:
         return np.nan
@@ -805,6 +873,14 @@ def build():
 
     banner_bg     = {"risk_on":"#052e16","caution":"#451a03","risk_off":"#1f0207"}.get(regime,"#1e293b")
     regime_badge  = f'<span class="regime-badge" style="background:{rc}22;color:{rc};border:1px solid {rc}66">{rl}</span>'
+    tw_metrics = compute_tw_actual_metrics()
+    tw_regime = str(tw_metrics["label"])
+    tw_rc = {"risk_on":"#22c55e","caution":"#f59e0b","risk_off":"#ef4444"}.get(tw_regime,"#6b7280")
+    tw_rl = tw_regime.upper().replace("_"," ")
+    tw_regime_badge = f'<span class="regime-badge" style="background:{tw_rc}22;color:{tw_rc};border:1px solid {tw_rc}66">{tw_rl}</span>'
+    tw_sharpe_text = fmt(tw_metrics["sharpe"], d=2) if not pd.isna(tw_metrics["sharpe"]) else "—"
+    tw_regime_rows_html = str(tw_metrics["rows_html"])
+    tw_risk_score = int(tw_metrics["risk_score"])
     current_regime = wf_frame[wf_frame["period"].str.contains("current", na=False)].iloc[-1]
     risk_score = int(float(current_regime.get("risk_score", 0)))
     spy_vs_sma200 = float(current_regime.get("spy_vs_sma200", np.nan))
@@ -1068,6 +1144,10 @@ tbody tr:hover{{background:var(--row-hover);}}
   <div class="cards">
     {card("台股市值", f"NT${tw_tm:,.0f}", f"成本 NT${tw_tc:,.0f}")}
     {card("損益", f"NT${tw_tp:+,.0f}", f"{tw_pp:+.1f}%", pc(tw_pp))}
+    {card("Sharpe Ratio", tw_sharpe_text, "0050 近一年日報酬")}
+    <div class="clickable-card" onclick="openTwRegimeDrawer()">
+      {card("市場狀態", tw_regime_badge, f'<span>0050 趨勢與波動 ｜ 點選查看判斷</span>')}
+    </div>
   </div>
   <div class="charts-row">
     <div class="chart-box clickable-card" id="twAllocationCard" onclick="openTwHoldingsDrawer()">
@@ -1116,6 +1196,28 @@ tbody tr:hover{{background:var(--row-hover);}}
       </tr></thead>
       <tbody>{tw_drawer_rows_html}</tbody>
     </table>
+  </div>
+</aside>
+
+<div class="drawer-backdrop" id="twRegimeDrawerBackdrop" onclick="closeTwRegimeDrawer()"></div>
+<aside class="drawer" id="twRegimeDrawer" aria-hidden="true">
+  <div class="drawer-head">
+    <div>
+      <div class="drawer-title">台股市場狀態判斷</div>
+      <div class="drawer-sub">目前狀態：{tw_rl} ｜ Risk score {tw_risk_score}/3</div>
+    </div>
+    <button class="drawer-close" onclick="closeTwRegimeDrawer()" aria-label="關閉台股市場狀態判斷">&times;</button>
+  </div>
+  <div class="drawer-body">
+    <table>
+      <thead><tr>
+        <th>條件</th><th class="num">目前值</th><th class="num">狀態</th>
+      </tr></thead>
+      <tbody>{tw_regime_rows_html}</tbody>
+    </table>
+    <div class="drawer-note">
+      0 分 = risk_on；1 分 = caution；2-3 分 = risk_off。台股使用 0050 的趨勢與波動作為判斷基準。
+    </div>
   </div>
 </aside>
 
@@ -1336,6 +1438,16 @@ function closeTwHoldingsDrawer(){{
   document.getElementById('twHoldingsDrawer').classList.remove('open');
   document.getElementById('twHoldingsDrawer').setAttribute('aria-hidden', 'true');
   document.getElementById('twHoldingsDrawerBackdrop').classList.remove('open');
+}}
+function openTwRegimeDrawer(){{
+  document.getElementById('twRegimeDrawer').classList.add('open');
+  document.getElementById('twRegimeDrawer').setAttribute('aria-hidden', 'false');
+  document.getElementById('twRegimeDrawerBackdrop').classList.add('open');
+}}
+function closeTwRegimeDrawer(){{
+  document.getElementById('twRegimeDrawer').classList.remove('open');
+  document.getElementById('twRegimeDrawer').setAttribute('aria-hidden', 'true');
+  document.getElementById('twRegimeDrawerBackdrop').classList.remove('open');
 }}
 function openRegimeDrawer(){{
   document.getElementById('regimeDrawer').classList.add('open');

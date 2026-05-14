@@ -212,6 +212,18 @@ tbody tr:hover{background:var(--row-hover);}
       <div class="card-value">NT$+35,600</div>
       <div class="card-sub pos">+3.8%</div>
     </div>
+    <div class="card ">
+      <div class="card-label">Sharpe Ratio</div>
+      <div class="card-value">2.64</div>
+      <div class="card-sub ">0050 近一年日報酬</div>
+    </div>
+    <div class="clickable-card" onclick="openTwRegimeDrawer()">
+      <div class="card ">
+      <div class="card-label">市場狀態</div>
+      <div class="card-value"><span class="regime-badge" style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b66">CAUTION</span></div>
+      <div class="card-sub "><span>0050 趨勢與波動 ｜ 點選查看判斷</span></div>
+    </div>
+    </div>
   </div>
   <div class="charts-row">
     <div class="chart-box clickable-card" id="twAllocationCard" onclick="openTwHoldingsDrawer()">
@@ -377,6 +389,42 @@ tbody tr:hover{background:var(--row-hover);}
           <td class="num pos">+NT$35,600<div class="drawer-name pos">3.85%</div></td>
         </tr></tbody>
     </table>
+  </div>
+</aside>
+
+<div class="drawer-backdrop" id="twRegimeDrawerBackdrop" onclick="closeTwRegimeDrawer()"></div>
+<aside class="drawer" id="twRegimeDrawer" aria-hidden="true">
+  <div class="drawer-head">
+    <div>
+      <div class="drawer-title">台股市場狀態判斷</div>
+      <div class="drawer-sub">目前狀態：CAUTION ｜ Risk score 1/3</div>
+    </div>
+    <button class="drawer-close" onclick="closeTwRegimeDrawer()" aria-label="關閉台股市場狀態判斷">&times;</button>
+  </div>
+  <div class="drawer-body">
+    <table>
+      <thead><tr>
+        <th>條件</th><th class="num">目前值</th><th class="num">狀態</th>
+      </tr></thead>
+      <tbody><tr>
+      <td><strong>0050 < 200 日均線</strong><div class="drawer-name">0050 低於長期趨勢時計 1 分</div></td>
+      <td class="num">+35.12%</td>
+      <td class="num pos">未觸發</td>
+    </tr>
+<tr>
+      <td><strong>0050 < 60 日均線</strong><div class="drawer-name">0050 低於中期趨勢時計 1 分</div></td>
+      <td class="num">+11.37%</td>
+      <td class="num pos">未觸發</td>
+    </tr>
+<tr>
+      <td><strong>20 日波動率 > 1 年波動率</strong><div class="drawer-name">短期波動高於一年常態時計 1 分</div></td>
+      <td class="num">34.61% / 26.72%</td>
+      <td class="num neg">觸發</td>
+    </tr></tbody>
+    </table>
+    <div class="drawer-note">
+      0 分 = risk_on；1 分 = caution；2-3 分 = risk_off。台股使用 0050 的趨勢與波動作為判斷基準。
+    </div>
   </div>
 </aside>
 
@@ -611,6 +659,16 @@ function closeTwHoldingsDrawer(){
   document.getElementById('twHoldingsDrawer').classList.remove('open');
   document.getElementById('twHoldingsDrawer').setAttribute('aria-hidden', 'true');
   document.getElementById('twHoldingsDrawerBackdrop').classList.remove('open');
+}
+function openTwRegimeDrawer(){
+  document.getElementById('twRegimeDrawer').classList.add('open');
+  document.getElementById('twRegimeDrawer').setAttribute('aria-hidden', 'false');
+  document.getElementById('twRegimeDrawerBackdrop').classList.add('open');
+}
+function closeTwRegimeDrawer(){
+  document.getElementById('twRegimeDrawer').classList.remove('open');
+  document.getElementById('twRegimeDrawer').setAttribute('aria-hidden', 'true');
+  document.getElementById('twRegimeDrawerBackdrop').classList.remove('open');
 }
 function openRegimeDrawer(){
   document.getElementById('regimeDrawer').classList.add('open');
