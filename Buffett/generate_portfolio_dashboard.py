@@ -696,6 +696,15 @@ def holdings_drawer_rows_us(hlist, total_mv):
         </tr>""")
     return "\n".join(rows)
 
+def regime_condition_row(label, current, triggered, detail):
+    state = "觸發" if triggered else "未觸發"
+    state_class = "neg" if triggered else "pos"
+    return f"""<tr>
+      <td><strong>{label}</strong><div class="drawer-name">{detail}</div></td>
+      <td class="num">{current}</td>
+      <td class="num {state_class}">{state}</td>
+    </tr>"""
+
 def holdings_table_tw(hlist):
     rows = []
     for h in hlist:
@@ -751,6 +760,31 @@ def build():
 
     banner_bg     = {"risk_on":"#052e16","caution":"#451a03","risk_off":"#1f0207"}.get(regime,"#1e293b")
     regime_badge  = f'<span class="regime-badge" style="background:{rc}22;color:{rc};border:1px solid {rc}66">{rl}</span>'
+    current_regime = wf_frame[wf_frame["period"].str.contains("current", na=False)].iloc[-1]
+    risk_score = int(float(current_regime.get("risk_score", 0)))
+    spy_vs_sma200 = float(current_regime.get("spy_vs_sma200", np.nan))
+    vix_close = float(current_regime.get("vix_close", np.nan))
+    tnx_vs_sma20 = float(current_regime.get("tnx_vs_sma20", np.nan))
+    regime_rows_html = "\n".join([
+        regime_condition_row(
+            "SPY < 200 日均線",
+            "—" if pd.isna(spy_vs_sma200) else f"{spy_vs_sma200 * 100:+.2f}%",
+            bool(spy_vs_sma200 < 0) if not pd.isna(spy_vs_sma200) else False,
+            "SPY 低於 200 日均線時計 1 分",
+        ),
+        regime_condition_row(
+            "VIX > 25",
+            "—" if pd.isna(vix_close) else f"{vix_close:.2f}",
+            bool(vix_close > 25) if not pd.isna(vix_close) else False,
+            "VIX 高於 25 時計 1 分",
+        ),
+        regime_condition_row(
+            "10Y yield (^TNX) > 20 日均線",
+            "—" if pd.isna(tnx_vs_sma20) else f"{tnx_vs_sma20 * 100:+.2f}%",
+            bool(tnx_vs_sma20 > 0) if not pd.isna(tnx_vs_sma20) else False,
+            "10 年期殖利率高於自己的 20 日均線時計 1 分",
+        ),
+    ])
 
     # VOO gap
     us_total_mv  = sum(x["mv"] for x in us_h if x["mv"]) or 1
@@ -896,6 +930,7 @@ tbody tr:hover{{background:var(--row-hover);}}
 .drawer-body table{{font-size:12px;margin-bottom:0;}}
 .drawer-body th,.drawer-body td{{padding:8px 9px;}}
 .drawer-name{{font-size:11px;color:var(--mu);margin-top:3px;font-weight:400;}}
+.drawer-note{{margin-top:12px;color:var(--mu);font-size:12px;line-height:1.6;background:var(--table-head);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;}}
 .clickable-card{{cursor:pointer;position:relative;}}
 .clickable-card:hover{{border-color:var(--ac);}}
 .chart-action{{font-size:11px;color:var(--ac);font-weight:600;text-transform:none;letter-spacing:0;margin-left:8px;}}
@@ -976,7 +1011,9 @@ tbody tr:hover{{background:var(--row-hover);}}
     {card("美股市值", f"${us_tm:,.0f}", f"成本 ${us_tc:,.0f}")}
     {card("損益", f"${us_tp:+,.0f}", f"{us_pp:+.1f}%", pc(us_pp))}
     {card("Sharpe Ratio", actual_sharpe_text, "目前實際持倉")}
-    {card("市場狀態", regime_badge, f'<span id="usStatusSub">VOO 實際 {voo_actual:.1f}%</span>')}
+    <div class="clickable-card" onclick="openRegimeDrawer()">
+      {card("市場狀態", regime_badge, f'<span id="usStatusSub">VOO 實際 {voo_actual:.1f}% ｜ 點選查看判斷</span>')}
+    </div>
   </div>
   {alert_html}
   <div class="charts-row">
@@ -989,15 +1026,6 @@ tbody tr:hover{{background:var(--row-hover);}}
       <div class="chart-wrap tall"><canvas id="usLine"></canvas></div>
     </div>
   </div>
-  <div class="section-label">持倉明細（依市值排序）</div>
-  <table>
-    <thead><tr>
-      <th>代號</th><th>名稱</th>
-      <th class="num">股數</th><th class="num">均價</th><th class="num">現價</th>
-      <th class="num">市值</th><th class="num">損益</th><th class="num">損益%</th>
-    </tr></thead>
-    <tbody>{us_table_html}</tbody>
-  </table>
 </div>
 
 <!-- ══ Tab 2: 台股 ══ -->
@@ -1048,6 +1076,28 @@ tbody tr:hover{{background:var(--row-hover);}}
       </tr></thead>
       <tbody>{us_drawer_rows_html}</tbody>
     </table>
+  </div>
+</aside>
+
+<div class="drawer-backdrop" id="regimeDrawerBackdrop" onclick="closeRegimeDrawer()"></div>
+<aside class="drawer" id="regimeDrawer" aria-hidden="true">
+  <div class="drawer-head">
+    <div>
+      <div class="drawer-title">市場狀態判斷</div>
+      <div class="drawer-sub">目前狀態：{rl} ｜ Risk score {risk_score}/3</div>
+    </div>
+    <button class="drawer-close" onclick="closeRegimeDrawer()" aria-label="關閉市場狀態判斷">&times;</button>
+  </div>
+  <div class="drawer-body">
+    <table>
+      <thead><tr>
+        <th>條件</th><th class="num">目前值</th><th class="num">狀態</th>
+      </tr></thead>
+      <tbody>{regime_rows_html}</tbody>
+    </table>
+    <div class="drawer-note">
+      0 分 = risk_on；1 分 = caution；2-3 分 = risk_off。
+    </div>
   </div>
 </aside>
 
@@ -1209,6 +1259,16 @@ function closeHoldingsDrawer(){{
   document.getElementById('holdingsDrawer').classList.remove('open');
   document.getElementById('holdingsDrawer').setAttribute('aria-hidden', 'true');
   document.getElementById('holdingsDrawerBackdrop').classList.remove('open');
+}}
+function openRegimeDrawer(){{
+  document.getElementById('regimeDrawer').classList.add('open');
+  document.getElementById('regimeDrawer').setAttribute('aria-hidden', 'false');
+  document.getElementById('regimeDrawerBackdrop').classList.add('open');
+}}
+function closeRegimeDrawer(){{
+  document.getElementById('regimeDrawer').classList.remove('open');
+  document.getElementById('regimeDrawer').setAttribute('aria-hidden', 'true');
+  document.getElementById('regimeDrawerBackdrop').classList.remove('open');
 }}
 function setBenchmark(key){{
   const scenario = BENCHMARK_SCENARIOS[key] || BENCHMARK_SCENARIOS.QQQ;

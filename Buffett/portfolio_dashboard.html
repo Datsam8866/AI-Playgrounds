@@ -88,6 +88,7 @@ tbody tr:hover{background:var(--row-hover);}
 .drawer-body table{font-size:12px;margin-bottom:0;}
 .drawer-body th,.drawer-body td{padding:8px 9px;}
 .drawer-name{font-size:11px;color:var(--mu);margin-top:3px;font-weight:400;}
+.drawer-note{margin-top:12px;color:var(--mu);font-size:12px;line-height:1.6;background:var(--table-head);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;}
 .clickable-card{cursor:pointer;position:relative;}
 .clickable-card:hover{border-color:var(--ac);}
 .chart-action{font-size:11px;color:var(--ac);font-weight:600;text-transform:none;letter-spacing:0;margin-left:8px;}
@@ -196,10 +197,12 @@ tbody tr:hover{background:var(--row-hover);}
       <div class="card-value">2.07</div>
       <div class="card-sub ">目前實際持倉</div>
     </div>
-    <div class="card ">
+    <div class="clickable-card" onclick="openRegimeDrawer()">
+      <div class="card ">
       <div class="card-label">市場狀態</div>
       <div class="card-value"><span class="regime-badge" style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b66">CAUTION</span></div>
-      <div class="card-sub "><span id="usStatusSub">VOO 實際 56.2%</span></div>
+      <div class="card-sub "><span id="usStatusSub">VOO 實際 56.2% ｜ 點選查看判斷</span></div>
+    </div>
     </div>
   </div>
   
@@ -213,158 +216,6 @@ tbody tr:hover{background:var(--row-hover);}
       <div class="chart-wrap tall"><canvas id="usLine"></canvas></div>
     </div>
   </div>
-  <div class="section-label">持倉明細（依市值排序）</div>
-  <table>
-    <thead><tr>
-      <th>代號</th><th>名稱</th>
-      <th class="num">股數</th><th class="num">均價</th><th class="num">現價</th>
-      <th class="num">市值</th><th class="num">損益</th><th class="num">損益%</th>
-    </tr></thead>
-    <tbody><tr>
-          <td><strong>VOO</strong></td><td class="muted">Vanguard S&P 500 ETF</td>
-          <td class="num">258</td>
-          <td class="num">$527.00</td>
-          <td class="num">$683.20</td>
-          <td class="num">$176,266</td>
-          <td class="num pos">+$40,301</td>
-          <td class="num pos">29.64%</td>
-        </tr>
-<tr>
-          <td><strong>NVDA</strong></td><td class="muted">NVIDIA</td>
-          <td class="num">107</td>
-          <td class="num">$193.80</td>
-          <td class="num">$227.92</td>
-          <td class="num">$24,387</td>
-          <td class="num pos">+$3,651</td>
-          <td class="num pos">17.60%</td>
-        </tr>
-<tr>
-          <td><strong>INTC</strong></td><td class="muted">Intel</td>
-          <td class="num">103</td>
-          <td class="num">$65.18</td>
-          <td class="num">$118.12</td>
-          <td class="num">$12,166</td>
-          <td class="num pos">+$5,453</td>
-          <td class="num pos">81.22%</td>
-        </tr>
-<tr>
-          <td><strong>COHR</strong></td><td class="muted">Coherent Corp</td>
-          <td class="num">30</td>
-          <td class="num">$333.67</td>
-          <td class="num">$404.20</td>
-          <td class="num">$12,126</td>
-          <td class="num pos">+$2,116</td>
-          <td class="num pos">21.14%</td>
-        </tr>
-<tr>
-          <td><strong>MU</strong></td><td class="muted">Micron Technology</td>
-          <td class="num">15</td>
-          <td class="num">$586.45</td>
-          <td class="num">$793.63</td>
-          <td class="num">$11,904</td>
-          <td class="num pos">+$3,108</td>
-          <td class="num pos">35.33%</td>
-        </tr>
-<tr>
-          <td><strong>SNDK</strong></td><td class="muted">SanDisk</td>
-          <td class="num">8</td>
-          <td class="num">$1,074.13</td>
-          <td class="num">$1,420.81</td>
-          <td class="num">$11,366</td>
-          <td class="num pos">+$2,773</td>
-          <td class="num pos">32.28%</td>
-        </tr>
-<tr>
-          <td><strong>LITE</strong></td><td class="muted">Lumentum</td>
-          <td class="num">11</td>
-          <td class="num">$902.53</td>
-          <td class="num">$1,023.41</td>
-          <td class="num">$11,258</td>
-          <td class="num pos">+$1,330</td>
-          <td class="num pos">13.39%</td>
-        </tr>
-<tr>
-          <td><strong>TSM</strong></td><td class="muted">TSMC ADR</td>
-          <td class="num">27</td>
-          <td class="num">$276.31</td>
-          <td class="num">$402.75</td>
-          <td class="num">$10,874</td>
-          <td class="num pos">+$3,414</td>
-          <td class="num pos">45.76%</td>
-        </tr>
-<tr>
-          <td><strong>ARM</strong></td><td class="muted">Arm Holdings</td>
-          <td class="num">49</td>
-          <td class="num">$167.24</td>
-          <td class="num">$220.01</td>
-          <td class="num">$10,780</td>
-          <td class="num pos">+$2,586</td>
-          <td class="num pos">31.55%</td>
-        </tr>
-<tr>
-          <td><strong>TSLA</strong></td><td class="muted">Tesla</td>
-          <td class="num">24</td>
-          <td class="num">$419.35</td>
-          <td class="num">$446.88</td>
-          <td class="num">$10,725</td>
-          <td class="num pos">+$661</td>
-          <td class="num pos">6.57%</td>
-        </tr>
-<tr>
-          <td><strong>AMD</strong></td><td class="muted">Advanced Micro Devices</td>
-          <td class="num">24</td>
-          <td class="num">$244.21</td>
-          <td class="num">$442.12</td>
-          <td class="num">$10,611</td>
-          <td class="num pos">+$4,750</td>
-          <td class="num pos">81.04%</td>
-        </tr>
-<tr>
-          <td><strong>AVGO</strong></td><td class="muted">Broadcom</td>
-          <td class="num">24</td>
-          <td class="num">$286.94</td>
-          <td class="num">$416.34</td>
-          <td class="num">$9,992</td>
-          <td class="num pos">+$3,106</td>
-          <td class="num pos">45.10%</td>
-        </tr>
-<tr>
-          <td><strong>CRWD</strong></td><td class="muted">CrowdStrike</td>
-          <td class="num">1</td>
-          <td class="num">$474.39</td>
-          <td class="num">$561.03</td>
-          <td class="num">$561</td>
-          <td class="num pos">+$87</td>
-          <td class="num pos">18.26%</td>
-        </tr>
-<tr>
-          <td><strong>NET</strong></td><td class="muted">Cloudflare</td>
-          <td class="num">1</td>
-          <td class="num">$231.29</td>
-          <td class="num">$193.21</td>
-          <td class="num">$193</td>
-          <td class="num neg">$-38</td>
-          <td class="num neg">-16.46%</td>
-        </tr>
-<tr>
-          <td><strong>PLTR</strong></td><td class="muted">Palantir Technologies</td>
-          <td class="num">1</td>
-          <td class="num">$139.94</td>
-          <td class="num">$130.25</td>
-          <td class="num">$130</td>
-          <td class="num neg">$-10</td>
-          <td class="num neg">-6.92%</td>
-        </tr>
-<tr>
-          <td><strong>NOW</strong></td><td class="muted">ServiceNow</td>
-          <td class="num">1</td>
-          <td class="num">$87.00</td>
-          <td class="num">$87.55</td>
-          <td class="num">$88</td>
-          <td class="num pos">+$1</td>
-          <td class="num pos">0.64%</td>
-        </tr></tbody>
-  </table>
 </div>
 
 <!-- ══ Tab 2: 台股 ══ -->
@@ -549,6 +400,42 @@ tbody tr:hover{background:var(--row-hover);}
   </div>
 </aside>
 
+<div class="drawer-backdrop" id="regimeDrawerBackdrop" onclick="closeRegimeDrawer()"></div>
+<aside class="drawer" id="regimeDrawer" aria-hidden="true">
+  <div class="drawer-head">
+    <div>
+      <div class="drawer-title">市場狀態判斷</div>
+      <div class="drawer-sub">目前狀態：CAUTION ｜ Risk score 1/3</div>
+    </div>
+    <button class="drawer-close" onclick="closeRegimeDrawer()" aria-label="關閉市場狀態判斷">&times;</button>
+  </div>
+  <div class="drawer-body">
+    <table>
+      <thead><tr>
+        <th>條件</th><th class="num">目前值</th><th class="num">狀態</th>
+      </tr></thead>
+      <tbody><tr>
+      <td><strong>SPY < 200 日均線</strong><div class="drawer-name">SPY 低於 200 日均線時計 1 分</div></td>
+      <td class="num">+7.90%</td>
+      <td class="num pos">未觸發</td>
+    </tr>
+<tr>
+      <td><strong>VIX > 25</strong><div class="drawer-name">VIX 高於 25 時計 1 分</div></td>
+      <td class="num">16.99</td>
+      <td class="num pos">未觸發</td>
+    </tr>
+<tr>
+      <td><strong>10Y yield (^TNX) > 20 日均線</strong><div class="drawer-name">10 年期殖利率高於自己的 20 日均線時計 1 分</div></td>
+      <td class="num">+1.42%</td>
+      <td class="num neg">觸發</td>
+    </tr></tbody>
+    </table>
+    <div class="drawer-note">
+      0 分 = risk_on；1 分 = caution；2-3 分 = risk_off。
+    </div>
+  </div>
+</aside>
+
 <div class="modal-overlay" id="modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal">
     <h3>&#8635; 更新資料</h3>
@@ -707,6 +594,16 @@ function closeHoldingsDrawer(){
   document.getElementById('holdingsDrawer').classList.remove('open');
   document.getElementById('holdingsDrawer').setAttribute('aria-hidden', 'true');
   document.getElementById('holdingsDrawerBackdrop').classList.remove('open');
+}
+function openRegimeDrawer(){
+  document.getElementById('regimeDrawer').classList.add('open');
+  document.getElementById('regimeDrawer').setAttribute('aria-hidden', 'false');
+  document.getElementById('regimeDrawerBackdrop').classList.add('open');
+}
+function closeRegimeDrawer(){
+  document.getElementById('regimeDrawer').classList.remove('open');
+  document.getElementById('regimeDrawer').setAttribute('aria-hidden', 'true');
+  document.getElementById('regimeDrawerBackdrop').classList.remove('open');
 }
 function setBenchmark(key){
   const scenario = BENCHMARK_SCENARIOS[key] || BENCHMARK_SCENARIOS.QQQ;
