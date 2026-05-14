@@ -147,8 +147,8 @@ tbody tr:hover{background:var(--row-hover);}
     </div>
     <div class="card ">
       <div class="card-label">台股市值 (TWD)</div>
-      <div class="card-value">NT$960,500</div>
-      <div class="card-sub pos">成本 NT$924,900 ｜ +3.8%</div>
+      <div class="card-value">NT$959,000</div>
+      <div class="card-sub pos">成本 NT$924,900 ｜ +3.7%</div>
     </div>
     <div class="card ">
       <div class="card-label">台股模型信心</div>
@@ -392,13 +392,13 @@ tbody tr:hover{background:var(--row-hover);}
   <div class="cards">
     <div class="card ">
       <div class="card-label">台股市值</div>
-      <div class="card-value">NT$960,500</div>
+      <div class="card-value">NT$959,000</div>
       <div class="card-sub ">成本 NT$924,900</div>
     </div>
     <div class="card ">
       <div class="card-label">損益</div>
-      <div class="card-value">NT$+35,600</div>
-      <div class="card-sub pos">+3.8%</div>
+      <div class="card-value">NT$+34,100</div>
+      <div class="card-sub pos">+3.7%</div>
     </div>
     <div class="card ">
       <div class="card-label">模型信心</div>
@@ -430,10 +430,10 @@ tbody tr:hover{background:var(--row-hover);}
           <td><strong>0050</strong></td><td class="muted">元大台灣50</td>
           <td class="num">10,000</td>
           <td class="num">$92.49</td>
-          <td class="num">$96.05</td>
-          <td class="num">$960,500</td>
-          <td class="num pos">+$35,600</td>
-          <td class="num pos">3.85%</td>
+          <td class="num">$95.90</td>
+          <td class="num">$959,000</td>
+          <td class="num pos">+$34,100</td>
+          <td class="num pos">3.69%</td>
         </tr></tbody>
   </table>
 </div>
@@ -597,6 +597,7 @@ function chartColors(labels, weights){
 }
 function setBenchmark(key){
   const scenario = BENCHMARK_SCENARIOS[key] || BENCHMARK_SCENARIOS.QQQ;
+  const actualScenario = ACTUAL_BENCHMARK_SCENARIOS[key] || scenario;
   if (!scenario) return;
   const weights = scenario.weights || {};
   const vooModel = (weights.VOO || 0) * 100;
@@ -605,18 +606,18 @@ function setBenchmark(key){
   );
 
   document.getElementById('benchmarkSelect').value = scenario.key;
-  if (scenario.unavailable) {
-    document.getElementById('benchmarkDetail').innerHTML = `${scenario.label} unavailable &nbsp;|&nbsp; Stage: unavailable &nbsp;|&nbsp; 2026Q2 current`;
+  if (actualScenario.unavailable) {
+    document.getElementById('benchmarkDetail').innerHTML = `${actualScenario.label} unavailable &nbsp;|&nbsp; Actual portfolio &nbsp;|&nbsp; 2026Q2 current`;
     document.getElementById('usModelConfidence').textContent = '—';
-    document.getElementById('usModelConfidenceSub').innerHTML = `${scenario.label} 無資料 ｜ ${REGIME_LABEL}`;
-    document.getElementById('regimeMsg').innerHTML = `市場 Regime：${REGIME_LABEL} &mdash; ${scenario.label} 價格資料不足，無法追蹤`;
-    document.getElementById('usStatusSub').textContent = `${scenario.label} benchmark unavailable`;
+    document.getElementById('usModelConfidenceSub').innerHTML = `${actualScenario.label} 無資料 ｜ ${REGIME_LABEL}`;
+    document.getElementById('regimeMsg').innerHTML = `市場 Regime：${REGIME_LABEL} &mdash; ${actualScenario.label} 價格資料不足，無法追蹤目前持倉`;
+    document.getElementById('usStatusSub').textContent = `${actualScenario.label} benchmark unavailable`;
     const unavailableSignal = document.getElementById('signalBadge');
     unavailableSignal.textContent = 'Unavailable';
     unavailableSignal.className = 'signal-badge weak';
     document.getElementById('riskMetrics').innerHTML = 'Sharpe — ｜ P&lt;0% — ｜ Beta —';
     document.getElementById('targetStatus').textContent = scenario.targetStatus || 'Unavailable';
-    document.getElementById('targetDetail').textContent = scenario.targetDetail || '缺少 benchmark 歷史資料';
+    document.getElementById('targetDetail').textContent = actualScenario.detail || scenario.targetDetail || '缺少 benchmark 歷史資料';
     document.querySelectorAll('.model-cell').forEach(cell => {
       cell.innerHTML = '<span style="color:#475569">&#8212; 無資料</span>';
     });
@@ -627,15 +628,15 @@ function setBenchmark(key){
     usHBarChart.update();
     return;
   }
-  document.getElementById('benchmarkDetail').innerHTML = `P(&gt;${scenario.label}) ${pct(scenario.pBeat)} &nbsp;|&nbsp; Stage: ${scenario.stage} &nbsp;|&nbsp; 2026Q2 current`;
-  document.getElementById('usModelConfidence').textContent = pct(scenario.pBeat);
-  document.getElementById('usModelConfidenceSub').innerHTML = `P(&gt;${scenario.label}) ｜ ${REGIME_LABEL}`;
-  document.getElementById('regimeMsg').innerHTML = `市場 Regime：${REGIME_LABEL} &mdash; 追蹤 ${scenario.label}（${scenario.ticker}）｜模型建議 VOO ${vooModel.toFixed(1)}%，目前實際 ${VOO_ACTUAL.toFixed(1)}%`;
+  document.getElementById('benchmarkDetail').innerHTML = `目前持倉 P(&gt;${actualScenario.label}) ${pct(actualScenario.pBeat)} &nbsp;|&nbsp; Raw bootstrap &nbsp;|&nbsp; 2026Q2 current`;
+  document.getElementById('usModelConfidence').textContent = pct(actualScenario.pBeat);
+  document.getElementById('usModelConfidenceSub').innerHTML = `目前持倉 P(&gt;${actualScenario.label}) ｜ ${REGIME_LABEL}`;
+  document.getElementById('regimeMsg').innerHTML = `市場 Regime：${REGIME_LABEL} &mdash; 目前持倉追蹤 ${actualScenario.label}（${actualScenario.ticker}）｜模型建議 VOO ${vooModel.toFixed(1)}%，目前實際 ${VOO_ACTUAL.toFixed(1)}%`;
   document.getElementById('usStatusSub').textContent = `VOO 模型 ${vooModel.toFixed(1)}% / 實際 ${VOO_ACTUAL.toFixed(1)}%`;
   const signal = document.getElementById('signalBadge');
-  signal.textContent = scenario.signal || '—';
-  signal.className = `signal-badge ${scenario.signalClass || 'weak'}`;
-  document.getElementById('riskMetrics').innerHTML = `Sharpe ${num(scenario.sharpe)} ｜ P&lt;0% ${pct(scenario.pLt0)} ｜ Beta ${num(scenario.portfolioBeta)} / ${num(scenario.betaCap)}`;
+  signal.textContent = actualScenario.signal || '—';
+  signal.className = `signal-badge ${actualScenario.signalClass || 'weak'}`;
+  document.getElementById('riskMetrics').innerHTML = `Sharpe ${num(actualScenario.sharpe)} ｜ P&lt;0% ${pct(actualScenario.pLt0)} ｜ Beta ${num(actualScenario.portfolioBeta)} / ${num(actualScenario.betaCap)}`;
   document.getElementById('targetStatus').textContent = scenario.targetStatus || 'No Strong Candidate';
   document.getElementById('targetDetail').textContent = scenario.targetDetail || '找不到同時達到 70% 且 fully_feasible 的 portfolio';
 

@@ -465,6 +465,120 @@ def build_benchmark_scenarios(frame):
 
 # ── data loading ──────────────────────────────────────────────────────────────
 
+def actual_signal_for(p_beat):
+    if p_beat is not None and p_beat >= 0.70:
+        return "Strong", "strong"
+    if p_beat is not None and p_beat >= 0.60:
+        return "Watch", "watch"
+    return "Weak", "weak"
+
+def annualized_sharpe(daily_returns):
+    daily_returns = pd.Series(daily_returns, dtype=float).dropna()
+    std = daily_returns.std(ddof=1)
+    if len(daily_returns) < 2 or std == 0 or pd.isna(std):
+        return np.nan
+    return float(np.sqrt(252.0) * daily_returns.mean() / std)
+
+def compute_actual_portfolio_beta(history_returns, portfolio_returns, benchmark_ticker="VOO"):
+    if benchmark_ticker not in history_returns.columns:
+        return np.nan
+    joined = pd.concat(
+        [portfolio_returns.rename("portfolio"), history_returns[benchmark_ticker].rename("benchmark")],
+        axis=1,
+    ).dropna().tail(252)
+    if len(joined) < 60:
+        return np.nan
+    benchmark_var = float(joined["benchmark"].var(ddof=1))
+    if benchmark_var <= 0 or pd.isna(benchmark_var):
+        return np.nan
+    return float(joined["portfolio"].cov(joined["benchmark"]) / benchmark_var)
+
+def compute_actual_benchmark_scenarios(frame, actual_weights):
+    current_rows = frame[frame["period"].str.contains("current", na=False)]
+    if current_rows.empty or not actual_weights:
+        return {}
+
+    current = current_rows.iloc[-1]
+    forecast_start = pd.Timestamp(current["forecast_start"])
+    forecast_end = pd.Timestamp(current["forecast_end"])
+    horizon_days = estimate_horizon_days(forecast_start, forecast_end)
+    active_weights = pd.Series(actual_weights, dtype=float)
+    active_weights = active_weights[active_weights > 0].sort_index()
+    beta_cap = current.get("beta_cap", np.nan)
+
+    benchmark_specs = [("VOO", "VOO", "VOO"), ("QQQ", "QQQ", "QQQ"), ("SOXX", "SOXX", "SOXX"), ("VT", "VT", "VT")]
+    all_tickers = sorted(set(active_weights.index.tolist() + [ticker for _, ticker, _ in benchmark_specs]))
+    prices = load_wall_street_prices(all_tickers)
+    scenarios = {}
+
+    for key, benchmark_ticker, label in benchmark_specs:
+        required = sorted(set(active_weights.index.tolist() + [benchmark_ticker]))
+        missing = [ticker for ticker in required if ticker not in prices.columns]
+        if missing:
+            signal, signal_class = actual_signal_for(None)
+            scenarios[key] = {
+                "key": key,
+                "label": label,
+                "ticker": benchmark_ticker,
+                "unavailable": True,
+                "pBeat": None,
+                "rawPBeat": None,
+                "pGt5": None,
+                "pLt0": None,
+                "sharpe": None,
+                "portfolioBeta": None,
+                "betaCap": None if pd.isna(beta_cap) else float(beta_cap),
+                "signal": signal,
+                "signalClass": signal_class,
+                "detail": "Missing price history: " + ", ".join(missing),
+            }
+            continue
+
+        history_prices = prices.loc[prices.index < forecast_start, required].dropna(how="any")
+        history_returns = history_prices.pct_change().dropna(how="any")
+        if len(history_returns) < BOOTSTRAP_BLOCK:
+            signal, signal_class = actual_signal_for(None)
+            scenarios[key] = {
+                "key": key,
+                "label": label,
+                "ticker": benchmark_ticker,
+                "unavailable": True,
+                "pBeat": None,
+                "rawPBeat": None,
+                "pGt5": None,
+                "pLt0": None,
+                "sharpe": None,
+                "portfolioBeta": None,
+                "betaCap": None if pd.isna(beta_cap) else float(beta_cap),
+                "signal": signal,
+                "signalClass": signal_class,
+                "detail": "Insufficient common price history",
+            }
+            continue
+
+        seed = int(forecast_start.year * 10 + forecast_start.quarter + len(key))
+        port, bench = block_bootstrap_paired(history_returns, active_weights, benchmark_ticker, horizon_days, seed)
+        active_returns = history_returns[active_weights.index]
+        portfolio_returns = active_returns @ active_weights.reindex(active_returns.columns).fillna(0.0)
+        p_beat = float(np.mean(port > bench)) if len(port) else np.nan
+        signal, signal_class = actual_signal_for(p_beat)
+        scenarios[key] = {
+            "key": key,
+            "label": label,
+            "ticker": benchmark_ticker,
+            "pBeat": p_beat,
+            "rawPBeat": p_beat,
+            "pGt5": float(np.mean(port > 0.05)) if len(port) else np.nan,
+            "pLt0": float(np.mean(port < 0.0)) if len(port) else np.nan,
+            "sharpe": annualized_sharpe(portfolio_returns),
+            "portfolioBeta": compute_actual_portfolio_beta(history_returns, portfolio_returns, "VOO"),
+            "betaCap": None if pd.isna(beta_cap) else float(beta_cap),
+            "signal": signal,
+            "signalClass": signal_class,
+            "detail": "目前實際持倉 raw bootstrap",
+        }
+    return scenarios
+
 def load_holdings():
     conn = sqlite3.connect(DB_PATH)
     rows = conn.execute("""
@@ -632,6 +746,9 @@ def build():
     # VOO gap
     us_total_mv  = sum(x["mv"] for x in us_h if x["mv"]) or 1
     actual_w     = {x["ticker"]: x["mv"]/us_total_mv for x in us_h if x["mv"]}
+    actual_benchmark_scenarios = compute_actual_benchmark_scenarios(wf_frame, actual_w)
+    if "QQQ" in actual_benchmark_scenarios and actual_benchmark_scenarios["QQQ"].get("pBeat") is not None:
+        pb = f"{actual_benchmark_scenarios['QQQ']['pBeat']*100:.1f}%"
     voo_actual   = actual_w.get("VOO", 0) * 100
     voo_model    = model_w.get("VOO", 0) * 100
     voo_gap      = voo_actual - voo_model
@@ -694,6 +811,7 @@ def build():
     hbar_model_js  = json.dumps(bar_model)
     hbar_colors_js = json.dumps(bar_colors)
     benchmark_scenarios_js = json.dumps(benchmark_scenarios, ensure_ascii=False)
+    actual_benchmark_scenarios_js = json.dumps(actual_benchmark_scenarios, ensure_ascii=False)
 
     html = f"""<!DOCTYPE html>
 <html lang="zh-TW">
@@ -827,7 +945,7 @@ tbody tr:hover{{background:var(--row-hover);}}
   {alert_html}
   <div class="cards">
     {card("美股市值 (USD)", f"${us_tm:,.0f}", f"成本 ${us_tc:,.0f} ｜ {us_pp:+.1f}%", pc(us_pp))}
-    {card("美股模型信心", f'<span id="usModelConfidence">{pb}</span>', f'<span id="usModelConfidenceSub">P(&gt;QQQ) ｜ {rl}</span>', "", "warn" if voo_gap < -10 else "")}
+    {card("美股目前持倉信心", f'<span id="usModelConfidence">{pb}</span>', f'<span id="usModelConfidenceSub">P(&gt;QQQ) ｜ {rl}</span>', "", "warn" if voo_gap < -10 else "")}
     {card("台股市值 (TWD)", f"NT${tw_tm:,.0f}", f"成本 NT${tw_tc:,.0f} ｜ {tw_pp:+.1f}%", pc(tw_pp))}
     {card("台股模型信心", tw_pb, "P(&gt;0050) ｜ 2026Q2")}
   </div>
@@ -850,8 +968,8 @@ tbody tr:hover{{background:var(--row-hover);}}
     {card("美股市值", f"${us_tm:,.0f}", f"成本 ${us_tc:,.0f}")}
     {card("損益", f"${us_tp:+,.0f}", f"{us_pp:+.1f}%", pc(us_pp))}
     {card("市場狀態", regime_badge, f'<span id="usStatusSub">VOO 模型 {voo_model:.1f}% / 實際 {voo_actual:.1f}%</span>', "", "warn" if abs(voo_gap) > 10 else "")}
-    {card("訊號 / 風險", '<span id="signalBadge" class="signal-badge watch">Watch</span>', '<span id="riskMetrics">Sharpe — ｜ P&lt;0% — ｜ Beta —</span>', "", "warn")}
-    {card("70% 門檻", '<span id="targetStatus">—</span>', '<span id="targetDetail">—</span>', "", "warn")}
+    {card("目前持倉訊號 / 風險", '<span id="signalBadge" class="signal-badge watch">Watch</span>', '<span id="riskMetrics">Sharpe — ｜ P&lt;0% — ｜ Beta —</span>', "", "warn")}
+    {card("模型 70% 門檻", '<span id="targetStatus">—</span>', '<span id="targetDetail">—</span>', "", "warn")}
   </div>
   {alert_html}
   <div class="charts-row">
@@ -986,6 +1104,7 @@ const baseScales = {{
   y:{{ ticks:{{color:tickColor}}, grid:{{color:gridColor}} }}
 }};
 const BENCHMARK_SCENARIOS = {benchmark_scenarios_js};
+const ACTUAL_BENCHMARK_SCENARIOS = {actual_benchmark_scenarios_js};
 const ACTUAL_WEIGHTS = {json.dumps(actual_w)};
 const REGIME_LABEL = {json.dumps(rl)};
 const VOO_ACTUAL = {voo_actual:.6f};
@@ -1066,6 +1185,7 @@ function chartColors(labels, weights){{
 }}
 function setBenchmark(key){{
   const scenario = BENCHMARK_SCENARIOS[key] || BENCHMARK_SCENARIOS.QQQ;
+  const actualScenario = ACTUAL_BENCHMARK_SCENARIOS[key] || scenario;
   if (!scenario) return;
   const weights = scenario.weights || {{}};
   const vooModel = (weights.VOO || 0) * 100;
@@ -1074,18 +1194,18 @@ function setBenchmark(key){{
   );
 
   document.getElementById('benchmarkSelect').value = scenario.key;
-  if (scenario.unavailable) {{
-    document.getElementById('benchmarkDetail').innerHTML = `${{scenario.label}} unavailable &nbsp;|&nbsp; Stage: unavailable &nbsp;|&nbsp; 2026Q2 current`;
+  if (actualScenario.unavailable) {{
+    document.getElementById('benchmarkDetail').innerHTML = `${{actualScenario.label}} unavailable &nbsp;|&nbsp; Actual portfolio &nbsp;|&nbsp; 2026Q2 current`;
     document.getElementById('usModelConfidence').textContent = '—';
-    document.getElementById('usModelConfidenceSub').innerHTML = `${{scenario.label}} 無資料 ｜ ${{REGIME_LABEL}}`;
-    document.getElementById('regimeMsg').innerHTML = `市場 Regime：${{REGIME_LABEL}} &mdash; ${{scenario.label}} 價格資料不足，無法追蹤`;
-    document.getElementById('usStatusSub').textContent = `${{scenario.label}} benchmark unavailable`;
+    document.getElementById('usModelConfidenceSub').innerHTML = `${{actualScenario.label}} 無資料 ｜ ${{REGIME_LABEL}}`;
+    document.getElementById('regimeMsg').innerHTML = `市場 Regime：${{REGIME_LABEL}} &mdash; ${{actualScenario.label}} 價格資料不足，無法追蹤目前持倉`;
+    document.getElementById('usStatusSub').textContent = `${{actualScenario.label}} benchmark unavailable`;
     const unavailableSignal = document.getElementById('signalBadge');
     unavailableSignal.textContent = 'Unavailable';
     unavailableSignal.className = 'signal-badge weak';
     document.getElementById('riskMetrics').innerHTML = 'Sharpe — ｜ P&lt;0% — ｜ Beta —';
     document.getElementById('targetStatus').textContent = scenario.targetStatus || 'Unavailable';
-    document.getElementById('targetDetail').textContent = scenario.targetDetail || '缺少 benchmark 歷史資料';
+    document.getElementById('targetDetail').textContent = actualScenario.detail || scenario.targetDetail || '缺少 benchmark 歷史資料';
     document.querySelectorAll('.model-cell').forEach(cell => {{
       cell.innerHTML = '<span style="color:#475569">&#8212; 無資料</span>';
     }});
@@ -1096,15 +1216,15 @@ function setBenchmark(key){{
     usHBarChart.update();
     return;
   }}
-  document.getElementById('benchmarkDetail').innerHTML = `P(&gt;${{scenario.label}}) ${{pct(scenario.pBeat)}} &nbsp;|&nbsp; Stage: ${{scenario.stage}} &nbsp;|&nbsp; 2026Q2 current`;
-  document.getElementById('usModelConfidence').textContent = pct(scenario.pBeat);
-  document.getElementById('usModelConfidenceSub').innerHTML = `P(&gt;${{scenario.label}}) ｜ ${{REGIME_LABEL}}`;
-  document.getElementById('regimeMsg').innerHTML = `市場 Regime：${{REGIME_LABEL}} &mdash; 追蹤 ${{scenario.label}}（${{scenario.ticker}}）｜模型建議 VOO ${{vooModel.toFixed(1)}}%，目前實際 ${{VOO_ACTUAL.toFixed(1)}}%`;
+  document.getElementById('benchmarkDetail').innerHTML = `目前持倉 P(&gt;${{actualScenario.label}}) ${{pct(actualScenario.pBeat)}} &nbsp;|&nbsp; Raw bootstrap &nbsp;|&nbsp; 2026Q2 current`;
+  document.getElementById('usModelConfidence').textContent = pct(actualScenario.pBeat);
+  document.getElementById('usModelConfidenceSub').innerHTML = `目前持倉 P(&gt;${{actualScenario.label}}) ｜ ${{REGIME_LABEL}}`;
+  document.getElementById('regimeMsg').innerHTML = `市場 Regime：${{REGIME_LABEL}} &mdash; 目前持倉追蹤 ${{actualScenario.label}}（${{actualScenario.ticker}}）｜模型建議 VOO ${{vooModel.toFixed(1)}}%，目前實際 ${{VOO_ACTUAL.toFixed(1)}}%`;
   document.getElementById('usStatusSub').textContent = `VOO 模型 ${{vooModel.toFixed(1)}}% / 實際 ${{VOO_ACTUAL.toFixed(1)}}%`;
   const signal = document.getElementById('signalBadge');
-  signal.textContent = scenario.signal || '—';
-  signal.className = `signal-badge ${{scenario.signalClass || 'weak'}}`;
-  document.getElementById('riskMetrics').innerHTML = `Sharpe ${{num(scenario.sharpe)}} ｜ P&lt;0% ${{pct(scenario.pLt0)}} ｜ Beta ${{num(scenario.portfolioBeta)}} / ${{num(scenario.betaCap)}}`;
+  signal.textContent = actualScenario.signal || '—';
+  signal.className = `signal-badge ${{actualScenario.signalClass || 'weak'}}`;
+  document.getElementById('riskMetrics').innerHTML = `Sharpe ${{num(actualScenario.sharpe)}} ｜ P&lt;0% ${{pct(actualScenario.pLt0)}} ｜ Beta ${{num(actualScenario.portfolioBeta)}} / ${{num(actualScenario.betaCap)}}`;
   document.getElementById('targetStatus').textContent = scenario.targetStatus || 'No Strong Candidate';
   document.getElementById('targetDetail').textContent = scenario.targetDetail || '找不到同時達到 70% 且 fully_feasible 的 portfolio';
 
