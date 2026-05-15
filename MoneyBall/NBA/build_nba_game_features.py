@@ -65,7 +65,11 @@ CREATE TABLE IF NOT EXISTS game_features (
 
     home_games_before   INTEGER,
     vis_games_before    INTEGER,
-    is_neutral_site     INTEGER NOT NULL DEFAULT 0
+    is_neutral_site     INTEGER NOT NULL DEFAULT 0,
+
+    home_lineup_pts     REAL,
+    vis_lineup_pts      REAL,
+    diff_lineup_pts     REAL
 );
 
 CREATE INDEX IF NOT EXISTS idx_game_features_season_year
@@ -114,7 +118,10 @@ INSERT INTO game_features (
     diff_streak,
     home_games_before,
     vis_games_before,
-    is_neutral_site
+    is_neutral_site,
+    home_lineup_pts,
+    vis_lineup_pts,
+    diff_lineup_pts
 )
 VALUES (
     :game_id,
@@ -155,7 +162,10 @@ VALUES (
     :diff_streak,
     :home_games_before,
     :vis_games_before,
-    :is_neutral_site
+    :is_neutral_site,
+    :home_lineup_pts,
+    :vis_lineup_pts,
+    :diff_lineup_pts
 )
 ON CONFLICT(game_id) DO UPDATE SET
     season_year = excluded.season_year,
@@ -195,8 +205,61 @@ ON CONFLICT(game_id) DO UPDATE SET
     diff_streak = excluded.diff_streak,
     home_games_before = excluded.home_games_before,
     vis_games_before = excluded.vis_games_before,
-    is_neutral_site = excluded.is_neutral_site
+    is_neutral_site = excluded.is_neutral_site,
+    home_lineup_pts = excluded.home_lineup_pts,
+    vis_lineup_pts = excluded.vis_lineup_pts,
+    diff_lineup_pts = excluded.diff_lineup_pts
 """
+
+
+def load_player_game_map(conn) -> dict:
+    """Returns {game_id: {team_id: [{player_id, min_seconds, pts}]}} from player_game_stats."""
+    try:
+        rows = conn.execute(
+            "SELECT game_id, team_id, player_id, min_seconds, pts FROM player_game_stats"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    result: dict = {}
+    for row in rows:
+        gid, tid, pid, mins, pts = str(row[0]), int(row[1]), int(row[2]), int(row[3]), float(row[4])
+        result.setdefault(gid, {}).setdefault(tid, []).append(
+            {"player_id": pid, "min_seconds": mins, "pts": pts}
+        )
+    return result
+
+
+def compute_lineup_pts(team_id: int, season_year, team_last_lineup: dict, player_pts_acc: dict):
+    lineup = team_last_lineup.get(team_id)
+    if not lineup:
+        return None
+    total = 0.0
+    counted = 0
+    for pid in lineup:
+        acc = player_pts_acc.get((season_year, pid))
+        if acc and acc["games"] > 0:
+            total += acc["pts"] / acc["games"]
+            counted += 1
+    return total if counted > 0 else None
+
+
+def update_player_state(game, player_game_map: dict, team_last_lineup: dict, player_pts_acc: dict) -> None:
+    game_id = game["game_id"]
+    season_year = game["season_year"]
+    team_data = player_game_map.get(game_id, {})
+    for team_id_raw, players in team_data.items():
+        tid = int(team_id_raw)
+        active = [p["player_id"] for p in players if p["min_seconds"] > 0]
+        if active:
+            team_last_lineup[tid] = active
+        for p in players:
+            if p["min_seconds"] <= 0:
+                continue
+            key = (season_year, p["player_id"])
+            if key not in player_pts_acc:
+                player_pts_acc[key] = {"pts": 0.0, "games": 0}
+            player_pts_acc[key]["pts"] += p["pts"]
+            player_pts_acc[key]["games"] += 1
 
 
 def build_parser():
@@ -306,7 +369,8 @@ def compute_rest(last_game_dates, team_id, game_date_iso, season_games_before):
     return max(0, (current_dt - last_dt).days)
 
 
-def to_feature_row(game, team_history, elo_by_team, streak_by_team, last_game_dates, season_games, neutral):
+def to_feature_row(game, team_history, elo_by_team, streak_by_team, last_game_dates, season_games, neutral,
+                   team_last_lineup=None, player_pts_acc=None):
     home_id = game["home_team_id"]
     vis_id = game["vis_team_id"]
     season_year = game["season_year"]
@@ -327,6 +391,10 @@ def to_feature_row(game, team_history, elo_by_team, streak_by_team, last_game_da
     vis_rest = compute_rest(last_game_dates, vis_id, game["game_date"], vis_games_before)
     home_streak = current_streak(streak_by_team, home_id)
     vis_streak = current_streak(streak_by_team, vis_id)
+
+    home_lineup = compute_lineup_pts(home_id, season_year, team_last_lineup or {}, player_pts_acc or {})
+    vis_lineup = compute_lineup_pts(vis_id, season_year, team_last_lineup or {}, player_pts_acc or {})
+    diff_lineup = (home_lineup - vis_lineup) if (home_lineup is not None and vis_lineup is not None) else None
 
     return {
         "game_id": game["game_id"],
@@ -368,6 +436,9 @@ def to_feature_row(game, team_history, elo_by_team, streak_by_team, last_game_da
         "home_games_before": home_games_before,
         "vis_games_before": vis_games_before,
         "is_neutral_site": neutral,
+        "home_lineup_pts": home_lineup,
+        "vis_lineup_pts": vis_lineup,
+        "diff_lineup_pts": diff_lineup,
     }
 
 
@@ -416,12 +487,17 @@ def clear_scope(conn, season_year=None):
     conn.commit()
 
 
-def build_features(games, target_season=None):
+def build_features(games, target_season=None, player_game_map=None):
     team_history = defaultdict(lambda: deque(maxlen=WINDOW))
     elo_by_team = defaultdict(lambda: ELO_BASE)
     streak_by_team = {}
     last_game_dates = {}
     season_games = defaultdict(int)
+    team_last_lineup: dict = {}
+    player_pts_acc: dict = {}
+
+    if player_game_map is None:
+        player_game_map = {}
 
     current_season = None
     feature_rows = []
@@ -435,6 +511,7 @@ def build_features(games, target_season=None):
             current_season = season_year
             streak_by_team = {}
             last_game_dates = {}
+            team_last_lineup = {}
         neutral = is_neutral_site(game)
 
         row = to_feature_row(
@@ -445,6 +522,8 @@ def build_features(games, target_season=None):
             last_game_dates=last_game_dates,
             season_games=season_games,
             neutral=neutral,
+            team_last_lineup=team_last_lineup,
+            player_pts_acc=player_pts_acc,
         )
         if target_season is None or season_year == target_season:
             feature_rows.append(row)
@@ -459,6 +538,7 @@ def build_features(games, target_season=None):
             season_games=season_games,
             neutral=neutral,
         )
+        update_player_state(game, player_game_map, team_last_lineup, player_pts_acc)
 
     return feature_rows, dict(sorted(season_counts.items()))
 
@@ -483,11 +563,16 @@ def main():
     conn = connect_db()
     try:
         games = load_games(conn)
+        player_game_map = load_player_game_map(conn)
+        if player_game_map:
+            print(f"Loaded player data for {len(player_game_map):,} games.")
+        else:
+            print("No player_game_stats found; lineup features will be NULL.")
         if args.season is None:
             rebuild_game_features_table(conn)
         else:
             clear_scope(conn, args.season)
-        feature_rows, season_counts = build_features(games, args.season)
+        feature_rows, season_counts = build_features(games, args.season, player_game_map=player_game_map)
         inserted = write_features(conn, feature_rows)
 
         for season_year, count in season_counts.items():
