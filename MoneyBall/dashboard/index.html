@@ -74,6 +74,7 @@
   .league-shell-cpbl { --league-accent: #10b981; }
   .league-shell-npb { --league-accent: #f97316; }
   .league-shell-kbo { --league-accent: #14b8a6; }
+  .league-shell-nba { --league-accent: #c9a227; }
 
   /* Signal Banner */
   .signal-banner {
@@ -502,6 +503,9 @@
     <li class="nav-item"><a class="nav-link" href="#" onclick="switchLeague('kbo');return false" id="tab-kbo">
       <span class="league-tab-badge"><span class="league-brand-mark">KB</span></span>
       <span class="league-tab-copy"><span>KBO<span id="tab-badge-kbo" class="tab-bet-badge d-none"></span></span><small>Korea</small></span></a></li>
+    <li class="nav-item"><a class="nav-link" href="#" onclick="switchLeague('nba');return false" id="tab-nba">
+      <span class="league-tab-badge"><span class="league-brand-mark">NBA</span></span>
+      <span class="league-tab-copy"><span>NBA<span id="tab-badge-nba" class="tab-bet-badge d-none"></span></span><small>Basketball</small></span></a></li>
     <li class="nav-item"><a class="nav-link" href="#" onclick="switchAccuracy();return false" id="tab-accuracy">
       <span class="league-tab-badge"><i class="fa-solid fa-chart-line" style="color:#38bdf8"></i></span>
       <span class="league-tab-copy"><span>Accuracy</span><small>Backtest</small></span></a></li>
@@ -604,7 +608,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
-const LEAGUES = ['mlb', 'cpbl', 'npb', 'kbo'];
+const LEAGUES = ['mlb', 'cpbl', 'npb', 'kbo', 'nba'];
 const LEAGUE_META = {
   mlb: {
     short: 'MLB',
@@ -629,6 +633,12 @@ const LEAGUE_META = {
     long: 'Korea Baseball Organization',
     market: 'Korea board',
     badge: '<span class="league-brand-mark">KBO</span>',
+  },
+  nba: {
+    short: 'NBA',
+    long: 'National Basketball Association',
+    market: 'NBA board',
+    badge: '<span class="league-brand-mark">NBA</span>',
   },
 };
 let state = {
@@ -1161,19 +1171,27 @@ function renderTable(lg) {
 
 // ── Cell builders ──────────────────────────────────────────────────────────
 function buildMatchupCell(lg, idx, g, spA, spH, spKey) {
+  const isNba = lg === 'nba';
+  const seriesLine = isNba && g.series_label
+    ? `<span class="matchup-sp text-warning-emphasis" style="font-size:.75rem">${esc(g.series_label)}</span>`
+    : '';
+  const subH = isNba ? seriesLine
+    : `<span class="matchup-sp" onclick="editSP(this,'${lg}',${idx},'h','${esc(spH)}')">${esc(spH)}</span>`;
+  const subA = isNba ? ''
+    : `<span class="matchup-sp" onclick="editSP(this,'${lg}',${idx},'a','${esc(spA)}')">${esc(spA)}</span>`;
   return `<div class="matchup-teams">
     <div class="matchup-away">
       <span class="team-logo-pill">${teamMonogram(g.away)}</span>
       <div>
         <span class="matchup-team-name">${esc(g.away)}</span><br>
-        <span class="matchup-sp" onclick="editSP(this,'${lg}',${idx},'a','${esc(spA)}')">${esc(spA)}</span>
+        ${subA}
       </div>
     </div>
     <div class="matchup-home">
       <span class="team-logo-pill">${teamMonogram(g.home)}</span>
       <div>
         <span class="matchup-team-name${g.prob_home >= 0.5 ? ' fw-bold' : ''}">${esc(g.home)}</span><br>
-        <span class="matchup-sp" onclick="editSP(this,'${lg}',${idx},'h','${esc(spH)}')">${esc(spH)}</span>
+        ${subH}
       </div>
     </div>
   </div>`;

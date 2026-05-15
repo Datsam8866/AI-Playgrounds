@@ -27,6 +27,7 @@ LEAGUE_DIRS = {
     "cpbl": BASE_DIR / "CPBL",
     "kbo":  BASE_DIR / "KBO",
     "npb":  BASE_DIR / "NPB",
+    "nba":  BASE_DIR / "NBA",
 }
 
 _lock    = {lg: threading.Lock() for lg in LEAGUE_DIRS}
