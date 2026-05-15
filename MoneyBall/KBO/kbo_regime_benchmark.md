@@ -41,5 +41,5 @@ XGBoost: max_depth=3, min_child_weight=30, n_estimators=30
 
 | Games | Correct | Accuracy |
 | ---: | ---: | ---: |
-| 155 | 78 | 50.32% |
+| 168 | 81 | 48.21% |
 

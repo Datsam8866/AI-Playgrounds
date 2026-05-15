@@ -1,6 +1,6 @@
 # Team Record Predictions (Regime Model)
 
-_As of latest completed game date: `2026-05-06`_
+_As of latest completed game date: `2026-05-09`_
 
 ## Soft Routing Rule
 
@@ -27,31 +27,31 @@ _As of latest completed game date: `2026-05-06`_
 
 ## 2026 Through Latest Completed Date
 
-Window: `2026-04-01` to `2026-05-06`
+Window: `2026-04-01` to `2026-05-09`
 
 | Model | Games | Correct | Accuracy |
 | --- | ---: | ---: | ---: |
-| current advanced ensemble | 55 | 23 | 41.82% |
-| regime model | 55 | 24 | 43.64% |
+| current advanced ensemble | 61 | 25 | 40.98% |
+| regime model | 61 | 27 | 44.26% |
 
-- Games with non-zero early weight in this window: `30 / 55`
+- Games with non-zero early weight in this window: `30 / 61`
 
 ## Recent Window
 
-Window: `2026-04-08` to `2026-05-06`
+Window: `2026-04-08` to `2026-05-09`
 
 | Model | Games | Correct | Accuracy |
 | --- | ---: | ---: | ---: |
-| current advanced ensemble | 55 | 23 | 41.82% |
-| regime model | 55 | 24 | 43.64% |
+| current advanced ensemble | 61 | 25 | 40.98% |
+| regime model | 61 | 27 | 44.26% |
 
-- Games with non-zero early weight in this window: `30 / 55`
+- Games with non-zero early weight in this window: `30 / 61`
 
 ## 2016–2025 Benchmark
 
 | Metric | Value |
 | --- | ---: |
 | Games | 2771 |
-| Accuracy | 55.58% |
+| Accuracy | 55.50% |
 | Games with non-zero early weight | 243 |
 

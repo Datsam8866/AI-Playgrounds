@@ -49,6 +49,23 @@
   .league-tab-badge img { display: block; }
   .league-tab-copy { display: flex; flex-direction: column; line-height: 1.08; }
   .league-tab-copy small { color: var(--bs-secondary-color); font-size: .67rem; letter-spacing: .04em; }
+
+  /* Tab BET badge */
+  .tab-bet-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 999px;
+    font-size: .68rem;
+    font-weight: 800;
+    background: #16a34a;
+    color: #fff;
+    margin-left: 2px;
+  }
+
   .league-shell {
     background: linear-gradient(180deg, color-mix(in srgb, var(--league-accent) 12%, transparent), transparent 200px);
     border-radius: 16px;
@@ -58,75 +75,213 @@
   .league-shell-npb { --league-accent: #f97316; }
   .league-shell-kbo { --league-accent: #14b8a6; }
 
+  /* Signal Banner */
+  .signal-banner {
+    border-radius: 12px 12px 0 0;
+    padding: 10px 16px;
+    font-size: .85rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0;
+    min-height: 44px;
+  }
+  .signal-banner .banner-icon { font-size: 1.1rem; flex-shrink: 0; }
+  .signal-banner .banner-text { flex: 1; line-height: 1.3; }
+  .banner-bet {
+    background: linear-gradient(90deg, rgba(22,163,74,.25), rgba(22,163,74,.08));
+    border: 1px solid rgba(22,163,74,.35);
+    color: #4ade80;
+  }
+  .banner-ev {
+    background: linear-gradient(90deg, rgba(59,130,246,.18), rgba(59,130,246,.05));
+    border: 1px solid rgba(59,130,246,.30);
+    color: #7dd3fc;
+  }
+  .banner-idle {
+    background: rgba(100,116,139,.10);
+    border: 1px solid rgba(100,116,139,.20);
+    color: var(--bs-secondary-color);
+  }
+  .banner-empty {
+    background: rgba(71,85,105,.08);
+    border: 1px solid var(--border-soft);
+    color: var(--bs-secondary-color);
+  }
+  .banner-loading {
+    background: rgba(245,158,11,.10);
+    border: 1px solid rgba(245,158,11,.22);
+    color: #fbbf24;
+    animation: bannerPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes bannerPulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: .55; }
+  }
+
+  /* BET picks cards row */
+  .bet-picks-row {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 10px 0 4px;
+    scrollbar-width: thin;
+  }
+  .bet-pick-card {
+    flex: 0 0 200px;
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: linear-gradient(180deg, rgba(22,163,74,.14), rgba(22,163,74,.04));
+    border: 1px solid rgba(22,163,74,.28);
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .bet-pick-card .bpc-matchup { font-size: .74rem; color: var(--bs-secondary-color); line-height: 1.3; }
+  .bet-pick-card .bpc-signal {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #16a34a;
+    color: #fff;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: .82rem;
+    padding: 4px 10px;
+    width: fit-content;
+  }
+  .bet-pick-card .bpc-prob { margin-top: 2px; }
+  .bet-pick-card .bpc-ev {
+    font-size: .78rem;
+    font-weight: 700;
+    color: #4ade80;
+  }
+  .bet-pick-card .bpc-sp { font-size: .70rem; color: var(--bs-secondary-color); line-height: 1.4; }
+  .bet-picks-more {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 14px;
+    border-radius: 12px;
+    border: 1px dashed rgba(22,163,74,.35);
+    font-size: .80rem;
+    font-weight: 600;
+    color: #4ade80;
+    white-space: nowrap;
+    min-width: 120px;
+  }
+
   /* Game table */
   .game-table { border-collapse: separate; border-spacing: 0; }
   .game-table th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; }
-  .game-table td { vertical-align: middle; white-space: nowrap; }
+  .game-table td { vertical-align: middle; }
   .game-row:hover { background: rgba(255,255,255,.04); }
   .game-row.row-bet { background: rgba(34,197,94,.10); }
   .game-row.row-ev  { background: rgba(245,158,11,.08); }
   .game-row.row-bet:hover,
   .game-row.row-ev:hover { background: rgba(255,255,255,.09); }
 
-  /* Team cells */
-  .team-block { line-height: 1.25; }
-  .team-name { font-weight: 600; }
-  .sp-text { font-size: 0.75rem; color: var(--bs-secondary-color); }
-  .team-home { color: var(--bs-info); }
-  .team-away { color: var(--bs-secondary-color); }
+  /* Matchup cell */
+  .matchup-cell { min-width: 180px; }
+  .matchup-teams { display: flex; flex-direction: column; gap: 2px; }
+  .matchup-away { display: flex; align-items: center; gap: 6px; color: var(--bs-secondary-color); }
+  .matchup-home { display: flex; align-items: center; gap: 6px; color: var(--bs-info); }
+  .matchup-team-name { font-weight: 600; font-size: .88rem; }
+  .matchup-sp {
+    font-size: .70rem;
+    color: var(--bs-secondary-color);
+    cursor: pointer;
+    border-bottom: 1px dashed rgba(148,163,184,.4);
+    display: inline;
+  }
+  .matchup-sp:hover { color: var(--bs-body-color); }
+  .sp-inline-input {
+    width: 110px;
+    font-size: .70rem;
+    padding: 1px 4px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid var(--bs-primary);
+    color: inherit;
+    border-radius: 3px;
+    outline: none;
+  }
+  .matchup-at { font-size: .68rem; color: var(--bs-secondary-color); padding: 0 2px; }
+
+  /* Team pill */
+  .team-logo-pill {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 5px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .60rem;
+    font-weight: 800;
+    letter-spacing: .05em;
+    color: #fff;
+    flex-shrink: 0;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--league-accent) 72%, rgba(255,255,255,.1)), rgba(15,23,42,.35));
+    border: 1px solid color-mix(in srgb, var(--league-accent) 75%, rgba(255,255,255,.2));
+  }
 
   /* Probability bar */
-  .prob-wrap { position: relative; width: 90px; height: 18px; border-radius: 9px;
+  .prob-wrap { position: relative; width: 84px; height: 17px; border-radius: 9px;
                background: rgba(148,163,184,.2); overflow: hidden; display: inline-block; }
   .prob-fill  { position: absolute; left: 0; top: 0; height: 100%;
                background: var(--prob-bar-h); border-radius: 9px; transition: width .4s; }
-  .prob-label { position: absolute; width: 100%; text-align: center; font-size: .72rem;
-                font-weight: 700; line-height: 18px; color: #fff; }
+  .prob-label { position: absolute; width: 100%; text-align: center; font-size: .70rem;
+                font-weight: 700; line-height: 17px; color: #fff; }
 
-  /* Confidence badges */
+  /* EV combined cell */
+  .ev-cell-best { font-weight: 700; font-size: .84rem; white-space: nowrap; }
+  .ev-cell-side { font-size: .68rem; color: var(--bs-secondary-color); }
+  .ev-pos  { color: var(--ev-pos); }
+  .ev-neg  { color: var(--ev-neg); }
+  .ev-bet  { color: #4ade80; font-weight: 800; }
+  .ev-na   { color: var(--bs-secondary-color); }
+
+  /* Odds combined cell */
+  .odds-cell { white-space: nowrap; }
+  .odds-label { font-size: .68rem; color: var(--bs-secondary-color); }
+  .odds-val { font-size: .84rem; }
+
+  /* Signal / Confidence badges */
   .badge-HIGH { background: #16a34a; }
   .badge-MED  { background: #d97706; }
   .badge-LOW  { background: #475569; }
+  .badge-soft { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+  .badge-soft-success { background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.28); }
+  .badge-soft-warn    { background: rgba(245,158,11,.15); color: #fbbf24; border: 1px solid rgba(245,158,11,.28); }
+  .badge-soft-muted   { background: rgba(148,163,184,.12); color: #94a3b8; border: 1px solid rgba(148,163,184,.2); }
+  .badge-soft-info    { background: rgba(56,189,248,.12); color: #7dd3fc; border: 1px solid rgba(56,189,248,.22); }
 
-  /* EV cells */
-  .ev-pos  { color: var(--ev-pos); font-weight: 600; }
-  .ev-neg  { color: var(--ev-neg); }
-  .ev-bet  { color: var(--ev-bet); font-weight: 700; }
-  .ev-na   { color: var(--bs-secondary-color); }
-
-  /* BET badge */
-  .bet-badge { font-size: 0.78rem; padding: 3px 8px; font-weight: 700;
-               background: #16a34a; color: #fff; border-radius: 4px; }
-  .no-bet    { color: var(--bs-secondary-color); font-size: .8rem; }
-
-  /* Editable cell */
+  /* Editable inputs */
   .editable-input { width: 62px; text-align: center; padding: 2px 4px;
                     background: transparent; border: 1px solid transparent;
-                    color: inherit; border-radius: 4px; font-size: .85rem; }
+                    color: inherit; border-radius: 4px; font-size: .82rem; }
   .editable-input:focus { border-color: var(--bs-primary); outline: none;
                            background: rgba(255,255,255,.06); }
-  .sp-input { width: 110px; }
 
-  /* Status bar */
-  .status-bar { font-size: .78rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  /* Status line */
+  .status-line {
+    font-size: .78rem;
+    color: var(--bs-secondary-color);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 4px 0 0;
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
   .dot-ok   { background: #22c55e; }
   .dot-warn { background: #f59e0b; }
   .dot-err  { background: #ef4444; }
   .dot-idle { background: #64748b; }
 
-  /* Summary cards */
-  .summary-card { border-radius: 8px; padding: 10px 16px; text-align: center;
-                  background: var(--surface-1); border: 1px solid var(--border-soft); height: 100%; }
-  .summary-card .val { font-size: 1.5rem; font-weight: 700; line-height: 1.2; }
-  .summary-card .lbl { font-size: .72rem; color: var(--bs-secondary-color); }
-  .summary-card .sub { font-size: .74rem; color: var(--bs-secondary-color); margin-top: 2px; }
-  .summary-card.summary-card-primary { background: linear-gradient(180deg, rgba(34,197,94,.12), rgba(34,197,94,.02)); border-color: rgba(34,197,94,.22); }
-  .summary-card.summary-card-warning { background: linear-gradient(180deg, rgba(245,158,11,.10), rgba(245,158,11,.02)); border-color: rgba(245,158,11,.2); }
-  .summary-card.summary-card-info { background: linear-gradient(180deg, rgba(56,189,248,.10), rgba(56,189,248,.02)); border-color: rgba(56,189,248,.2); }
-
   .toolbar-card,
-  .status-card,
   .table-frame {
     background: var(--surface-1);
     border: 1px solid var(--border-soft);
@@ -138,24 +293,15 @@
     z-index: 20;
     backdrop-filter: blur(10px);
   }
-  .status-card { padding: 12px 14px; }
-  .status-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-  .status-kicker { font-size: .70rem; text-transform: uppercase; letter-spacing: .08em; color: var(--bs-secondary-color); margin-bottom: 4px; }
-  .status-value { font-size: .96rem; font-weight: 600; }
   .toolbar-card { padding: 12px 14px; }
   .toolbar-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--bs-secondary-color); }
   .toolbar-count { font-weight: 700; color: var(--bs-info); }
+  .sort-select { min-width: 140px; }
   .empty-state { border: 1px dashed var(--border-strong); border-radius: 12px; padding: 32px 20px; text-align: center; background: rgba(255,255,255,.02); }
   .empty-state .title { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
   .empty-state .desc { color: var(--bs-secondary-color); font-size: .84rem; }
   .empty-state .hint { margin-top: 10px; font-size: .78rem; color: var(--bs-secondary-color); }
   .toolbar-inline-note { font-size: .78rem; color: var(--bs-secondary-color); }
-  .badge-soft { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
-  .badge-soft-success { background: rgba(34,197,94,.12); color: #4ade80; border: 1px solid rgba(34,197,94,.22); }
-  .badge-soft-warn { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.22); }
-  .badge-soft-muted { background: rgba(148,163,184,.12); color: #cbd5e1; border: 1px solid rgba(148,163,184,.2); }
-  .badge-soft-info { background: rgba(56,189,248,.12); color: #7dd3fc; border: 1px solid rgba(56,189,248,.22); }
-  .sort-select { min-width: 140px; }
   .table-frame { padding: 6px 0 0; }
   .table-topline { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0 14px 10px; flex-wrap: wrap; }
   .table-kicker { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--bs-secondary-color); }
@@ -204,27 +350,6 @@
     background: color-mix(in srgb, var(--league-accent) 78%, rgba(15,23,42,.1));
     border: 1px solid color-mix(in srgb, var(--league-accent) 86%, rgba(255,255,255,.15));
   }
-  .team-name-wrap { display: flex; align-items: center; gap: 8px; }
-  .team-logo-pill {
-    min-width: 26px;
-    height: 26px;
-    padding: 0 7px;
-    border-radius: 999px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: .63rem;
-    font-weight: 800;
-    letter-spacing: .05em;
-    color: #fff;
-    background: linear-gradient(180deg, color-mix(in srgb, var(--league-accent) 72%, rgba(255,255,255,.1)), rgba(15,23,42,.35));
-    border: 1px solid color-mix(in srgb, var(--league-accent) 75%, rgba(255,255,255,.2));
-  }
-  .matchup-meta {
-    margin-top: 4px;
-    font-size: .72rem;
-    color: var(--bs-secondary-color);
-  }
 
   /* Parlay panel */
   .parlay-panel { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
@@ -259,10 +384,15 @@
   .acc-table th { font-size: .78rem; text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; }
   .acc-table td { white-space: nowrap; vertical-align: middle; }
   .acc-insight { background: rgba(56,189,248,.08); border: 1px solid rgba(56,189,248,.18); border-radius: 10px; padding: 10px 14px; }
-  .acc-meta-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: .76rem; background: rgba(15,23,42,.06); border: 1px solid rgba(15,23,42,.08); }
-  .acc-shell { background: #f8fafc; border-radius: 16px; padding: 16px; }
+  .acc-meta-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: .76rem; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.10); }
+  .acc-shell { background: #f0f4f8; border-radius: 16px; padding: 16px; }
+  [data-bs-theme="dark"] .acc-shell { background: rgba(15,23,42,.6); }
+  [data-bs-theme="dark"] .acc-summary-card { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.10); }
   .acc-table-wrap { max-height: 430px; overflow: auto; }
-  .acc-table-wrap thead th { position: sticky; top: 0; background: #f8fafc; z-index: 2; }
+  .acc-table-wrap thead th { position: sticky; top: 0; background: #f0f4f8; z-index: 2; }
+  [data-bs-theme="dark"] .acc-table-wrap thead th { background: rgba(15,23,42,.8); }
+
+  /* Mobile action bar */
   .mobile-action-bar {
     position: fixed;
     left: 12px;
@@ -287,18 +417,16 @@
   .mobile-action-buttons .btn { border-radius: 12px; white-space: nowrap; }
 
   @media (max-width: 991px) {
-    .status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .league-brand-chip { display: none; }
   }
   @media (max-width: 767px) {
     body { padding-bottom: 92px; }
-    .status-grid { grid-template-columns: 1fr; }
     .parlay-launch { width: 100%; }
     .toolbar-sticky { position: static; backdrop-filter: none; }
     .table-topline { align-items: flex-start; }
     .league-tab .nav-link { padding: 0.45rem 0.7rem; gap: 8px; }
     .league-tab-copy small { display: none; }
     .league-brand { padding: 12px; }
-    .league-brand-chip { display: none; }
     .mobile-action-bar.is-visible { display: flex; }
     .game-table thead { display: none; }
     .game-table,
@@ -332,15 +460,15 @@
       padding-bottom: 10px;
       margin-bottom: 8px;
       border-bottom: 1px solid var(--border-soft);
-      font-size: .78rem;
     }
-    .game-table .editable-input,
-    .game-table .sp-input { width: 100%; }
+    .game-table .editable-input { width: 100%; }
     .game-table .prob-wrap { width: 100%; max-width: none; }
     .game-table .parlay-cb { transform: scale(1.1); }
     .acc-table-wrap { max-height: none; }
     .acc-table td,
     .acc-table th { font-size: .76rem; }
+    .bet-picks-row { padding: 8px 0 2px; }
+    .bet-pick-card { flex: 0 0 175px; }
   }
 </style>
 </head>
@@ -364,16 +492,16 @@
   <ul class="nav nav-pills league-tab mb-3" id="leagueTabs">
     <li class="nav-item"><a class="nav-link active" href="#" onclick="switchLeague('mlb');return false" id="tab-mlb">
       <span class="league-tab-badge"><img src="https://www.mlbstatic.com/team-logos/league-on-dark/1.svg" height="18" alt="MLB"></span>
-      <span class="league-tab-copy"><span>MLB</span><small>Major League</small></span></a></li>
+      <span class="league-tab-copy"><span>MLB<span id="tab-badge-mlb" class="tab-bet-badge d-none"></span></span><small>Major League</small></span></a></li>
     <li class="nav-item"><a class="nav-link" href="#" onclick="switchLeague('cpbl');return false" id="tab-cpbl">
       <span class="league-tab-badge"><span class="league-brand-mark">CP</span></span>
-      <span class="league-tab-copy"><span>CPBL</span><small>Taiwan</small></span></a></li>
+      <span class="league-tab-copy"><span>CPBL<span id="tab-badge-cpbl" class="tab-bet-badge d-none"></span></span><small>Taiwan</small></span></a></li>
     <li class="nav-item"><a class="nav-link" href="#" onclick="switchLeague('npb');return false" id="tab-npb">
       <span class="league-tab-badge"><span class="league-brand-mark">NP</span></span>
-      <span class="league-tab-copy"><span>NPB</span><small>Japan</small></span></a></li>
+      <span class="league-tab-copy"><span>NPB<span id="tab-badge-npb" class="tab-bet-badge d-none"></span></span><small>Japan</small></span></a></li>
     <li class="nav-item"><a class="nav-link" href="#" onclick="switchLeague('kbo');return false" id="tab-kbo">
       <span class="league-tab-badge"><span class="league-brand-mark">KB</span></span>
-      <span class="league-tab-copy"><span>KBO</span><small>Korea</small></span></a></li>
+      <span class="league-tab-copy"><span>KBO<span id="tab-badge-kbo" class="tab-bet-badge d-none"></span></span><small>Korea</small></span></a></li>
     <li class="nav-item"><a class="nav-link" href="#" onclick="switchAccuracy();return false" id="tab-accuracy">
       <span class="league-tab-badge"><i class="fa-solid fa-chart-line" style="color:#38bdf8"></i></span>
       <span class="league-tab-copy"><span>Accuracy</span><small>Backtest</small></span></a></li>
@@ -385,7 +513,7 @@
   </div>
 
   <!-- Accuracy panel -->
-  <div id="panel-accuracy" class="d-none acc-shell" style="color:#1e293b">
+  <div id="panel-accuracy" class="d-none acc-shell">
     <!-- League selector -->
     <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
       <span class="text-secondary small me-1">League:</span>
@@ -428,11 +556,12 @@
       <table class="table table-sm acc-table align-middle">
         <thead><tr>
           <th>Date</th>
-          <th>HIGH Total</th><th>HIGH Correct</th><th>HIGH %</th>
-          <th>ALL Total</th><th>ALL Correct</th><th>ALL %</th>
+          <th>HIGH (n/total)</th><th>HIGH%</th>
+          <th>ALL (n/total)</th><th>ALL%</th>
+          <th>vs Baseline</th>
         </tr></thead>
         <tbody id="acc-tbody">
-          <tr><td colspan="7" class="text-center text-secondary py-3">Select a league to load data.</td></tr>
+          <tr><td colspan="6" class="text-center text-secondary py-3">Select a league to load data.</td></tr>
         </tbody>
       </table>
     </div>
@@ -555,6 +684,14 @@ function buildPanels() {
   const wrap = document.getElementById('league-panels');
   wrap.innerHTML = LEAGUES.map(lg => `
     <div id="panel-${lg}" class="d-none league-shell league-shell-${lg} p-1">
+      <!-- Signal Banner -->
+      <div id="signal-banner-${lg}" class="signal-banner banner-empty mb-0">
+        <span class="banner-icon"><i class="fa-solid fa-circle-dot"></i></span>
+        <span class="banner-text">Update predictions to see today's board</span>
+      </div>
+      <!-- BET Picks Cards -->
+      <div id="bet-cards-${lg}" class="px-2" style="display:none"></div>
+
       <div class="toolbar-sticky">
         <div class="league-brand">
           <div class="league-brand-badge">${LEAGUE_META[lg].badge}</div>
@@ -565,43 +702,12 @@ function buildPanels() {
           <div class="league-brand-chip">${LEAGUE_META[lg].market}</div>
         </div>
         <!-- Toolbar -->
-        <div class="toolbar-card mb-3">
-          <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+        <div class="toolbar-card mb-2">
+          <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
             <button class="btn btn-primary btn-sm" onclick="startRefresh('${lg}')">
               <i class="fa-solid fa-rotate-right me-1" id="spin-${lg}"></i>Update Predictions
             </button>
-            <button class="btn btn-outline-warning btn-sm ms-auto parlay-launch" id="parlay-btn-${lg}" onclick="openParlay()">
-              <i class="fa-solid fa-calculator me-1"></i>Parlay Builder · 0 picks
-            </button>
-          </div>
-          <div class="status-card">
-            <div class="status-grid">
-              <div data-bs-toggle="tooltip" title="目前正在檢視的資料日期。">
-                <div class="status-kicker">Data Date</div>
-                <div class="status-value" id="date-badge-${lg}">—</div>
-              </div>
-              <div data-bs-toggle="tooltip" title="目前賠率與先發來源。">
-                <div class="status-kicker">Odds Source</div>
-                <div class="status-value" id="odds-src-${lg}">—</div>
-              </div>
-              <div data-bs-toggle="tooltip" title="背景預測流程與快取更新狀態。">
-                <div class="status-kicker">Pipeline Status</div>
-                <div class="status-bar" id="status-${lg}">
-                  <span class="status-dot dot-idle" id="dot-${lg}"></span>
-                  <span id="status-text-${lg}">尚未載入</span>
-                </div>
-              </div>
-              <div data-bs-toggle="tooltip" title="根據目前資料給你的第一個判讀建議。">
-                <div class="status-kicker">Decision Hint</div>
-                <div class="status-value text-secondary" id="hint-${lg}">先載入資料再挑選推薦</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <!-- Filters -->
-        <div class="toolbar-card mb-3">
-          <div class="d-flex align-items-end gap-3 flex-wrap">
-            <div class="d-flex flex-column gap-1">
+            <div class="d-flex flex-column gap-1 ms-1">
               <label class="toolbar-label mb-0">Confidence</label>
               <select class="form-select form-select-sm" style="width:90px" id="filter-conf-${lg}"
                       onchange="renderTable('${lg}')">
@@ -611,22 +717,19 @@ function buildPanels() {
                 <option value="LOW">LOW</option>
               </select>
             </div>
-            <div class="d-flex flex-column gap-1">
-              <label class="toolbar-label mb-0">Quick Filters</label>
-              <div class="d-flex align-items-center gap-3 flex-wrap">
-                <div class="form-check mb-0" data-bs-toggle="tooltip" title="只保留任一方向 EV 大於 0 的比賽。">
-                  <input class="form-check-input" type="checkbox" id="filter-ev-${lg}"
-                         onchange="renderTable('${lg}')">
-                  <label class="form-check-label small" for="filter-ev-${lg}">+ EV only</label>
-                </div>
-                <div class="form-check mb-0" data-bs-toggle="tooltip" title="只保留已達正式推薦門檻的比賽。">
-                  <input class="form-check-input" type="checkbox" id="filter-bet-${lg}"
-                         onchange="renderTable('${lg}')">
-                  <label class="form-check-label small" for="filter-bet-${lg}">BET only</label>
-                </div>
+            <div class="d-flex align-items-end gap-3 ms-1">
+              <div class="form-check mb-0" data-bs-toggle="tooltip" title="只保留任一方向 EV 大於 0 的比賽。">
+                <input class="form-check-input" type="checkbox" id="filter-ev-${lg}"
+                       onchange="renderTable('${lg}')">
+                <label class="form-check-label small" for="filter-ev-${lg}">+EV only</label>
+              </div>
+              <div class="form-check mb-0" data-bs-toggle="tooltip" title="只保留已達正式推薦門檻的比賽。">
+                <input class="form-check-input" type="checkbox" id="filter-bet-${lg}"
+                       onchange="renderTable('${lg}')">
+                <label class="form-check-label small" for="filter-bet-${lg}">BET only</label>
               </div>
             </div>
-            <div class="d-flex flex-column gap-1" data-bs-toggle="tooltip" title="Recommended 會優先顯示 BET 與 +EV 的比賽。">
+            <div class="d-flex flex-column gap-1 ms-1" data-bs-toggle="tooltip" title="Recommended 會優先顯示 BET 與 +EV 的比賽。">
               <label class="toolbar-label mb-0">Sort</label>
               <select class="form-select form-select-sm sort-select" id="sort-${lg}" onchange="renderTable('${lg}')">
                 <option value="recommended">Recommended</option>
@@ -636,15 +739,20 @@ function buildPanels() {
                 <option value="alpha">Matchup A-Z</option>
               </select>
             </div>
-            <div class="ms-auto d-flex flex-column gap-1">
-              <label class="toolbar-label mb-0">Selection</label>
-              <div class="toolbar-inline-note"><span class="toolbar-count" id="selected-count-${lg}">0</span> picks selected</div>
+            <div class="ms-auto d-flex flex-column gap-1 align-items-end">
+              <div class="toolbar-inline-note"><span class="toolbar-count" id="selected-count-${lg}">0</span> picks</div>
+              <button class="btn btn-outline-warning btn-sm parlay-launch" id="parlay-btn-${lg}" onclick="openParlay()">
+                <i class="fa-solid fa-calculator me-1"></i>Parlay · 0
+              </button>
             </div>
+          </div>
+          <!-- Status line -->
+          <div class="status-line" id="status-line-${lg}">
+            <span class="status-dot dot-idle" id="dot-${lg}"></span>
+            <span id="status-text-${lg}">尚未載入</span>
           </div>
         </div>
       </div>
-      <!-- Summary -->
-      <div class="row g-2 mb-3" id="summary-${lg}"></div>
       <!-- Table -->
       <div class="table-frame">
         <div class="table-topline">
@@ -658,7 +766,7 @@ function buildPanels() {
         <div class="table-scroll sticky-head">
         <table class="table table-sm game-table align-middle mb-0" id="table-${lg}">
           <thead id="thead-${lg}"></thead>
-          <tbody id="tbody-${lg}"><tr><td colspan="12" class="text-center text-secondary py-4">
+          <tbody id="tbody-${lg}"><tr><td colspan="7" class="text-center text-secondary py-4">
             Click "Update Predictions" to load data.</td></tr></tbody>
         </table>
         </div>
@@ -673,7 +781,6 @@ function switchLeague(lg) {
     document.getElementById(`panel-${l}`)?.classList.add('d-none');
     document.getElementById(`tab-${l}`)?.classList.remove('active');
   });
-  // Also hide accuracy panel
   document.getElementById('panel-accuracy')?.classList.add('d-none');
   document.getElementById('tab-accuracy')?.classList.remove('active');
 
@@ -687,6 +794,7 @@ function switchLeague(lg) {
 // ── Data loading ───────────────────────────────────────────────────────────
 function loadData(lg) {
   setUiPhase(lg, 'loading', '讀取資料中…');
+  renderSignalBanner(lg);
   renderTable(lg);
   fetch(`/api/data/${lg}?date=${state.date}`)
     .then(r => r.json())
@@ -701,6 +809,7 @@ function loadData(lg) {
     .catch(() => {
       setUiPhase(lg, 'error', '資料讀取失敗');
       setStatus(lg, 'err', 'Fetch error');
+      renderSignalBanner(lg);
       renderTable(lg);
       updateMobileActionBar();
     });
@@ -709,7 +818,7 @@ function loadData(lg) {
 function startRefresh(lg) {
   setUiPhase(lg, 'loading', '模型與賠率更新中…');
   setStatus(lg, 'spin', 'Starting…');
-  updateHint(lg, '系統正在重建今日預測，完成後會自動刷新表格。');
+  renderSignalBanner(lg);
   renderTable(lg);
   updateMobileActionBar();
   const icon = document.getElementById(`spin-${lg}`);
@@ -737,6 +846,7 @@ function pollStatus(lg) {
             loadData(lg);
           } else {
             setUiPhase(lg, 'error', s.error || '更新失敗');
+            renderSignalBanner(lg);
             renderTable(lg);
             updateMobileActionBar();
           }
@@ -758,7 +868,6 @@ function updateStatus(lg, data) {
     hasErr ? `⚠ ${data.error?.slice(0,60)}` : (data.last_updated ? `Updated ${fmtTime(data.last_updated)}` : '尚未建立快取')
   );
   updateLeagueChrome(lg, data);
-  updateHint(lg, buildDecisionHint(data));
 }
 
 function setStatus(lg, type, msg) {
@@ -775,39 +884,177 @@ function setUiPhase(lg, phase, statusText = '') {
 }
 
 function updateLeagueChrome(lg, data) {
-  const dateBadge = document.getElementById(`date-badge-${lg}`);
-  if (dateBadge) dateBadge.textContent = data?.date || state.date || '—';
-
-  const src = document.getElementById(`odds-src-${lg}`);
-  if (src) {
-    const sourceText = data?.odds_source || '—';
-    src.textContent = sourceText;
-    src.className = `status-value ${data?.odds_fetched ? 'text-success' : 'text-secondary'}`;
-  }
-
   const meta = document.getElementById(`table-meta-${lg}`);
   if (meta) {
     const totalGames = data?.games?.length || 0;
     const stamp = data?.last_updated ? `Updated ${fmtTime(data.last_updated)}` : 'No cache yet';
     meta.textContent = `${totalGames} games · ${stamp}`;
   }
+  // Update status line with full info
+  const statusLine = document.getElementById(`status-line-${lg}`);
+  if (statusLine) {
+    const games = data?.games || [];
+    const betCount = games.filter(g => g.bet_side).length;
+    const posEvCount = games.filter(g => g.ev_home > 0 || g.ev_away > 0).length;
+    let edgeSum = 0, edgeCnt = 0;
+    games.forEach(g => {
+      const e = bestEdge(g);
+      if (e != null) { edgeSum += e; edgeCnt++; }
+    });
+    const avgEdgeStr = edgeCnt ? ` · Avg edge ${(edgeSum/edgeCnt*100).toFixed(1)}%` : '';
+    const oddsStr = data?.odds_source ? ` · ${data.odds_source}` : '';
+    const stamp = data?.last_updated ? `Updated ${fmtTime(data.last_updated)}` : '尚未建立快取';
+    const hasErr = data?.error;
+    const dotType = hasErr ? 'err' : (data?.last_updated ? 'ok' : 'idle');
+
+    const dot = document.getElementById(`dot-${lg}`);
+    const txt = document.getElementById(`status-text-${lg}`);
+    if (dot) dot.className = `status-dot dot-${dotType}`;
+    if (txt) txt.textContent =
+      hasErr
+        ? `⚠ ${data.error?.slice(0,60)}`
+        : `${stamp}${oddsStr} · ${games.length} games · ${betCount} BET · ${posEvCount} +EV${avgEdgeStr}`;
+  }
   updateMobileActionBar();
 }
 
-function updateHint(lg, text) {
-  const hint = document.getElementById(`hint-${lg}`);
-  if (hint) hint.textContent = text;
+// ── Signal Banner ──────────────────────────────────────────────────────────
+function renderSignalBanner(lg) {
+  const el = document.getElementById(`signal-banner-${lg}`);
+  if (!el) return;
+
+  const data = state.data[lg];
+  const phase = state.ui[lg]?.phase || 'idle';
+
+  if (phase === 'loading') {
+    el.className = 'signal-banner banner-loading mb-0';
+    el.innerHTML = `<span class="banner-icon"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+      <span class="banner-text">Rebuilding predictions for ${state.date}…</span>`;
+    return;
+  }
+
+  if (!data?.last_updated) {
+    el.className = 'signal-banner banner-empty mb-0';
+    el.innerHTML = `<span class="banner-icon"><i class="fa-solid fa-circle-dot"></i></span>
+      <span class="banner-text">Update predictions to see today's board</span>`;
+    return;
+  }
+
+  const games = data.games || [];
+  if (!games.length) {
+    el.className = 'signal-banner banner-idle mb-0';
+    el.innerHTML = `<span class="banner-icon"><i class="fa-regular fa-calendar-xmark"></i></span>
+      <span class="banner-text">0 games loaded · No standout signals today</span>`;
+    return;
+  }
+
+  const bets = games.filter(g => g.bet_side);
+  const posEvGames = games.filter(g => g.ev_home > 0 || g.ev_away > 0);
+
+  if (bets.length > 0) {
+    // Find best BET pick
+    const best = bets.reduce((a, b) => {
+      const evA = Math.max(a.ev_home || 0, a.ev_away || 0);
+      const evB = Math.max(b.ev_home || 0, b.ev_away || 0);
+      return evB > evA ? b : a;
+    }, bets[0]);
+    const bestTeam = best.bet_side === 'HOME' ? best.home : best.away;
+    const bestProb = best.bet_side === 'HOME'
+      ? ((best.prob_home || 0.5) * 100).toFixed(0)
+      : ((1 - (best.prob_home || 0.5)) * 100).toFixed(0);
+    const bestEv = best.bet_side === 'HOME'
+      ? (best.ev_home != null ? `+${(best.ev_home*100).toFixed(1)}%` : '')
+      : (best.ev_away != null ? `+${(best.ev_away*100).toFixed(1)}%` : '');
+    el.className = 'signal-banner banner-bet mb-0';
+    el.innerHTML = `<span class="banner-icon"><i class="fa-solid fa-bolt"></i></span>
+      <span class="banner-text">
+        <strong>${bets.length} pick${bets.length>1?'s':''} meet threshold today</strong>
+        &nbsp;·&nbsp; Best: <strong>${esc(bestTeam)}</strong> ${bestProb}%${bestEv ? ' · EV ' + bestEv : ''}
+      </span>`;
+    return;
+  }
+
+  if (posEvGames.length > 0) {
+    el.className = 'signal-banner banner-ev mb-0';
+    el.innerHTML = `<span class="banner-icon"><i class="fa-solid fa-chart-line"></i></span>
+      <span class="banner-text">No BET threshold met &nbsp;·&nbsp; <strong>${posEvGames.length} game${posEvGames.length>1?'s':''}</strong> with positive EV worth checking</span>`;
+    return;
+  }
+
+  el.className = 'signal-banner banner-idle mb-0';
+  el.innerHTML = `<span class="banner-icon"><i class="fa-solid fa-circle-minus"></i></span>
+    <span class="banner-text">${games.length} games loaded · No standout signals today</span>`;
 }
 
-function buildDecisionHint(data) {
+// ── Tab Badge ──────────────────────────────────────────────────────────────
+function updateTabBadge(lg, betCount) {
+  const badge = document.getElementById(`tab-badge-${lg}`);
+  if (!badge) return;
+  if (betCount > 0) {
+    badge.textContent = betCount;
+    badge.classList.remove('d-none');
+  } else {
+    badge.classList.add('d-none');
+  }
+}
+
+// ── BET Pick Cards ─────────────────────────────────────────────────────────
+function renderBetCards(lg) {
+  const wrap = document.getElementById(`bet-cards-${lg}`);
+  if (!wrap) return;
+  const data = state.data[lg];
   const games = data?.games || [];
-  if (!data?.last_updated) return '這個日期尚未建立快取，先執行 Update Predictions。';
-  if (!games.length) return '該日期目前沒有可顯示的賽事。';
-  const betCount = games.filter(g => g.bet_side).length;
-  const posEvCount = games.filter(g => g.ev_home > 0 || g.ev_away > 0).length;
-  if (betCount > 0) return `目前有 ${betCount} 場符合推薦門檻，可先依 Recommended 排序檢視。`;
-  if (posEvCount > 0) return `目前沒有正式 BET 推薦，但有 ${posEvCount} 場 +EV 值得進一步檢查。`;
-  return '目前沒有符合門檻的推薦，建議切換聯盟或調整篩選條件。';
+  const bets = games
+    .map((g, idx) => ({ g, idx }))
+    .filter(({ g }) => !!g.bet_side)
+    .sort((a, b) => {
+      const evA = Math.max(a.g.ev_home || 0, a.g.ev_away || 0);
+      const evB = Math.max(b.g.ev_home || 0, b.g.ev_away || 0);
+      return evB - evA;
+    });
+
+  if (!bets.length) {
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+
+  const MAX_CARDS = 4;
+  const shown = bets.slice(0, MAX_CARDS);
+  const extra = bets.length - MAX_CARDS;
+
+  const cards = shown.map(({ g, idx }) => {
+    const spKey = `${lg}-${idx}`;
+    const spH = state.spOverrides[`${spKey}-h`] ?? g.home_sp ?? 'TBD';
+    const spA = state.spOverrides[`${spKey}-a`] ?? g.away_sp ?? 'TBD';
+    const isBetHome = g.bet_side === 'HOME';
+    const betTeam = isBetHome ? g.home : g.away;
+    const prob = isBetHome ? (g.prob_home || 0.5) : (1 - (g.prob_home || 0.5));
+    const probPct = (prob * 100).toFixed(0);
+    const probBarW = (prob * 100).toFixed(0);
+    const ev = isBetHome ? g.ev_home : g.ev_away;
+    const evStr = ev != null ? `EV ${ev >= 0 ? '+' : ''}${(ev*100).toFixed(1)}%` : '';
+    return `<div class="bet-pick-card">
+      <div class="bpc-matchup">${esc(g.away)} @ ${esc(g.home)}</div>
+      <div class="bpc-signal"><i class="fa-solid fa-bolt me-1"></i>BET ${g.bet_side} &nbsp;<strong>${esc(betTeam)}</strong></div>
+      <div class="bpc-prob">
+        <div class="prob-wrap" style="width:100%;max-width:none">
+          <div class="prob-fill" style="width:${probBarW}%"></div>
+          <span class="prob-label">${probPct}%</span>
+        </div>
+      </div>
+      ${evStr ? `<div class="bpc-ev"><i class="fa-solid fa-circle-up me-1"></i>${evStr}</div>` : ''}
+      <div class="bpc-sp">${esc(spA)} / ${esc(spH)}</div>
+    </div>`;
+  });
+
+  let html = `<div class="bet-picks-row">` + cards.join('');
+  if (extra > 0) {
+    html += `<div class="bet-picks-more">+${extra} more BET pick${extra>1?'s':''}<br>in table below</div>`;
+  }
+  html += `</div>`;
+  wrap.innerHTML = html;
+  wrap.style.display = '';
 }
 
 // ── Render table ───────────────────────────────────────────────────────────
@@ -815,20 +1062,19 @@ function renderTable(lg) {
   const data = state.data[lg];
   const thead = document.getElementById(`thead-${lg}`);
   const tbody = document.getElementById(`tbody-${lg}`);
-  const summaryEl = document.getElementById(`summary-${lg}`);
   const titleEl = document.getElementById(`table-title-${lg}`);
   const subtitleEl = document.getElementById(`table-subtitle-${lg}`);
   const selectedCountEl = document.getElementById(`selected-count-${lg}`);
   if (!thead || !tbody) return;
 
   thead.innerHTML = `<tr>
-    <th>#</th>
-    <th>Away</th><th>Away SP</th>
-    <th>Home</th><th>Home SP</th>
-    <th>Prob(H)</th><th>Conf</th>
-    <th>Odds-A</th><th>Odds-H</th>
-    <th>EV-A</th><th>EV-H</th>
-    <th>Rec</th><th>☐</th>
+    <th class="ps-3">Matchup</th>
+    <th>Prob(H)</th>
+    <th>Conf</th>
+    <th>EV</th>
+    <th>Odds</th>
+    <th>Signal</th>
+    <th>☐</th>
   </tr>`;
 
   const games = (data?.games || []);
@@ -847,7 +1093,6 @@ function renderTable(lg) {
   let filteredOut = 0;
 
   const visibleGames = games.map((g, idx) => ({ g, idx })).filter(({ g }) => {
-    const ph = g.prob_home ?? 0.5;
     const conf = g.confidence || 'LOW';
     const matches =
       (confFilter === 'all' || conf === confFilter) &&
@@ -876,46 +1121,25 @@ function renderTable(lg) {
     const oddsH = g.odds_home?.toFixed(2) ?? '';
     const oddsEditable = !(data?.odds_fetched);
 
-    const evAClass = evClass(g.ev_away, g.bet_side === 'AWAY');
-    const evHClass = evClass(g.ev_home, g.bet_side === 'HOME');
     const rowClass = g.bet_side ? 'row-bet' : ((g.ev_home > 0 || g.ev_away > 0) ? 'row-ev' : '');
-    const recCell = recBadge(g);
-
     const checked = state.parlayPicks[`${lg}-${idx}`] ? 'checked' : '';
-    const matchupMeta = buildMatchupMeta(g);
+
+    // Best EV cell
+    const evBestCell = buildEvCell(g);
+
+    // Odds cell
+    const oddsCell = buildOddsCell(lg, idx, oddsH, oddsA, oddsEditable);
+
+    // Matchup cell with inline SP editing
+    const matchupCell = buildMatchupCell(lg, idx, g, spA, spH, spKey);
 
     return `<tr class="game-row ${rowClass}" data-lg="${lg}" data-idx="${idx}">
-      <td class="text-secondary" data-label="#">${renderIdx + 1}</td>
-      <td data-label="Away"><div class="team-block team-away">
-        <div class="team-name-wrap">
-          <span class="team-logo-pill">${teamMonogram(g.away)}</span>
-          <div class="team-name">${esc(g.away)}</div>
-        </div>
-        <div class="matchup-meta">${matchupMeta}</div>
-      </div></td>
-      <td data-label="Away SP"><input class="editable-input sp-input" data-key="${spKey}-a" value="${esc(spA)}"
-           onchange="saveSP('${lg}',${idx},'a',this.value)" placeholder="SP name"></td>
-      <td data-label="Home"><div class="team-block team-home">
-        <div class="team-name-wrap">
-          <span class="team-logo-pill">${teamMonogram(g.home)}</span>
-          <div class="team-name${g.prob_home >= 0.5 ? ' fw-bold' : ''}">${esc(g.home)}</div>
-        </div>
-      </div></td>
-      <td data-label="Home SP"><input class="editable-input sp-input" data-key="${spKey}-h" value="${esc(spH)}"
-           onchange="saveSP('${lg}',${idx},'h',this.value)" placeholder="SP name"></td>
+      <td class="ps-3 matchup-cell" data-label="Matchup">${matchupCell}</td>
       <td data-label="Prob(H)">${probBar(ph)}</td>
       <td data-label="Conf"><span class="badge badge-${conf}">${conf}</span></td>
-      <td data-label="Odds-A">${oddsEditable
-            ? `<input class="editable-input" value="${oddsA}"
-                 onchange="saveOdds('${lg}',${idx},'away',this.value)" placeholder="1.80">`
-            : `<span>${oddsA || '<span class=text-secondary>—</span>'}</span>`}</td>
-      <td data-label="Odds-H">${oddsEditable
-            ? `<input class="editable-input" value="${oddsH}"
-                 onchange="saveOdds('${lg}',${idx},'home',this.value)" placeholder="2.10">`
-            : `<span>${oddsH || '<span class=text-secondary>—</span>'}</span>`}</td>
-      <td class="${evAClass}" data-label="EV-A">${fmtEV(g.ev_away)}</td>
-      <td class="${evHClass}" data-label="EV-H">${fmtEV(g.ev_home)}</td>
-      <td data-label="Rec">${recCell}</td>
+      <td data-label="EV">${evBestCell}</td>
+      <td data-label="Odds">${oddsCell}</td>
+      <td data-label="Signal">${recBadge(g)}</td>
       <td data-label="Pick"><input type="checkbox" class="form-check-input parlay-cb" ${checked}
            onchange="toggleParlay('${lg}',${idx},this.checked)"></td>
     </tr>`;
@@ -926,28 +1150,98 @@ function renderTable(lg) {
 
   tbody.innerHTML = rows.length ? rows.join('') : renderLeagueEmptyState(lg, data, filteredOut, uiPhase);
 
-  // Summary cards
-  const avgEdge = edgeCount ? (totalEdge / edgeCount * 100).toFixed(1) : '—';
-  summaryEl.innerHTML = `
-    <div class="col-6 col-md-3"><div class="summary-card summary-card-info" data-bs-toggle="tooltip" title="這個日期與聯盟目前總共可顯示的賽事數。">
-      <div class="val">${games.length}</div><div class="lbl">Games</div>
-      <div class="sub">今日可用賽事</div>
-    </div></div>
-    <div class="col-6 col-md-3"><div class="summary-card summary-card-primary" data-bs-toggle="tooltip" title="同時滿足信心與 EV 門檻的正式推薦數量。">
-      <div class="val text-success">${betCount}</div><div class="lbl">BET Picks</div>
-      <div class="sub">符合信心與 EV 門檻</div>
-    </div></div>
-    <div class="col-6 col-md-3"><div class="summary-card summary-card-warning" data-bs-toggle="tooltip" title="至少一側 EV 大於 0，但未必達到正式 BET 門檻。">
-      <div class="val text-warning">${posEvCount}</div><div class="lbl">+ EV Games</div>
-      <div class="sub">可再人工判讀</div>
-    </div></div>
-    <div class="col-6 col-md-3"><div class="summary-card" data-bs-toggle="tooltip" title="平均 edge = 模型機率減去去水後隱含機率。">
-      <div class="val ${edgeCount && totalEdge > 0 ? 'text-success' : 'text-secondary'}">${avgEdge}${edgeCount ? '%' : ''}</div>
-      <div class="lbl">Avg Edge</div>
-      <div class="sub">模型 vs 去水隱含機率</div>
-     </div></div>`;
+  // Update signal banner, BET cards, tab badge
+  renderSignalBanner(lg);
+  renderBetCards(lg);
+  updateTabBadge(lg, betCount);
+
   initTooltips(document.getElementById(`panel-${lg}`));
   updateMobileActionBar();
+}
+
+// ── Cell builders ──────────────────────────────────────────────────────────
+function buildMatchupCell(lg, idx, g, spA, spH, spKey) {
+  return `<div class="matchup-teams">
+    <div class="matchup-away">
+      <span class="team-logo-pill">${teamMonogram(g.away)}</span>
+      <div>
+        <span class="matchup-team-name">${esc(g.away)}</span><br>
+        <span class="matchup-sp" onclick="editSP(this,'${lg}',${idx},'a','${esc(spA)}')">${esc(spA)}</span>
+      </div>
+    </div>
+    <div class="matchup-home">
+      <span class="team-logo-pill">${teamMonogram(g.home)}</span>
+      <div>
+        <span class="matchup-team-name${g.prob_home >= 0.5 ? ' fw-bold' : ''}">${esc(g.home)}</span><br>
+        <span class="matchup-sp" onclick="editSP(this,'${lg}',${idx},'h','${esc(spH)}')">${esc(spH)}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildEvCell(g) {
+  // Show the better EV side
+  const evH = g.ev_home;
+  const evA = g.ev_away;
+  const isBetHome = g.bet_side === 'HOME';
+  const isBetAway = g.bet_side === 'AWAY';
+
+  if (evH == null && evA == null) {
+    return `<span class="ev-na">—</span>`;
+  }
+
+  let bestVal, side, cls;
+  if (isBetHome) { bestVal = evH; side = 'HOME'; cls = 'ev-bet'; }
+  else if (isBetAway) { bestVal = evA; side = 'AWAY'; cls = 'ev-bet'; }
+  else {
+    const hV = evH ?? -999, aV = evA ?? -999;
+    if (hV >= aV) { bestVal = evH; side = 'HOME'; }
+    else { bestVal = evA; side = 'AWAY'; }
+    cls = (bestVal != null && bestVal > 0) ? 'ev-pos' : 'ev-neg';
+  }
+
+  if (bestVal == null) return `<span class="ev-na">—</span>`;
+  const valStr = `${bestVal >= 0 ? '+' : ''}${(bestVal*100).toFixed(1)}%`;
+  return `<div><span class="ev-cell-best ${cls}">${valStr}</span><br><span class="ev-cell-side">${side}</span></div>`;
+}
+
+function buildOddsCell(lg, idx, oddsH, oddsA, editable) {
+  if (editable) {
+    return `<div class="odds-cell">
+      <div><span class="odds-label">H</span>&nbsp;<input class="editable-input" style="width:54px" value="${oddsH}"
+        onchange="saveOdds('${lg}',${idx},'home',this.value)" placeholder="2.00"></div>
+      <div><span class="odds-label">A</span>&nbsp;<input class="editable-input" style="width:54px" value="${oddsA}"
+        onchange="saveOdds('${lg}',${idx},'away',this.value)" placeholder="2.00"></div>
+    </div>`;
+  }
+  const hStr = oddsH || '<span class="text-secondary">—</span>';
+  const aStr = oddsA || '<span class="text-secondary">—</span>';
+  return `<div class="odds-cell">
+    <div><span class="odds-label">H</span>&nbsp;<span class="odds-val">${hStr}</span></div>
+    <div><span class="odds-label">A</span>&nbsp;<span class="odds-val">${aStr}</span></div>
+  </div>`;
+}
+
+// Inline SP edit: click label → input → blur/enter saves
+function editSP(spanEl, lg, idx, side, current) {
+  if (spanEl.querySelector('input')) return; // already editing
+  const input = document.createElement('input');
+  input.className = 'sp-inline-input';
+  input.value = current;
+  spanEl.innerHTML = '';
+  spanEl.appendChild(input);
+  input.focus();
+  input.select();
+  const commit = () => {
+    const val = input.value.trim() || current;
+    saveSP(lg, idx, side, val);
+    spanEl.textContent = val;
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { spanEl.textContent = current; }
+  });
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -998,12 +1292,6 @@ function teamMonogram(team) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function buildMatchupMeta(game) {
-  const status = game?.status || 'Scheduled';
-  const source = game?.odds_source || '';
-  return [status, source].filter(Boolean).join(' · ');
-}
-
 function compareGames(a, b, sortBy) {
   const confA = Math.max(a.prob_home || 0, 1 - (a.prob_home || 0));
   const confB = Math.max(b.prob_home || 0, 1 - (b.prob_home || 0));
@@ -1016,11 +1304,11 @@ function compareGames(a, b, sortBy) {
 
 function recBadge(game) {
   if (game.bet_side) {
-    return `<span class="badge-soft badge-soft-success">BET ${game.bet_side}</span>`;
+    return `<span class="badge-soft badge-soft-success"><i class="fa-solid fa-bolt me-1"></i>BET ${game.bet_side}</span>`;
   }
   if ((game.ev_home || 0) > 0 || (game.ev_away || 0) > 0) {
     const side = (game.ev_home || 0) >= (game.ev_away || 0) ? 'HOME' : 'AWAY';
-    return `<span class="badge-soft badge-soft-warn">+EV ${side}</span>`;
+    return `<span class="badge-soft badge-soft-warn"><i class="fa-solid fa-chart-line me-1"></i>+EV ${side}</span>`;
   }
   return `<span class="badge-soft badge-soft-muted">Watchlist</span>`;
 }
@@ -1062,7 +1350,7 @@ function renderLeagueEmptyState(lg, data, filteredOut, phase) {
     hint = '先關閉 +EV only 或 BET only，或放寬 Confidence。';
   }
 
-  return `<tr><td colspan="13" class="p-4 border-0">
+  return `<tr><td colspan="7" class="p-4 border-0">
     <div class="empty-state">
       <div class="title">${title}</div>
       <div class="desc">${desc}</div>
@@ -1080,8 +1368,8 @@ function updateParlayLaunch(lg) {
   if (!btn) return;
   const count = countLeagueParlayPicks(lg);
   btn.disabled = count === 0;
-  btn.className = `btn btn-sm ms-auto parlay-launch ${count ? 'btn-outline-warning' : 'btn-outline-secondary'}`;
-  btn.innerHTML = `<i class="fa-solid fa-calculator me-1"></i>Parlay Builder · ${count} pick${count === 1 ? '' : 's'}`;
+  btn.className = `btn btn-sm parlay-launch ${count ? 'btn-outline-warning' : 'btn-outline-secondary'}`;
+  btn.innerHTML = `<i class="fa-solid fa-calculator me-1"></i>Parlay · ${count}`;
   updateMobileActionBar();
 }
 
@@ -1097,6 +1385,7 @@ function updateMobileActionBar() {
   const isMobile = window.innerWidth <= 767;
   const isLeagueView = LEAGUES.includes(state.activeLeague);
   bar.classList.toggle('is-visible', isMobile && isLeagueView);
+
   if (!isMobile || !isLeagueView) return;
 
   const lg = state.activeLeague;
@@ -1166,38 +1455,10 @@ function saveOdds(lg, idx, side, val) {
   }).then(r => r.json()).then(res => {
     if (res.ok && res.game) {
       state.data[lg].games[idx] = res.game;
-      // Targeted row update — avoids wiping the other odds input during typing
-      _updateGameRow(lg, idx, res.game);
       renderTable(lg);
-      updateHint(lg, buildDecisionHint(state.data[lg]));
+      updateLeagueChrome(lg, state.data[lg]);
     }
   }).catch(() => {});
-}
-
-function _updateGameRow(lg, idx, game) {
-  const row = document.querySelector(`#table-${lg} tbody tr[data-idx="${idx}"]`);
-  if (!row) return;
-  const cells = row.querySelectorAll('td');
-  if (cells.length < 12) return;
-
-  // Confirm saved odds values in inputs (cells 7=Odds-A, 8=Odds-H)
-  const oddsAInput = cells[7].querySelector('input');
-  const oddsHInput = cells[8].querySelector('input');
-  if (oddsAInput && game.odds_away != null) oddsAInput.value = game.odds_away.toFixed(2);
-  if (oddsHInput && game.odds_home != null) oddsHInput.value = game.odds_home.toFixed(2);
-
-  // Update EV cells (cells 9=EV-A, 10=EV-H)
-  const evAClass = evClass(game.ev_away, game.bet_side === 'AWAY');
-  const evHClass = evClass(game.ev_home, game.bet_side === 'HOME');
-  cells[9].className = evAClass;
-  cells[9].innerHTML = fmtEV(game.ev_away);
-  cells[10].className = evHClass;
-  cells[10].innerHTML = fmtEV(game.ev_home);
-
-  // Update Rec cell (cell 11)
-  cells[11].innerHTML = game.bet_side
-    ? `<span class="bet-badge">BET ${game.bet_side}</span>`
-    : `<span class="no-bet">—</span>`;
 }
 
 // ── Accuracy tab ─────────────────────────────────────────────────────────
@@ -1209,7 +1470,6 @@ let accState = {
 };
 
 function switchAccuracy() {
-  // Hide all league panels
   LEAGUES.forEach(l => {
     document.getElementById(`panel-${l}`)?.classList.add('d-none');
     document.getElementById(`tab-${l}`)?.classList.remove('active');
@@ -1219,7 +1479,6 @@ function switchAccuracy() {
   state.activeLeague = 'accuracy';
   updateMobileActionBar();
 
-  // Load data if not already loaded
   if (!accState.data) {
     accLoadData(accState.league);
   }
@@ -1228,7 +1487,6 @@ function switchAccuracy() {
 function accSwitchLeague(lg) {
   accState.league = lg;
   accState.data = null;
-  // Update button styles
   ['cpbl','mlb','npb','kbo'].forEach(l => {
     const btn = document.getElementById(`acc-btn-${l}`);
     if (btn) {
@@ -1315,7 +1573,6 @@ function accSlidingAvg(values, window) {
 
 function accRenderChart(data) {
   const days = data.days;
-  // Use last 30 days only for the chart
   const recent = days.slice(-30);
 
   const labels = recent.map(d => d.date);
@@ -1325,7 +1582,6 @@ function accRenderChart(data) {
   const allAvg  = accSlidingAvg(allPct,  7);
   const highAvg = accSlidingAvg(highPct, 7);
 
-  // Point sizes: small sample = red dot
   const pointRadius = recent.map(d => d.all.total < 3 ? 6 : 3);
   const pointColor  = recent.map(d => d.all.total < 3 ? '#ef4444' : 'rgba(148,163,184,0.8)');
 
@@ -1411,10 +1667,10 @@ function accRenderChart(data) {
       },
       scales: {
         y: {
-          min: 30,
-          max: 100,
+          min: 42,
+          max: 82,
           ticks: { callback: v => v + '%' },
-          grid: { color: 'rgba(15,23,42,0.08)' },
+          grid: { color: 'rgba(148,163,184,0.10)' },
         },
         x: {
           ticks: { maxTicksLimit: 10, font: { size: 10 } },
@@ -1423,24 +1679,44 @@ function accRenderChart(data) {
       },
     },
     plugins: [{
-      // Draw baseline
+      // Draw baseline + random 50% line
       id: 'baseline',
       afterDraw(chart) {
         const { ctx, chartArea: { left, right, top, bottom }, scales: { y } } = chart;
+
+        // Baseline line (amber)
         const yPos = y.getPixelForValue(baselinePct);
-        if (yPos < top || yPos > bottom) return;
-        ctx.save();
-        ctx.strokeStyle = 'rgba(251,191,36,0.5)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.moveTo(left, yPos);
-        ctx.lineTo(right, yPos);
-        ctx.stroke();
-        ctx.fillStyle = 'rgba(251,191,36,0.7)';
-        ctx.font = '10px sans-serif';
-        ctx.fillText(`baseline ${baselinePct}%`, right - 80, yPos - 4);
-        ctx.restore();
+        if (yPos >= top && yPos <= bottom) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(251,191,36,0.55)';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([5, 4]);
+          ctx.beginPath();
+          ctx.moveTo(left, yPos);
+          ctx.lineTo(right, yPos);
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(251,191,36,0.8)';
+          ctx.font = '10px sans-serif';
+          ctx.fillText(`baseline ${baselinePct}%`, right - 88, yPos - 4);
+          ctx.restore();
+        }
+
+        // Random 50% line (red dashed)
+        const y50 = y.getPixelForValue(50);
+        if (y50 >= top && y50 <= bottom) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(239,68,68,0.45)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 5]);
+          ctx.beginPath();
+          ctx.moveTo(left, y50);
+          ctx.lineTo(right, y50);
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(239,68,68,0.65)';
+          ctx.font = '10px sans-serif';
+          ctx.fillText('random 50%', right - 78, y50 - 4);
+          ctx.restore();
+        }
       }
     }],
   });
@@ -1448,28 +1724,34 @@ function accRenderChart(data) {
 
 function accRenderTable(data) {
   const tbody = document.getElementById('acc-tbody');
+  const baseline = ACC_BASELINES[accState.league] || 0.5;
   const days = [...data.days].reverse(); // most recent first
   if (!days.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-secondary py-3">No data with resolved results found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-secondary py-3">No data with resolved results found.</td></tr>';
     return;
   }
   tbody.innerHTML = days.map(d => {
     const hp  = d.high.total > 0 ? (d.high.correct / d.high.total * 100).toFixed(1) + '%' : '—';
     const ap  = d.all.total  > 0 ? (d.all.correct  / d.all.total  * 100).toFixed(1) + '%' : '—';
     const hcls = d.high.total > 0
-      ? (d.high.correct / d.high.total >= (ACC_BASELINES[accState.league]||0.5) ? 'acc-green' : 'acc-red')
+      ? (d.high.correct / d.high.total >= baseline ? 'acc-green' : 'acc-red')
       : 'text-secondary';
     const acls = d.all.total > 0
-      ? (d.all.correct / d.all.total >= (ACC_BASELINES[accState.league]||0.5) ? 'acc-green' : 'acc-red')
+      ? (d.all.correct / d.all.total >= baseline ? 'acc-green' : 'acc-red')
       : 'text-secondary';
+    // vs baseline
+    const allPct = d.all.total > 0 ? d.all.correct / d.all.total : null;
+    const delta = allPct != null ? ((allPct - baseline) * 100) : null;
+    const deltaStr = delta != null
+      ? `<span class="${delta >= 0 ? 'acc-green' : 'acc-red'} fw-bold">${delta >= 0 ? '▲' : '▼'} ${delta >= 0 ? '+' : ''}${delta.toFixed(1)}pp</span>`
+      : '<span class="text-secondary">—</span>';
     return `<tr>
       <td>${d.date}</td>
-      <td>${d.high.total}</td>
-      <td>${d.high.correct}</td>
+      <td class="text-secondary">${d.high.correct}/${d.high.total}</td>
       <td class="${hcls} fw-bold">${hp}</td>
-      <td>${d.all.total}</td>
-      <td>${d.all.correct}</td>
+      <td class="text-secondary">${d.all.correct}/${d.all.total}</td>
       <td class="${acls} fw-bold">${ap}</td>
+      <td>${deltaStr}</td>
     </tr>`;
   }).join('');
   initTooltips(document.getElementById('panel-accuracy'));
@@ -1588,7 +1870,6 @@ function accPollBackfill() {
           clearInterval(timer);
           btn.disabled = false;
           status.textContent = `Done: ${s.done}/${s.total} saved` + (s.errors?.length ? ` (${s.errors.length} errors)` : '');
-          // Reload accuracy data
           accState.data = null;
           accLoadData(accState.league);
         }

@@ -12,6 +12,7 @@
 - GitHub repo 已改為 public，並已啟用 GitHub Pages：https://datsam8866.github.io/AI-Playgrounds/
 - 已用 chezmoi 同步 Codex 全域規則與工作模式 skills 到 private repo：Datsam8866/codex-config。
 - 已安裝 Superpowers for Codex，來源：https://github.com/obra/superpowers.git。
+- 已安裝下載版 Codex dashboard storyteller skill：`C:\Users\skuan1\.codex\skills\dashboard-storyteller`。
 
 ## Next Action
 
