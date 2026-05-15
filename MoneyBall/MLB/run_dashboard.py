@@ -7,7 +7,7 @@ Usage: python run_dashboard.py [YYYY-MM-DD]
 """
 import json, sys, sqlite3, requests
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -68,7 +68,8 @@ def main():
         games = fetch_today_games(session, date_str)
 
         try:
-            playsport = fetch_playsport_game_map("mlb", pred_date)
+            # MLB games at 7pm US Eastern = next Taiwan calendar day; offset +1 to match playsport
+            playsport = fetch_playsport_game_map("mlb", pred_date + timedelta(days=1))
             odds_ok = playsport.get("ok", False)
         except Exception as e:
             print(f"PLAYSPORT ERROR: {e}", file=sys.stderr)
