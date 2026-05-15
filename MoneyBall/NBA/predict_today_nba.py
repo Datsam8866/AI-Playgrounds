@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import sqlite3
@@ -19,6 +19,7 @@ from build_nba_game_features import (
     compute_rest,
     elo_win_prob,
     is_neutral_site,
+    load_player_season_avg,
     load_games,
     next_streak,
     regress_elo,
@@ -252,7 +253,9 @@ def build_state_until(conn: sqlite3.Connection, target_date: date):
     return team_history, elo_by_team, streak_by_team, last_game_dates, season_games
 
 
-def build_today_feature_rows(conn: sqlite3.Connection, target_date: date, scheduled_games: list[dict]) -> list[dict]:
+def build_today_feature_rows(conn: sqlite3.Connection, target_date: date, scheduled_games: list[dict], injury_map=None) -> list[dict]:
+    target_season = infer_season_year(target_date)
+    player_season_avg = load_player_season_avg(conn, target_season)
     team_history, elo_by_team, streak_by_team, last_game_dates, season_games = build_state_until(conn, target_date)
     feature_rows = []
     for game in scheduled_games:
@@ -266,6 +269,8 @@ def build_today_feature_rows(conn: sqlite3.Connection, target_date: date, schedu
                 last_game_dates=last_game_dates,
                 season_games=season_games,
                 neutral=neutral,
+                injury_map=injury_map,
+                player_season_avg=player_season_avg,
             )
         )
     return feature_rows
@@ -451,7 +456,15 @@ def run_predict_mode(target_date: date) -> None:
         target_season = infer_season_year(target_date)
         train_rows = load_training_rows(conn, target_date, target_season)
         model, medians, calibrator = fit_models(train_rows, target_season)
-        feature_rows = build_today_feature_rows(conn, target_date, scheduled_games)
+        try:
+            from nba_injury_scraper import fetch_and_store_injuries
+            injury_map = fetch_and_store_injuries(conn, target_date.isoformat())
+            print(f"Injury map loaded: {sum(len(v) for v in injury_map.values())} players out/doubtful")
+        except Exception as e:
+            print(f"Warning: injury fetch failed ({e}), proceeding without injury features")
+            injury_map = {}
+
+        feature_rows = build_today_feature_rows(conn, target_date, scheduled_games, injury_map=injury_map)
         predictions = make_predictions(feature_rows, model, medians, calibrator)
         upsert_predictions(conn, predictions)
         print_predictions(target_date, predictions)

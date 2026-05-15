@@ -1,4 +1,4 @@
-import argparse
+﻿import argparse
 import sqlite3
 from collections import defaultdict, deque
 from datetime import date
@@ -69,7 +69,10 @@ CREATE TABLE IF NOT EXISTS game_features (
 
     home_lineup_pts     REAL,
     vis_lineup_pts      REAL,
-    diff_lineup_pts     REAL
+    diff_lineup_pts     REAL,
+    home_injury_pts     REAL,
+    vis_injury_pts      REAL,
+    diff_injury_pts     REAL
 );
 
 CREATE INDEX IF NOT EXISTS idx_game_features_season_year
@@ -121,7 +124,10 @@ INSERT INTO game_features (
     is_neutral_site,
     home_lineup_pts,
     vis_lineup_pts,
-    diff_lineup_pts
+    diff_lineup_pts,
+    home_injury_pts,
+    vis_injury_pts,
+    diff_injury_pts
 )
 VALUES (
     :game_id,
@@ -165,7 +171,10 @@ VALUES (
     :is_neutral_site,
     :home_lineup_pts,
     :vis_lineup_pts,
-    :diff_lineup_pts
+    :diff_lineup_pts,
+    :home_injury_pts,
+    :vis_injury_pts,
+    :diff_injury_pts
 )
 ON CONFLICT(game_id) DO UPDATE SET
     season_year = excluded.season_year,
@@ -208,7 +217,10 @@ ON CONFLICT(game_id) DO UPDATE SET
     is_neutral_site = excluded.is_neutral_site,
     home_lineup_pts = excluded.home_lineup_pts,
     vis_lineup_pts = excluded.vis_lineup_pts,
-    diff_lineup_pts = excluded.diff_lineup_pts
+    diff_lineup_pts = excluded.diff_lineup_pts,
+    home_injury_pts = excluded.home_injury_pts,
+    vis_injury_pts = excluded.vis_injury_pts,
+    diff_injury_pts = excluded.diff_injury_pts
 """
 
 
@@ -229,6 +241,62 @@ def load_player_game_map(conn) -> dict:
     return result
 
 
+def load_injury_map(conn, game_date: str) -> dict[str, list[str]]:
+    """Returns {team_abbr: [player_name, ...]} for 'out'/'doubtful' players on game_date."""
+    try:
+        rows = conn.execute(
+            "SELECT team_abbr, player_name FROM player_injuries "
+            "WHERE scraped_date = ? AND status IN ('out', 'doubtful')",
+            (game_date,)
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    result: dict[str, list[str]] = {}
+    for row in rows:
+        result.setdefault(row[0], []).append(row[1])
+    return result
+
+
+def load_player_season_avg(conn, season_year: int) -> dict[tuple, float]:
+    """Returns {(team_abbr, player_name): avg_ppg} for the given season_year."""
+    try:
+        team_rows = conn.execute(
+            "SELECT DISTINCT home_team_id, home_team_abbr, vis_team_id, vis_team_abbr "
+            "FROM game_results WHERE season_year = ?", (season_year,)
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    team_id_map: dict[int, str] = {}
+    for row in team_rows:
+        team_id_map[int(row[0])] = str(row[1])
+        team_id_map[int(row[2])] = str(row[3])
+
+    try:
+        stats_rows = conn.execute(
+            """
+            SELECT pgs.player_name, pgs.team_id, SUM(pgs.pts) as total_pts, COUNT(*) as games
+            FROM player_game_stats pgs
+            JOIN game_results gr ON pgs.game_id = gr.game_id
+            WHERE gr.season_year = ? AND pgs.min_seconds > 0
+            GROUP BY pgs.player_name, pgs.team_id
+            HAVING games >= 5
+            """,
+            (season_year,)
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+
+    result: dict[tuple, float] = {}
+    for row in stats_rows:
+        player_name = str(row[0])
+        team_id = int(row[1])
+        avg_ppg = float(row[2]) / float(row[3])
+        abbr = team_id_map.get(team_id)
+        if abbr:
+            result[(abbr, player_name)] = avg_ppg
+    return result
+
+
 def compute_lineup_pts(team_id: int, season_year, team_last_lineup: dict, player_pts_acc: dict):
     lineup = team_last_lineup.get(team_id)
     if not lineup:
@@ -239,6 +307,20 @@ def compute_lineup_pts(team_id: int, season_year, team_last_lineup: dict, player
         acc = player_pts_acc.get((season_year, pid))
         if acc and acc["games"] > 0:
             total += acc["pts"] / acc["games"]
+            counted += 1
+    return total if counted > 0 else None
+
+
+def compute_injury_pts(team_abbr: str, injured_names: list[str],
+                       player_season_avg: dict[tuple, float]) -> float | None:
+    if not injured_names:
+        return None
+    total = 0.0
+    counted = 0
+    for name in injured_names:
+        avg = player_season_avg.get((team_abbr, name))
+        if avg is not None:
+            total += avg
             counted += 1
     return total if counted > 0 else None
 
@@ -370,7 +452,7 @@ def compute_rest(last_game_dates, team_id, game_date_iso, season_games_before):
 
 
 def to_feature_row(game, team_history, elo_by_team, streak_by_team, last_game_dates, season_games, neutral,
-                   team_last_lineup=None, player_pts_acc=None):
+                   team_last_lineup=None, player_pts_acc=None, injury_map=None, player_season_avg=None):
     home_id = game["home_team_id"]
     vis_id = game["vis_team_id"]
     season_year = game["season_year"]
@@ -395,6 +477,20 @@ def to_feature_row(game, team_history, elo_by_team, streak_by_team, last_game_da
     home_lineup = compute_lineup_pts(home_id, season_year, team_last_lineup or {}, player_pts_acc or {})
     vis_lineup = compute_lineup_pts(vis_id, season_year, team_last_lineup or {}, player_pts_acc or {})
     diff_lineup = (home_lineup - vis_lineup) if (home_lineup is not None and vis_lineup is not None) else None
+
+    # --- injury features ---
+    home_injury_pts = None
+    vis_injury_pts = None
+    diff_injury_pts = None
+    if injury_map is not None and player_season_avg is not None:
+        home_abbr = game["home_team_abbr"]
+        vis_abbr = game["vis_team_abbr"]
+        home_injured = injury_map.get(home_abbr, [])
+        vis_injured = injury_map.get(vis_abbr, [])
+        home_injury_pts = compute_injury_pts(home_abbr, home_injured, player_season_avg)
+        vis_injury_pts = compute_injury_pts(vis_abbr, vis_injured, player_season_avg)
+        if home_injury_pts is not None and vis_injury_pts is not None:
+            diff_injury_pts = home_injury_pts - vis_injury_pts
 
     return {
         "game_id": game["game_id"],
@@ -439,6 +535,9 @@ def to_feature_row(game, team_history, elo_by_team, streak_by_team, last_game_da
         "home_lineup_pts": home_lineup,
         "vis_lineup_pts": vis_lineup,
         "diff_lineup_pts": diff_lineup,
+        "home_injury_pts": home_injury_pts,
+        "vis_injury_pts": vis_injury_pts,
+        "diff_injury_pts": diff_injury_pts,
     }
 
 
@@ -487,7 +586,8 @@ def clear_scope(conn, season_year=None):
     conn.commit()
 
 
-def build_features(games, target_season=None, player_game_map=None):
+def build_features(games, target_season=None, player_game_map=None, injury_map_by_date=None,
+                   player_season_avg_by_year=None):
     team_history = defaultdict(lambda: deque(maxlen=WINDOW))
     elo_by_team = defaultdict(lambda: ELO_BASE)
     streak_by_team = {}
@@ -498,6 +598,10 @@ def build_features(games, target_season=None, player_game_map=None):
 
     if player_game_map is None:
         player_game_map = {}
+    if injury_map_by_date is None:
+        injury_map_by_date = {}
+    if player_season_avg_by_year is None:
+        player_season_avg_by_year = {}
 
     current_season = None
     feature_rows = []
@@ -513,6 +617,8 @@ def build_features(games, target_season=None, player_game_map=None):
             last_game_dates = {}
             team_last_lineup = {}
         neutral = is_neutral_site(game)
+        injury_map = injury_map_by_date.get(game["game_date"])
+        player_season_avg = player_season_avg_by_year.get(season_year)
 
         row = to_feature_row(
             game=game,
@@ -524,6 +630,8 @@ def build_features(games, target_season=None, player_game_map=None):
             neutral=neutral,
             team_last_lineup=team_last_lineup,
             player_pts_acc=player_pts_acc,
+            injury_map=injury_map,
+            player_season_avg=player_season_avg,
         )
         if target_season is None or season_year == target_season:
             feature_rows.append(row)
@@ -564,15 +672,29 @@ def main():
     try:
         games = load_games(conn)
         player_game_map = load_player_game_map(conn)
+        injury_dates = sorted({row["game_date"] for row in games})
+        injury_map_by_date = {game_date: load_injury_map(conn, game_date) for game_date in injury_dates}
+        season_years = sorted({int(row["season_year"]) for row in games})
+        player_season_avg_by_year = {
+            season_year: load_player_season_avg(conn, season_year) for season_year in season_years
+        }
         if player_game_map:
             print(f"Loaded player data for {len(player_game_map):,} games.")
         else:
             print("No player_game_stats found; lineup features will be NULL.")
+        injury_rows = sum(len(players) for players in injury_map_by_date.values() for _ in [0])
+        print(f"Loaded injury snapshots for {len(injury_map_by_date):,} dates ({injury_rows:,} out/doubtful entries).")
         if args.season is None:
             rebuild_game_features_table(conn)
         else:
             clear_scope(conn, args.season)
-        feature_rows, season_counts = build_features(games, args.season, player_game_map=player_game_map)
+        feature_rows, season_counts = build_features(
+            games,
+            args.season,
+            player_game_map=player_game_map,
+            injury_map_by_date=injury_map_by_date,
+            player_season_avg_by_year=player_season_avg_by_year,
+        )
         inserted = write_features(conn, feature_rows)
 
         for season_year, count in season_counts.items():

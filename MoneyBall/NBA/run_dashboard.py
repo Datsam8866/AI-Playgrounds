@@ -404,6 +404,33 @@ def main():
     except Exception as e:
         error_msg = str(e)
 
+    odds_fetched = False
+    odds_source = None
+    if games_out:
+        try:
+            from datetime import timedelta
+            scraper_dir = str(BASE_DIR.parent)
+            if scraper_dir not in sys.path:
+                sys.path.insert(0, scraper_dir)
+            from playsport_scraper import fetch_playsport_game_map
+            # NBA games on US date X appear as X+1 on playsport (Taiwan timezone offset)
+            # Try both target_date and target_date+1 to handle the offset
+            gmap: dict = {}
+            for d in (target_date, target_date + timedelta(days=1)):
+                r = fetch_playsport_game_map("nba", d)
+                if r.get("ok") and r.get("games"):
+                    gmap.update(r["game_map"])
+                    odds_fetched = True
+                    odds_source = "playsport.cc"
+            for g in games_out:
+                od = gmap.get((g["home"], g["away"]))
+                if od and od.get("odds_home") and od.get("odds_away"):
+                    g["odds_home"] = od["odds_home"]
+                    g["odds_away"] = od["odds_away"]
+                    g["has_odds"] = True
+        except Exception:
+            pass
+
     result = {
         "league": "NBA",
         "date": date_str,
@@ -411,8 +438,9 @@ def main():
         "mode": mode,
         "games": games_out,
         "error": error_msg,
-        "has_live_odds": False,
-        "odds_fetched": False,
+        "has_live_odds": any(g.get("has_odds") for g in games_out),
+        "odds_fetched": odds_fetched,
+        "odds_source": odds_source,
     }
     print(json.dumps(result, ensure_ascii=False))
     sys.stdout.flush()

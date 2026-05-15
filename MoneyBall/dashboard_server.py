@@ -33,7 +33,7 @@ LEAGUE_DIRS = {
 _lock    = {lg: threading.Lock() for lg in LEAGUE_DIRS}
 _status  = {lg: {"running": False, "last": None, "error": None, "progress": ""} for lg in LEAGUE_DIRS}
 
-MIN_CONF_MAP = {"mlb": 0.52, "cpbl": 0.60, "kbo": 0.55, "npb": 0.55}
+MIN_CONF_MAP = {"mlb": 0.52, "cpbl": 0.60, "kbo": 0.55, "npb": 0.55, "nba": 0.60}
 EV_THRESHOLD = 0.03
 
 
@@ -110,6 +110,9 @@ def _apply_odds_fields(game: dict, league: str) -> None:
 def _merge_cached_manual_odds(league: str, date_str: str, fresh_data: dict) -> dict:
     cached = _load_cached_data(league, date_str)
     if not cached:
+        for game in fresh_data.get("games", []):
+            if game.get("odds_home") is not None or game.get("odds_away") is not None:
+                _apply_odds_fields(game, league)
         return fresh_data
 
     cached_games = {}
@@ -531,6 +534,22 @@ def _build_day_cache(league: str, game_date: str) -> dict:
                 home_name = code_to_name.get(home_code.lower() if home_code else "", home_code)
                 away_name = code_to_name.get(away_code.lower() if away_code else "", away_code)
                 _add_day_result(result, home_name, away_name, hs, vs)
+        finally:
+            conn.close()
+
+    elif league == "nba":
+        db_path = LEAGUE_DIRS["nba"] / "nba.sqlite"
+        conn = sqlite3.connect(str(db_path))
+        try:
+            for table in ("game_results", "playoff_game_results"):
+                rows = conn.execute(
+                    f"SELECT home_team_abbr, vis_team_abbr, home_score, vis_score "
+                    f"FROM {table} "
+                    f"WHERE game_date = ? AND home_score IS NOT NULL",
+                    (game_date,)
+                ).fetchall()
+                for home_abbr, vis_abbr, hs, vs in rows:
+                    _add_day_result(result, home_abbr, vis_abbr, hs, vs)
         finally:
             conn.close()
 

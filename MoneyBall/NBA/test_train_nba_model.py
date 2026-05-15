@@ -1,6 +1,10 @@
-import unittest
+﻿import unittest
+import sys
+from pathlib import Path
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import train_nba_model as train_nba
 
@@ -19,7 +23,10 @@ class TestTrainNbaModel(unittest.TestCase):
         self.assertNotIn("home_elo", train_nba.FEATURES)
         self.assertNotIn("vis_elo", train_nba.FEATURES)
         self.assertIn("is_neutral_site", train_nba.FEATURES)
-        self.assertEqual(len(train_nba.FEATURES), 25)
+        self.assertIn("home_injury_pts", train_nba.FEATURES)
+        self.assertIn("vis_injury_pts", train_nba.FEATURES)
+        self.assertIn("diff_injury_pts", train_nba.FEATURES)
+        self.assertEqual(len(train_nba.FEATURES), 31)
 
     def test_matrix_from_rows_uses_training_medians_for_nulls(self):
         rows = [

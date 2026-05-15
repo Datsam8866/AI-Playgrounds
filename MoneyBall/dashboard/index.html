@@ -525,6 +525,7 @@
       <button class="btn btn-sm acc-league-btn btn-outline-secondary" id="acc-btn-mlb" onclick="accSwitchLeague('mlb')"><img src="https://www.mlbstatic.com/team-logos/league-on-dark/1.svg" height="14" class="me-1">MLB</button>
       <button class="btn btn-sm acc-league-btn btn-outline-secondary" id="acc-btn-npb" onclick="accSwitchLeague('npb')">🇯🇵 NPB</button>
       <button class="btn btn-sm acc-league-btn btn-outline-secondary" id="acc-btn-kbo" onclick="accSwitchLeague('kbo')">🇰🇷 KBO</button>
+      <button class="btn btn-sm acc-league-btn btn-outline-secondary" id="acc-btn-nba" onclick="accSwitchLeague('nba')">🏀 NBA</button>
       <button class="btn btn-sm btn-outline-info ms-auto" id="acc-backfill-btn" onclick="accStartBackfill()">
         <i class="fa-solid fa-clock-rotate-left me-1"></i>Backfill 30d
       </button>
@@ -1480,7 +1481,7 @@ function saveOdds(lg, idx, side, val) {
 }
 
 // ── Accuracy tab ─────────────────────────────────────────────────────────
-const ACC_BASELINES = { cpbl: 0.727, mlb: 0.567, kbo: 0.5577, npb: 0.5465 };
+const ACC_BASELINES = { cpbl: 0.727, mlb: 0.567, kbo: 0.5577, npb: 0.5465, nba: 0.60 };
 let accState = {
   league: 'cpbl',
   data: null,
@@ -1505,7 +1506,7 @@ function switchAccuracy() {
 function accSwitchLeague(lg) {
   accState.league = lg;
   accState.data = null;
-  ['cpbl','mlb','npb','kbo'].forEach(l => {
+  ['cpbl','mlb','npb','kbo','nba'].forEach(l => {
     const btn = document.getElementById(`acc-btn-${l}`);
     if (btn) {
       btn.className = `btn btn-sm acc-league-btn ${l === lg ? 'btn-primary' : 'btn-outline-secondary'}`;

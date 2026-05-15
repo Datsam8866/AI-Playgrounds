@@ -1,4 +1,4 @@
-"""
+﻿"""
 train_nba_model.py
 
 NBA walk-forward XGBoost backtest.
@@ -63,6 +63,9 @@ FEATURES = [
     "home_lineup_pts",
     "vis_lineup_pts",
     "diff_lineup_pts",
+    "home_injury_pts",
+    "vis_injury_pts",
+    "diff_injury_pts",
 ]
 
 XGB_PARAMS = dict(

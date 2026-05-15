@@ -20,6 +20,13 @@ MoneyBall 是多聯盟運動勝負預測與 Dashboard 追蹤系統，整合 `CPB
 
 ## 最新進度
 
+### 2026-05-15：NBA 傷兵特徵接入完成
+
+- 新增 `NBA/nba_injury_scraper.py`，使用 ESPN teams / injuries API 寫入 `NBA/nba.sqlite` 的 `player_injuries`，並提供 `fetch_and_store_injuries(conn, scraped_date)` 給預測流程直接重用。
+- `NBA/build_nba_game_features.py` 新增 `home_injury_pts / vis_injury_pts / diff_injury_pts` 三欄，會依 `player_injuries` 中 `out` / `doubtful` 球員與當季 `player_game_stats` 平均 PPG 估算缺陣火力損失。
+- `NBA/predict_today_nba.py` 現在會在當日預測前先抓 ESPN 傷兵並寫回 sqlite；`NBA/train_nba_model.py` 已同步擴充到 31 欄 features。
+- 本機驗證已重建 `17,878` 筆 NBA features，最新 walk-forward 結果為整體 calibrated accuracy `64.6%`、`p>0.65` accuracy `75.0%`（`N=4,963`, `cov=41.5%`）。
+
 ### 2026-05-15：NBA neutral-site + isotonic calibration 完成
 
 - `NBA/build_nba_game_features.py` 新增 `is_neutral_site`，將 2020 泡泡賽（`season_year=2019` 且 `game_date >= 2020-07-30`）標成中立場；builder 與 Elo update 在 neutral game 不再套用 `ELO_HOME_ADV=100`。
