@@ -60,6 +60,9 @@ FEATURES = [
     "home_games_before",
     "vis_games_before",
     "is_neutral_site",
+    "home_lineup_pts",
+    "vis_lineup_pts",
+    "diff_lineup_pts",
 ]
 
 XGB_PARAMS = dict(
