@@ -1,12 +1,12 @@
 # MoneyBall — 多聯盟棒球勝負預測系統
 
-**最後更新：2026-05-10（Dashboard 四聯盟快取刷新）**
+**最後更新：2026-05-15（NBA neutral-site + isotonic calibration 完成）**
 
 ---
 
 ## 專案概覽
 
-MoneyBall 是多聯盟棒球勝負預測與 Dashboard 追蹤系統，整合 `CPBL`、`MLB`、`KBO`、`NPB` 四個聯盟的歷史資料、即時預測、賠率 EV 與 Accuracy 追蹤。
+MoneyBall 是多聯盟運動勝負預測與 Dashboard 追蹤系統，整合 `CPBL`、`MLB`、`KBO`、`NPB`、`NBA` 的歷史資料、即時預測、賠率 EV 與 Accuracy 追蹤。
 
 | 聯盟 | 球隊數 | 資料範圍 | Walk-forward 準確率 | 高信心（最佳閾值） | 狀態 |
 |---|---:|---|---:|---:|---|
@@ -14,10 +14,36 @@ MoneyBall 是多聯盟棒球勝負預測與 Dashboard 追蹤系統，整合 `CPB
 | **MLB** 美國大聯盟 | 30 | 2003–2025 | **56.7%** | p≥0.675 → 70.3% | 完成，含賠率 EV，校準驗證完畢 |
 | **KBO** 韓國職棒 | 10 | 2011–2026 | **55.77%** | p≥0.60 → 64.55% | 維運，每日工具已建立 |
 | **NPB** 日本職棒 | 12 | 2006–2026 | **54.48%** | p≥0.60 → 61.57% | 維運，每日追蹤中 |
+| **NBA** 美國職籃 | 30 | 2011–2025 | **63.98%** | p>0.65 → 73.23% | neutral-site / isotonic 已驗證，待調整閾值 |
 
 ---
 
 ## 最新進度
+
+### 2026-05-15：NBA neutral-site + isotonic calibration 完成
+
+- `NBA/build_nba_game_features.py` 新增 `is_neutral_site`，將 2020 泡泡賽（`season_year=2019` 且 `game_date >= 2020-07-30`）標成中立場；builder 與 Elo update 在 neutral game 不再套用 `ELO_HOME_ADV=100`。
+- `NBA/train_nba_model.py` 移除冗餘 `home_elo` / `vis_elo` 特徵，改用 25 欄 feature schema，並把 calibration 從 Platt scaling 升級為 Isotonic Regression；報告新增 `Brier Score` 與 `ECE`。
+- `NBA/predict_today_nba.py` 已同步切到新的 calibrator API 與 neutral-site feature 流。
+- 本次全量回測結果：整體 calibrated accuracy `63.98%`、Brier Score `0.2210`、ECE `0.0142`；`2020` 季 calibrated accuracy 由 `61.67%` 提升到 `63.15%`。
+
+### 2026-05-15：NBA 每日預測腳本完成
+
+- 新增 `NBA/predict_today_nba.py`，會先重播 `game_results` 建立當日最新 `GameState`，再用 `ScoreboardV2` 抓指定日期賽程並即時計算 pre-game features。
+- 模型訓練沿用 `train_nba_model.py` 的 `FEATURES` / `XGB_PARAMS` / Platt calibration，預設以最近 5 季 `game_features` 訓練並將結果 UPSERT 到 `prediction_tracking`。
+- 支援 `python predict_today_nba.py --date YYYY-MM-DD` 與 `python predict_today_nba.py --verify YYYY-MM-DD`；`prediction_tracking` table 會在首次執行時自動建立。
+
+### 2026-05-15：NBA features builder 完成
+
+- 新增 `NBA/build_nba_game_features.py`，將 `game_results` 的 2011–2025 正規賽完賽資料重播為 pre-game 特徵，寫入 `NBA/nba.sqlite` 的 `game_features`。
+- 已完成 `Elo`、`rolling win% / 得失分 / net rating / Pythagorean WP`、`rest / back-to-back`、`streak`、`season context`，並遵守無前瞻洩漏。
+- 全量重建結果為 `17,878` 筆 features，對應目前 `game_results` 中 `home_win IS NOT NULL` 的完賽場次；另有 1 筆未完賽結果未納入。
+
+### 2026-05-15：NBA scraper 初始化
+
+- 新增 `NBA/nba_scraper.py`，使用 `nba_api.stats.endpoints.LeagueGameLog` 抓取 `2011-12` 到 `2025-26` 例行賽結果。
+- `NBA/nba.sqlite` 會在首次執行時自動建立，僅保存 `game_results` 與 `seasons_fetched` 兩張表，不存 `raw_json`。
+- 支援 `--season YYYY` 單季更新、`--force` 強制重抓與 `seasons_fetched` 增量跳過，方便後續接特徵建表與模型訓練。
 
 ### 2026-05-10：Dashboard 四聯盟快取刷新
 
@@ -86,7 +112,8 @@ MoneyBall 是多聯盟棒球勝負預測與 Dashboard 追蹤系統，整合 `CPB
 | **C** | CPBL | SP multi-season prior：SP < 5 場時加入前一年/生涯 rolling | 待辦 |
 | **D** | MLB | 觀察 `schedule date ↔ result date` 是否仍有跨日邊界案例 | 追蹤中 |
 | **E** | All | Dashboard 累積 Accuracy 歷史，追蹤各聯盟高信心準確率趨勢 | 持續進行 |
-| **F** | All | 評估更早歷史 odds / SP 回填來源 | 待辦 |
+| **F** | NBA | 依 isotonic 後的新 coverage / accuracy 重新評估高信心閾值（`0.60` / `0.65` / 動態 cut） | 待辦 |
+| **G** | All | 評估更早歷史 odds / SP 回填來源 | 待辦 |
 
 ---
 
@@ -154,6 +181,7 @@ Regime routing:
 | `MLB/` | MLB 模型、賠率 EV、Dashboard 資料介面 |
 | `KBO/` | KBO 模型、特徵、Dashboard 資料介面 |
 | `NPB/` | NPB 模型、特徵、賠率 EV、Dashboard 資料介面 |
+| `NBA/` | NBA scraper、feature builder、walk-forward training 工作區 |
 
 ---
 
