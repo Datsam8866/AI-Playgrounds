@@ -5,41 +5,45 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Portfolio Dashboard</title>
 <script>
-const savedTheme = localStorage.getItem('dashboard-theme') || 'dark';
+const savedTheme = localStorage.getItem('vcb-theme') || 'dark';
 document.documentElement.dataset.theme = savedTheme;
 </script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
-:root{--bg:#0f172a;--sf:#1e293b;--bd:#334155;--tx:#e2e8f0;--mu:#94a3b8;--ac:#38bdf8;--pos:#22c55e;--neg:#ef4444;--warn:#f59e0b;--warn-bg:#1c1507;--warn-tx:#fde68a;--warn-sub:#fcd34d;--table-head:#1a2942;--row-bd:#192233;--row-hover:#1e2d45;--code-bg:#0f172a;--code-tx:#a5f3fc;}
-:root[data-theme="light"]{--bg:#f8fafc;--sf:#ffffff;--bd:#cbd5e1;--tx:#0f172a;--mu:#475569;--ac:#0369a1;--pos:#15803d;--neg:#dc2626;--warn:#b45309;--warn-bg:#fffbeb;--warn-tx:#78350f;--warn-sub:#92400e;--table-head:#e2e8f0;--row-bd:#e2e8f0;--row-hover:#f1f5f9;--code-bg:#f1f5f9;--code-tx:#0f172a;}
+:root{--bg:#1B1B1B;--sf:#242424;--bd:#333333;--tx:#fafaf9;--mu:#a8a29e;--ac:#0DFDCF;--kpi:#0DFDCF;--pos:#22c55e;--neg:#ef4444;--warn:#f59e0b;--warn-bg:#1c1507;--warn-tx:#fde68a;--warn-sub:#fcd34d;--table-head:#2a2a2a;--row-bd:#2a2a2a;--row-hover:#2f2f2f;--code-bg:#1B1B1B;--code-tx:#0DFDCF;}
+:root[data-theme="light"]{--bg:#fafaf9;--sf:#ffffff;--bd:#e7e5e4;--tx:#1c1917;--mu:#a8a29e;--ac:#00978A;--kpi:#00978A;--pos:#15803d;--neg:#dc2626;--warn:#b45309;--warn-bg:#fffbeb;--warn-tx:#78350f;--warn-sub:#92400e;--table-head:#f5f5f4;--row-bd:#e7e5e4;--row-hover:#f5f5f4;--code-bg:#f5f5f4;--code-tx:#00978A;}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;min-height:100vh;}
-header{padding:12px 24px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
-header h1{font-size:17px;font-weight:700;color:var(--tx);}
-header .subtitle{font-size:12px;color:var(--mu);margin-top:2px;}
+body{background:var(--bg);color:var(--tx);font-family:'Poppins','Segoe UI',system-ui,sans-serif;font-size:14px;min-height:100vh;}
+.breakthrough-bar{height:4px;background:#0DFDCF;width:100%;}
+.sticky-top{position:sticky;top:0;z-index:50;background:var(--sf);border-bottom:1px solid var(--bd);}
+header{padding:12px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+header h1{font-size:1.35rem;font-weight:800;color:var(--tx);}
+header .subtitle{font-size:0.88rem;color:var(--mu);margin-top:2px;}
 .header-right{display:flex;align-items:center;gap:10px;}
-.updated{color:var(--mu);font-size:12px;}
-.btn-update{background:transparent;border:1px solid var(--bd);color:var(--mu);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;}
+.updated{color:var(--mu);font-size:0.88rem;}
+.btn-update{background:transparent;border:1px solid var(--bd);color:var(--mu);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.88rem;font-weight:600;font-family:inherit;}
 .btn-update:hover{border-color:var(--ac);color:var(--ac);}
 .btn-icon{width:32px;height:32px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--tx);cursor:pointer;font-size:15px;display:inline-flex;align-items:center;justify-content:center;}
 .btn-icon:hover{border-color:var(--ac);color:var(--ac);}
 .tabs{display:flex;border-bottom:1px solid var(--bd);background:var(--sf);}
-.tab{padding:12px 24px;cursor:pointer;color:var(--mu);font-size:13px;font-weight:600;border-bottom:2px solid transparent;transition:.15s;user-select:none;}
+.tab{padding:12px 24px;cursor:pointer;color:var(--mu);font-size:0.88rem;font-weight:600;border-bottom:2px solid transparent;transition:.15s;user-select:none;}
 .tab.active{color:var(--ac);border-bottom-color:var(--ac);}
 .tab:hover:not(.active){color:var(--tx);}
 .panel{display:none;padding:20px 24px;max-width:1200px;margin:0 auto;}
 .panel.active{display:block;}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;}
-.card{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:14px 18px;}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:14px 32px;display:flex;flex-direction:column;align-items:center;text-align:center;}
 .card.warn{border-color:var(--warn);background:var(--warn-bg);}
-.card-label{color:var(--mu);font-size:11px;text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;}
-.card-value{font-size:21px;font-weight:700;}
-.card-sub{font-size:12px;color:var(--mu);margin-top:3px;}
+.card-label{color:var(--mu);font-size:0.88rem;margin-bottom:6px;}
+.card-value{font-size:2.2rem;font-weight:800;color:var(--kpi);line-height:1.15;}
+.card-sub{font-size:0.88rem;color:var(--mu);margin-top:4px;}
 .alert-box{background:var(--warn-bg);border:1px solid var(--warn);border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:flex-start;gap:12px;color:var(--warn-tx);}
-.alert-title{font-size:13px;font-weight:700;color:var(--warn-tx);margin-bottom:4px;}
-.alert-body{font-size:12px;color:var(--warn-sub);line-height:1.6;}
-.regime-badge{display:inline-block;padding:3px 12px;border-radius:16px;font-weight:700;font-size:12px;}
-.signal-badge{display:inline-block;padding:3px 10px;border-radius:14px;font-weight:700;font-size:12px;}
+.alert-title{font-size:0.88rem;font-weight:700;color:var(--warn-tx);margin-bottom:4px;}
+.alert-body{font-size:0.88rem;color:var(--warn-sub);line-height:1.6;}
+.regime-badge{display:inline-block;padding:3px 12px;border-radius:16px;font-weight:700;font-size:0.75rem;}
+.signal-badge{display:inline-block;padding:3px 10px;border-radius:14px;font-weight:700;font-size:0.75rem;}
 .signal-badge.strong{background:#14532d;color:#86efac;border:1px solid #22c55e66;}
 .signal-badge.watch{background:#451a03;color:#fde68a;border:1px solid #f59e0b66;}
 .signal-badge.weak{background:#450a0a;color:#fecaca;border:1px solid #ef444466;}
@@ -48,67 +52,72 @@ header .subtitle{font-size:12px;color:var(--mu);margin-top:2px;}
 :root[data-theme="light"] .signal-badge.weak{background:#fee2e2;color:#991b1b;border-color:#dc262666;}
 .charts-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
 .charts-row.wide{grid-template-columns:1fr;}
-.chart-box{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:16px;}
-.chart-box h3{font-size:12px;color:var(--mu);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;}
+.chart-box{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px;}
+.chart-box h3{font-size:0.8rem;color:var(--mu);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;font-weight:600;}
 .chart-wrap{position:relative;height:220px;}
 .chart-wrap.tall{height:300px;}
-.section-label{font-size:11px;font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;}
+.section-label{font-size:0.8rem;font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;}
 table{width:100%;border-collapse:collapse;background:var(--sf);border-radius:10px;overflow:hidden;margin-bottom:20px;}
-thead th{background:var(--table-head);color:var(--mu);font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:9px 12px;text-align:left;border-bottom:1px solid var(--bd);}
-tbody td{padding:9px 12px;border-bottom:1px solid var(--row-bd);}
+thead th{background:var(--table-head);color:var(--mu);font-size:0.8rem;text-transform:uppercase;letter-spacing:.5px;padding:9px 12px;text-align:left;border-bottom:1px solid var(--bd);}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--row-bd);font-size:0.88rem;}
 tbody tr:last-child td{border-bottom:none;}
 tbody tr:hover{background:var(--row-hover);}
 .num{text-align:right;font-variant-numeric:tabular-nums;}
-.muted{color:var(--mu);font-size:12px;}
+.muted{color:var(--mu);font-size:0.88rem;}
 .pos{color:var(--pos);}
 .neg{color:var(--neg);}
 .modal-overlay{display:none;position:fixed;inset:0;background:#000a;z-index:100;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
 .modal{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:24px;max-width:520px;width:90%;}
-.modal h3{color:var(--ac);margin-bottom:12px;}
-.modal code{display:block;background:var(--code-bg);border:1px solid var(--bd);border-radius:6px;padding:12px;font-size:12px;color:var(--code-tx);margin:10px 0;line-height:1.6;word-break:break-all;}
-.modal-close{margin-top:12px;background:var(--bd);border:none;color:var(--tx);padding:7px 18px;border-radius:6px;cursor:pointer;}
-.modal-action{margin-top:12px;background:var(--ac);border:none;color:#fff;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;}
+.modal h3{color:var(--ac);margin-bottom:12px;font-size:1rem;font-weight:700;}
+.modal code{display:block;background:var(--code-bg);border:1px solid var(--bd);border-radius:6px;padding:12px;font-size:0.8rem;color:var(--code-tx);margin:10px 0;line-height:1.6;word-break:break-all;}
+.modal-close{margin-top:12px;background:var(--bd);border:none;color:var(--tx);padding:7px 18px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:0.88rem;}
+.modal-action{margin-top:12px;background:var(--ac);border:none;color:#fff;padding:8px 18px;border-radius:6px;cursor:pointer;font-weight:700;font-family:inherit;font-size:0.88rem;}
 .modal-action:disabled{opacity:.55;cursor:not-allowed;}
-.update-status{margin-top:12px;background:var(--code-bg);border:1px solid var(--bd);border-radius:6px;padding:10px;font-size:12px;color:var(--code-tx);line-height:1.55;white-space:pre-wrap;max-height:220px;overflow:auto;}
+.update-status{margin-top:12px;background:var(--code-bg);border:1px solid var(--bd);border-radius:6px;padding:10px;font-size:0.8rem;color:var(--code-tx);line-height:1.55;white-space:pre-wrap;max-height:220px;overflow:auto;}
 .drawer-backdrop{display:none;position:fixed;inset:0;background:#0008;z-index:90;}
 .drawer-backdrop.open{display:block;}
-.drawer{position:fixed;top:0;right:0;width:min(520px,94vw);height:100vh;background:var(--sf);border-left:1px solid var(--bd);z-index:91;transform:translateX(105%);transition:transform .2s ease;box-shadow:-20px 0 45px #0008;display:flex;flex-direction:column;}
+.drawer{position:fixed;top:0;right:0;width:min(max(44vw,420px),680px);height:100vh;background:var(--sf);border-left:1px solid var(--bd);z-index:91;transform:translateX(105%);transition:transform .2s ease;box-shadow:-20px 0 45px #0008;display:flex;flex-direction:column;}
 .drawer.open{transform:translateX(0);}
 .drawer-head{padding:18px 20px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}
-.drawer-title{font-size:16px;font-weight:700;color:var(--tx);}
-.drawer-sub{font-size:12px;color:var(--mu);margin-top:4px;}
+.drawer-title{font-size:1rem;font-weight:700;color:var(--tx);}
+.drawer-sub{font-size:0.88rem;color:var(--mu);margin-top:4px;}
 .drawer-close{width:30px;height:30px;border-radius:6px;border:1px solid var(--bd);background:transparent;color:var(--tx);cursor:pointer;font-size:18px;}
 .drawer-body{padding:16px 18px;overflow:auto;}
-.drawer-body table{font-size:12px;margin-bottom:0;}
+.drawer-body table{font-size:0.88rem;margin-bottom:0;}
 .drawer-body th,.drawer-body td{padding:8px 9px;}
-.drawer-name{font-size:11px;color:var(--mu);margin-top:3px;font-weight:400;}
-.drawer-note{margin-top:12px;color:var(--mu);font-size:12px;line-height:1.6;background:var(--table-head);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;}
+.drawer-name{font-size:0.8rem;color:var(--mu);margin-top:3px;font-weight:400;}
+.drawer-note{margin-top:12px;color:var(--mu);font-size:0.88rem;line-height:1.6;background:var(--table-head);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;}
 .clickable-card{cursor:pointer;position:relative;}
 .clickable-card:hover{border-color:var(--ac);}
-.chart-action{font-size:11px;color:var(--ac);font-weight:600;text-transform:none;letter-spacing:0;margin-left:8px;}
+.clickable-card:hover>.card{border-color:var(--ac);}
+.chart-action{font-size:0.8rem;color:var(--ac);font-weight:600;text-transform:none;letter-spacing:0;margin-left:8px;}
 .model-tile{text-align:center;padding:14px 10px;background:var(--table-head);border:1px solid var(--bd);border-radius:8px;}
-.model-ticker{font-size:11px;color:var(--mu);margin-bottom:6px;}
-.model-weight{font-size:22px;font-weight:700;}
+.model-ticker{font-size:0.8rem;color:var(--mu);margin-bottom:6px;}
+.model-weight{font-size:1.5rem;font-weight:700;}
 .model-weight.core{color:var(--ac);}
 .model-weight.satellite{color:var(--tx);}
-.model-kind{font-size:11px;color:var(--mu);margin-top:4px;}
+.model-kind{font-size:0.8rem;color:var(--mu);margin-top:4px;}
 @media(max-width:640px){
   .charts-row{grid-template-columns:1fr;}
-  .tab{padding:10px 14px;font-size:12px;}
-  header h1{font-size:15px;}
+  .tab{padding:10px 14px;font-size:0.8rem;}
+  header h1{font-size:1.1rem;}
+  .card-value{font-size:1.6rem;}
+  .card{padding:14px 20px;}
 }
 </style>
 </head>
 <body>
 
+<div class="sticky-top">
+<div class="breakthrough-bar"></div>
 <header>
   <div>
     <h1>Portfolio Dashboard</h1>
     <div class="subtitle">Buffett 量化配置觀測系統</div>
   </div>
   <div class="header-right">
-    <span class="updated">更新：2026-05-17</span>
+    <span class="updated">更新：2026-05-18</span>
     <button class="btn-icon" id="themeToggle" onclick="toggleTheme()" title="切換亮暗模式" aria-label="切換亮暗模式">&#9790;</button>
     <button class="btn-update" onclick="document.getElementById('modal').classList.add('open')">&#8635; 更新資料</button>
   </div>
@@ -118,6 +127,7 @@ tbody tr:hover{background:var(--row-hover);}
   <div class="tab active" onclick="switchTab(0)">總覽</div>
   <div class="tab" onclick="switchTab(1)">&#127482;&#127480; 美股</div>
   <div class="tab" onclick="switchTab(2)">&#127481;&#127484; 台股</div>
+</div>
 </div>
 
 <!-- ══ Tab 0: 總覽 ══ -->
@@ -510,7 +520,7 @@ function applyChartTheme(){
 function toggleTheme(){
   const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
   document.documentElement.dataset.theme = next;
-  localStorage.setItem('dashboard-theme', next);
+  localStorage.setItem('vcb-theme', next);
   syncThemeButton();
   applyChartTheme();
 }
@@ -545,7 +555,7 @@ const ACTUAL_WEIGHTS = {"AMD": 0.0330903985201731, "ARM": 0.03331940197148583, "
 const TW_ACTUAL_WEIGHTS = {"0050": 1.0};
 const REGIME_LABEL = "CAUTION";
 const VOO_ACTUAL = 56.989296;
-const US_BENCHMARK_PNLS = {"VT": [18286.95, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32], "VOO": [15909.69, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13], "QQQ": [29145.31, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66], "SOXX": [139720.12, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78]};
+const US_BENCHMARK_PNLS = {"VT": [18286.95, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32], "VOO": [15909.69, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13], "QQQ": [29145.31, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66], "SOXX": [139720.12, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78]};
 
 function lineChart(id, labels, datasets){
   new Chart(document.getElementById(id),{
@@ -560,13 +570,13 @@ function lineChart(id, labels, datasets){
 }
 
 // Overview charts
-const ovDates = ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-16", "2026-05-17"];
+const ovDates = ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-16", "2026-05-17", "2026-05-18"];
 lineChart('ovUsChart', ovDates, [{
-  label:'損益 USD', data:[54694.08436000001, 50898.99435999998, 50898.99435999998, 80271.44436, 60223.45436, 70640.11435999998, 70640.11435999998, 70640.11435999998, 75762.64436, 70969.34436000002, 73286.48436000003, 75792.92435999998, 67451.46436000001, 67451.46436000001],
+  label:'損益 USD', data:[54694.08436000001, 50898.99435999998, 50898.99435999998, 80271.44436, 60223.45436, 70640.11435999998, 70640.11435999998, 70640.11435999998, 75762.64436, 70969.34436000002, 73286.48436000003, 75792.92435999998, 67451.46436000001, 67451.46436000001, 67451.46436000001],
   borderColor:'#22c55e', backgroundColor:'#22c55e15', fill:true, tension:.3, pointRadius:3
 }]);
 lineChart('ovTwChart', ovDates, [{
-  label:'市值 TWD', data:[943700.0, 945999.98, 957500.0, 957500.0, 957500.0, 957500.0, 970000.0, 970000.0, 969000.02, 969000.02, 969000.02, 969000.02, 969000.02, 954000.02],
+  label:'市值 TWD', data:[943700.0, 945999.98, 957500.0, 957500.0, 957500.0, 957500.0, 970000.0, 970000.0, 969000.02, 969000.02, 969000.02, 969000.02, 969000.02, 954000.02, 954000.02],
   borderColor:'#34d399', backgroundColor:'#34d39918', fill:true, tension:.3, pointRadius:3
 }]);
 
@@ -579,7 +589,7 @@ const usHBarChart = new Chart(document.getElementById('usHBar'),{
       {
         label:'實際持倉 %',
         data: [57.0, 7.8, 3.7, 3.7, 3.6, 3.5, 3.5, 3.5, 3.3, 3.3, 3.3, 3.3, 0.2, 0.1, 0.0, 0.0],
-        backgroundColor: ["#38bdf8", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e"],
+        backgroundColor: ["#00978A", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e"],
         borderRadius:2
       }
     ]
@@ -685,7 +695,7 @@ function closeRegimeDrawer(){
 const benchmarkLineColors = {VT:'#f59e0b', VOO:'#38bdf8', QQQ:'#a78bfa', SOXX:'#ef4444'};
 const usLineDatasets = [{
   label:'Actual Portfolio',
-  data: [0, 57225.96, 57225.96, 74023.72, 62874.53, 73291.19, 73291.19, 73291.19, 78413.72, 73620.42, 73286.48, 75792.92, 67451.47, 67451.47],
+  data: [0, 57225.96, 57225.96, 74023.72, 62874.53, 73291.19, 73291.19, 73291.19, 78413.72, 73620.42, 73286.48, 75792.92, 67451.47, 67451.47, 67451.47],
   borderColor:'#22c55e', backgroundColor:'#22c55e12', fill:false, tension:.3, pointRadius:3
 }];
 for (const ticker of ['VT', 'VOO', 'QQQ', 'SOXX']) {
@@ -703,12 +713,12 @@ for (const ticker of ['VT', 'VOO', 'QQQ', 'SOXX']) {
     });
   }
 }
-lineChart('usLine', ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-16", "2026-05-17"], usLineDatasets);
+lineChart('usLine', ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-16", "2026-05-17", "2026-05-18"], usLineDatasets);
 
 // TW market value trend
-lineChart('twLine', ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-16", "2026-05-17"], [{
+lineChart('twLine', ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-16", "2026-05-17", "2026-05-18"], [{
   label:'市值 TWD',
-  data: [943700.0, 945999.98, 957500.0, 957500.0, 957500.0, 957500.0, 970000.0, 970000.0, 969000.02, 969000.02, 969000.02, 969000.02, 969000.02, 954000.02],
+  data: [943700.0, 945999.98, 957500.0, 957500.0, 957500.0, 957500.0, 970000.0, 970000.0, 969000.02, 969000.02, 969000.02, 969000.02, 969000.02, 954000.02, 954000.02],
   borderColor:'#34d399', backgroundColor:'#34d39918', fill:true, tension:.3, pointRadius:3
 }]);
 </script>
