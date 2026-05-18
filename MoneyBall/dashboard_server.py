@@ -104,6 +104,9 @@ def _apply_odds_fields(game: dict, league: str) -> None:
         bet = "HOME"
     elif pa >= min_conf and ev_a >= EV_THRESHOLD:
         bet = "AWAY"
+    # Suppress bet_side when probability is not calibrated (e.g. NBA season start)
+    if game.get("calibrated") is False:
+        bet = None
     game["bet_side"] = bet
 
 

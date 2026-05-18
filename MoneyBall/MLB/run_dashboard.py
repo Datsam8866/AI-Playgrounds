@@ -30,7 +30,7 @@ MIN_CONF_MLB = 0.52
 
 def _conf(prob_home):
     c = max(prob_home, 1 - prob_home)
-    return "HIGH" if c >= 0.675 else ("MED" if c >= 0.55 else "LOW")
+    return "HIGH" if c >= 0.63 else ("MED" if c >= 0.55 else "LOW")
 
 
 def main():

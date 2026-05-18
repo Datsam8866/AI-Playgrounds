@@ -29,7 +29,15 @@ ROUND_NAMES = {1: "First Round", 2: "Second Round", 3: "Conf Finals", 4: "Finals
 
 
 def _conf_label(conf: float) -> str:
-    if conf > 0.65:
+    if conf >= 0.65:
+        return "HIGH"
+    if conf > 0.55:
+        return "MED"
+    return "LOW"
+
+
+def _conf_label_po(conf: float) -> str:
+    if conf >= 0.60:
         return "HIGH"
     if conf > 0.55:
         return "MED"
@@ -160,6 +168,7 @@ def _run_regular(conn, scheduled, target_date: date) -> list[dict]:
         calibrator = fit_calibrator(fp.tolist(), target_vector(calib).tolist())
 
     raw_probs = predict_probs(model, medians, feature_rows, FEATURES)
+    is_calibrated = calibrator is not None
     out = []
     for game, raw in zip(scheduled, raw_probs):
         cal = apply_calibrator(calibrator, float(raw))
@@ -175,6 +184,7 @@ def _run_regular(conn, scheduled, target_date: date) -> list[dict]:
             "has_odds": False,
             "home_sp": "",
             "away_sp": "",
+            "calibrated": is_calibrated,
         })
     return out
 
@@ -347,6 +357,7 @@ def _run_playoffs(conn, scheduled, target_date: date) -> list[dict]:
         calibrator = fit_calibrator(fp.tolist(), target_vector(calib).tolist())
 
     raw_probs = predict_probs(model, medians, feature_rows, FEATURES)
+    is_calibrated = calibrator is not None
     out = []
     for meta, raw in zip(game_meta, raw_probs):
         cal = apply_calibrator(calibrator, float(raw))
@@ -357,7 +368,7 @@ def _run_playoffs(conn, scheduled, target_date: date) -> list[dict]:
             "away": meta["away"],
             "status": meta["status"],
             "prob_home": round(cal, 4),
-            "confidence": _conf_label(conf),
+            "confidence": _conf_label_po(conf),
             "route": f"playoff_r{meta['playoff_round']}",
             "has_odds": False,
             "home_sp": meta["series_label"],
@@ -367,6 +378,7 @@ def _run_playoffs(conn, scheduled, target_date: date) -> list[dict]:
             "home_series_wins": meta["home_series_wins"],
             "vis_series_wins": meta["vis_series_wins"],
             "series_label": meta["series_label"],
+            "calibrated": is_calibrated,
         })
     return out
 

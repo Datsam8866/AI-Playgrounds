@@ -15,6 +15,10 @@ KBO_DB = BASE_DIR / "KBO" / "kbo.sqlite"
 MLB_DB = BASE_DIR / "MLB" / "mlb.sqlite"
 NPB_DB = BASE_DIR / "NPB" / "npb.sqlite"
 
+# When adding a CPBL team: also update
+#   1. TEAM_NAME_MAPS["cpbl"] in playsport_scraper.py
+#   2. TEAM_NAMES in CPBL/predict_today.py
+#   3. This dict (CPBL_NAME_TO_CODE)
 CPBL_NAME_TO_CODE = {
     "中信兄弟": "ACN011",
     "味全龍": "AAA011",
@@ -133,6 +137,8 @@ def sync_cpbl_results(target_date: date) -> dict:
             away_code = CPBL_NAME_TO_CODE.get(game["away"])
             if not home_code or not away_code:
                 skipped += 1
+                unknown = [n for n in (game["home"], game["away"]) if n not in CPBL_NAME_TO_CODE]
+                print(f"[CPBL sync] WARNING: unknown team name(s) {unknown} — update CPBL_NAME_TO_CODE, TEAM_NAME_MAPS, and TEAM_NAMES", file=__import__('sys').stderr)
                 continue
 
             new_status = 3 if game["is_final"] else 1
