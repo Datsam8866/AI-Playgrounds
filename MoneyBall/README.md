@@ -1,6 +1,6 @@
 # MoneyBall — 多聯盟棒球勝負預測系統
 
-**最後更新：2026-05-15（NBA neutral-site + isotonic calibration 完成）**
+**最後更新：2026-05-18（threshold sweep 工具 + dashboard 高信心篩選 + KBO 2026 診斷）**
 
 ---
 
@@ -10,15 +10,25 @@ MoneyBall 是多聯盟運動勝負預測與 Dashboard 追蹤系統，整合 `CPB
 
 | 聯盟 | 球隊數 | 資料範圍 | Walk-forward 準確率 | 高信心（最佳閾值） | 狀態 |
 |---|---:|---|---:|---:|---|
-| **CPBL** 中華職棒 | 6 | 2011–2026 | **55.72%** | 待重新校準 | 維運，2026 Platt re-fit 待辦 |
-| **MLB** 美國大聯盟 | 30 | 2003–2025 | **56.7%** | p≥0.675 → 70.3% | 完成，含賠率 EV，校準驗證完畢 |
-| **KBO** 韓國職棒 | 10 | 2011–2026 | **55.77%** | p≥0.60 → 64.55% | 維運，每日工具已建立 |
-| **NPB** 日本職棒 | 12 | 2006–2026 | **54.48%** | p≥0.60 → 61.57% | 維運，每日追蹤中 |
-| **NBA** 美國職籃 | 30 | 2011–2025 | **63.98%** | p>0.65 → 73.23% | neutral-site / isotonic 已驗證，待調整閾值 |
+| **CPBL** 中華職棒 | 6 | 2011–2026 | **55.97%** | p>0.65 → 72.1%（N=43） | 維運，2026 Platt re-fit 待辦 |
+| **MLB** 美國大聯盟 | 30 | 2003–2025 | **56.8%** | p>0.65 → 67.9%（N=1273） | 完成，含賠率 EV |
+| **KBO** 韓國職棒 | 10 | 2011–2026 | **54.6%** | p≥0.60 → 62.1%（N=1119） | 維運；2026 初期 48.8%（主場優勢偏低） |
+| **NPB** 日本職棒 | 12 | 2006–2026 | **54.41%** | p≥0.60 → 59.4%（N=1446） | 維運，每日追蹤中 |
+| **NBA RS** 美國職籃 | 30 | 2011–2025 | **64.6%** | p>0.65 → 75.0%（N=4963） | 含 lineup/injury 特徵 |
+| **NBA PO** 季後賽 | 30 | 2011–2025 | **61.2%** | p>0.65 → 62.2%（N=405） | 獨立模型，系列賽情境特徵 |
 
 ---
 
 ## 最新進度
+
+### 2026-05-18：Threshold sweep + 高信心篩選 + KBO 2026 診斷
+
+- 新增 `threshold_sweep_all.py`：五聯盟 high-conf accuracy / coverage sweep（2020+），支援 `python threshold_sweep_all.py [kbo|npb|cpbl|nba|all]`
+- 新增 `MLB/threshold_sweep.py`：MLB 依路由細分（early/fallback/primary）的門檻掃描
+- 新增 `NBA/nba_accuracy_backfill.py`：從 DB 快速補齊 NBA 歷史 dashboard JSON，不需呼叫 NBA API
+- `reports/high_conf_threshold_sweep_2020_2026.csv`：2020–2026 各聯盟閾值掃描結果快照（MLB primary p>0.65 → 67.2%；CPBL advanced p>0.65 → 72.1%）
+- Dashboard：Confidence filter 預設改為 **HIGH ★（p>0.65）**；啟用 HIGH 時 subtitle 顯示歷史回測準確率（MLB 67.9% / CPBL 72.1% / NBA 75.0%）
+- **KBO 2026 診斷**：截至 2026-05-17（N=203），整體 48.8%，主因 2026 初期主場勝率僅 48.3%（歷史均值 51%），模型偏向主場造成低準確率；屬小樣本季初波動，Elo 自適應後預計改善，5 月底複查
 
 ### 2026-05-15：NBA 傷兵特徵接入完成
 
@@ -114,13 +124,12 @@ MoneyBall 是多聯盟運動勝負預測與 Dashboard 追蹤系統，整合 `CPB
 
 | 優先 | 聯盟 | 項目 | 狀態 |
 |---|---|---|---|
-| **A** | CPBL | 每日追蹤：`predict_today.py --verify` + `track_high_confidence_predictions.py` | 持續進行 |
+| **A** | KBO | 2026 準確率複查（5 月底，N≥350）：確認 Elo 自適應後是否回穩 | 待辦 |
 | **B** | CPBL | Platt re-fit：累積 ≥80 場後重算 A/B | 待辦 |
 | **C** | CPBL | SP multi-season prior：SP < 5 場時加入前一年/生涯 rolling | 待辦 |
-| **D** | MLB | 觀察 `schedule date ↔ result date` 是否仍有跨日邊界案例 | 追蹤中 |
+| **D** | NBA | Dashboard UI：更新 `/logi-dashboard-builder` 介面 | 下次 |
 | **E** | All | Dashboard 累積 Accuracy 歷史，追蹤各聯盟高信心準確率趨勢 | 持續進行 |
-| **F** | NBA | 依 isotonic 後的新 coverage / accuracy 重新評估高信心閾值（`0.60` / `0.65` / 動態 cut） | 待辦 |
-| **G** | All | 評估更早歷史 odds / SP 回填來源 | 待辦 |
+| **F** | All | 評估更早歷史 odds / SP 回填來源 | 待辦 |
 
 ---
 
