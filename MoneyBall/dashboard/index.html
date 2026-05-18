@@ -816,7 +816,7 @@ function buildPanels() {
               <select class="form-select form-select-sm" style="width:90px" id="filter-conf-${lg}"
                       onchange="renderTable('${lg}')">
                 <option value="all">All</option>
-                <option value="HIGH">HIGH</option>
+                <option value="HIGH" selected>HIGH ★</option>
                 <option value="MED">MED</option>
                 <option value="LOW">LOW</option>
               </select>
@@ -1250,7 +1250,7 @@ function renderTable(lg) {
   });
 
   if (titleEl) titleEl.textContent = buildBoardTitle(lg, data, visibleGames.length);
-  if (subtitleEl) subtitleEl.textContent = buildBoardSubtitle(data, visibleGames.length, filteredOut, uiPhase);
+  if (subtitleEl) subtitleEl.textContent = buildBoardSubtitle(data, visibleGames.length, filteredOut, uiPhase, confFilter, lg);
 
   tbody.innerHTML = rows.length ? rows.join('') : renderLeagueEmptyState(lg, data, filteredOut, uiPhase);
 
@@ -1425,18 +1425,26 @@ function recBadge(game) {
   return `<span class="badge-soft badge-soft-muted">Watchlist</span>`;
 }
 
+// Historical HIGH (p>0.65) accuracy from threshold_sweep_all 2020-2026
+const HIGH_HIST_ACC = {
+  mlb: '67.9%', kbo: '—', npb: '59.4%', cpbl: '72.1%', nba: '75.0%',
+};
+
 function buildBoardTitle(lg, data, visibleCount) {
   if (!data?.last_updated) return '尚未載入今日預測';
   if (!data.games?.length) return '該日期目前沒有賽事';
   return `${lg.toUpperCase()} 今日可判讀比賽 ${visibleCount} 場`;
 }
 
-function buildBoardSubtitle(data, visibleCount, filteredOut, phase) {
+function buildBoardSubtitle(data, visibleCount, filteredOut, phase, confFilter, lg) {
   if (phase === 'loading') return '系統正在更新資料，完成後表格會自動刷新。';
   if (!data?.last_updated) return '先按 Update Predictions 建立這一天的預測與賠率快取。';
   if (!data.games?.length) return '系統已載入資料，但該日期沒有賽事可顯示。';
   if (!visibleCount && filteredOut) return '目前是篩選條件把所有比賽排除了，放寬條件即可恢復。';
-  return `依目前條件顯示 ${visibleCount} 場；推薦列會優先排在前面。`;
+  const highNote = confFilter === 'HIGH'
+    ? ` ★ HIGH (p>0.65) · 歷史回測 ${HIGH_HIST_ACC[lg] || '—'}`
+    : '';
+  return `依目前條件顯示 ${visibleCount} 場；推薦列會優先排在前面。${highNote}`;
 }
 
 function renderLeagueEmptyState(lg, data, filteredOut, phase) {
