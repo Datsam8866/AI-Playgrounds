@@ -28,10 +28,10 @@ WATCHLIST_TICKERS = [
     "AAPL", "AMD", "AMZN", "ARM", "AVGO", "BE", "CLS", "COHR", "CORZ", "CRM",
     "CRWD", "CRWV", "DELL", "GLW", "GOOGL", "IBM", "IFNNY", "INTC", "IREN",
     "LITE", "LOGI", "META", "MRVL", "MSFT", "MSTR", "MU", "NET", "NOK", "NOW",
-    "NTAP", "NVDA", "OKTA", "ORCL", "PANW", "PLTR", "QCOM", "SNDK", "SSO",
-    "TEAM", "TSLA", "TSM", "VIX", "VRT",
+    "NTAP", "NVDA", "OKTA", "ORCL", "PANW", "PLTR", "QCOM", "SNDK",
+    "TEAM", "TSLA", "TSM", "VRT",
 ]
-WATCHLIST_TICKER_MAP = {"VIX": "^VIX"}
+WATCHLIST_TICKER_MAP = {}
 WATCHLIST_BENCHMARKS = ["SPY", "QQQ"]
 
 WATCHLIST_CATEGORIES = {
@@ -74,10 +74,8 @@ WATCHLIST_CATEGORIES = {
     "MSTR":  "比特幣 & 加密",
     "AAPL":  "消費 & 其他",
     "LOGI":  "消費 & 其他",
-    "TEAM":  "消費 & 其他",
+    "TEAM":  "AI 雲端 & 軟體",
     "NTAP":  "消費 & 其他",
-    "SSO":   "消費 & 其他",
-    "VIX":   "消費 & 其他",
 }
 
 
