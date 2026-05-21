@@ -1223,11 +1223,11 @@ tbody tr:hover{{background:var(--row-hover);}}
     {card("美股市值 (USD)", f"${us_tm:,.0f}", f"成本 ${us_tc:,.0f} ｜ {us_pp:+.1f}%", pc(us_pp))}
     {card("Sharpe Ratio", actual_sharpe_text, "目前實際持倉")}
     {card("台股市值 (TWD)", f"NT${tw_tm:,.0f}", f"成本 NT${tw_tc:,.0f} ｜ {tw_pp:+.1f}%", pc(tw_pp))}
-    {card("台股模型信心", tw_pb, "P(&gt;0050) ｜ 2026Q2")}
+    {card("台股 Sharpe", tw_sharpe_text, "0050 近一年日報酬")}
   </div>
   <div class="charts-row">
     <div class="chart-box">
-      <h3>美股損益走勢 (USD)</h3>
+      <h3>美股總資產走勢 (USD)</h3>
       <div class="chart-wrap"><canvas id="ovUsChart"></canvas></div>
     </div>
     <div class="chart-box">
@@ -1501,8 +1501,8 @@ function lineChart(id, labels, datasets){{
 // Overview charts
 const ovDates = {ov_dates};
 lineChart('ovUsChart', ovDates, [{{
-  label:'損益 USD', data:{json.dumps([us_mv_map.get(d, 0) - us_tc for d in all_dates]) if us_tc else ov_us_mvs},
-  borderColor:'#22c55e', backgroundColor:'#22c55e15', fill:true, tension:.3, pointRadius:3
+  label:'總市值 USD', data:{ov_us_mvs},
+  borderColor:'#0DFDCF', backgroundColor:'#0DFDCF12', fill:true, tension:.3, pointRadius:3
 }}]);
 lineChart('ovTwChart', ovDates, [{{
   label:'市值 TWD', data:{ov_tw_mvs},

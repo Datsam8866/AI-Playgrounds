@@ -152,14 +152,14 @@ tbody tr:hover{background:var(--row-hover);}
       <div class="card-sub pos">成本 NT$924,900 ｜ +3.6%</div>
     </div>
     <div class="card ">
-      <div class="card-label">台股模型信心</div>
-      <div class="card-value">70.25%</div>
-      <div class="card-sub ">P(&gt;0050) ｜ 2026Q2</div>
+      <div class="card-label">台股 Sharpe</div>
+      <div class="card-value">2.64</div>
+      <div class="card-sub ">0050 近一年日報酬</div>
     </div>
   </div>
   <div class="charts-row">
     <div class="chart-box">
-      <h3>美股損益走勢 (USD)</h3>
+      <h3>美股總資產走勢 (USD)</h3>
       <div class="chart-wrap"><canvas id="ovUsChart"></canvas></div>
     </div>
     <div class="chart-box">
@@ -854,8 +854,8 @@ function lineChart(id, labels, datasets){
 // Overview charts
 const ovDates = ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-16", "2026-05-17", "2026-05-18", "2026-05-19", "2026-05-20", "2026-05-21"];
 lineChart('ovUsChart', ovDates, [{
-  label:'損益 USD', data:[48611.019490000006, 44815.92948999998, 44815.92948999998, 74188.37948999999, 54140.38949, 64557.049489999976, 64557.049489999976, 64557.049489999976, 69679.57949, 64886.279490000015, 67203.41949000003, 69709.85948999997, 61368.39949000001, 61368.39949000001, 61368.39949000001, 57701.24948999999, 56880.88949, 63514.569489999994],
-  borderColor:'#22c55e', backgroundColor:'#22c55e15', fill:true, tension:.3, pointRadius:3
+  label:'總市值 USD', data:[294836.38, 291041.29, 291041.29, 320413.74, 300365.75, 310782.41, 310782.41, 310782.41, 315904.94, 311111.64, 313428.78, 315935.22, 307593.76, 307593.76, 307593.76, 303926.61, 303106.25, 309739.93],
+  borderColor:'#0DFDCF', backgroundColor:'#0DFDCF12', fill:true, tension:.3, pointRadius:3
 }]);
 lineChart('ovTwChart', ovDates, [{
   label:'市值 TWD', data:[943700.0, 945999.98, 957500.0, 957500.0, 957500.0, 957500.0, 970000.0, 970000.0, 969000.02, 969000.02, 969000.02, 969000.02, 969000.02, 954000.02, 954000.02, 949000.02, 949000.02, 949000.02],
