@@ -80,6 +80,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/health":
             self.send_json({"ok": True, "message": "Dashboard server is running."})
             return
+        if self.path == "/":
+            self.send_response(302)
+            self.send_header("Location", "/portfolio_dashboard.html")
+            self.end_headers()
+            return
         super().do_GET()
 
     def do_POST(self) -> None:
