@@ -27,6 +27,18 @@ DB_PATH = BASE_DIR / "nba.sqlite"
 
 ROUND_NAMES = {1: "First Round", 2: "Second Round", 3: "Conf Finals", 4: "Finals"}
 
+# Static fallback for when nba_api's stats.nba.com call fails (anti-bot / rate limit)
+_STATIC_TEAM_LOOKUP: dict[int, str] = {
+    1610612737: "ATL", 1610612738: "BOS", 1610612739: "CLE", 1610612740: "NOP",
+    1610612741: "CHI", 1610612742: "DAL", 1610612743: "DEN", 1610612744: "GSW",
+    1610612745: "HOU", 1610612746: "LAC", 1610612747: "LAL", 1610612748: "MIA",
+    1610612749: "MIL", 1610612750: "MIN", 1610612751: "BKN", 1610612752: "NYK",
+    1610612753: "ORL", 1610612754: "IND", 1610612755: "PHI", 1610612756: "PHX",
+    1610612757: "POR", 1610612758: "SAC", 1610612759: "SAS", 1610612760: "OKC",
+    1610612761: "TOR", 1610612762: "UTA", 1610612763: "MEM", 1610612764: "WAS",
+    1610612765: "DET", 1610612766: "CHA",
+}
+
 
 def _conf_label(conf: float) -> str:
     if conf >= 0.65:
@@ -48,20 +60,50 @@ def _infer_season(d: date) -> int:
     return d.year if d.month >= 10 else d.year - 1
 
 
-def _fetch_scheduled(target_date: date, team_lookup: dict) -> list[dict]:
-    from nba_api.stats.endpoints import ScoreboardV2
-    sb = ScoreboardV2(game_date=target_date.strftime("%Y-%m-%d"), league_id="00")
-    time.sleep(1.5)
-    frames = sb.get_data_frames()
-    if not frames or frames[0].empty:
+def _fetch_via_requests(target_date: date, team_lookup: dict) -> list[dict]:
+    """Direct HTTP fallback — mirrors MLB's approach; works for future/playoff dates
+    where ScoreboardV2 (stats.nba.com scoreboard endpoint) returns empty rows."""
+    import requests as _req
+    url = "https://stats.nba.com/stats/scoreboardV2"
+    headers = {
+        "Host": "stats.nba.com",
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Origin": "https://www.nba.com",
+        "Referer": "https://www.nba.com/",
+        "x-nba-stats-origin": "stats",
+        "x-nba-stats-token": "true",
+    }
+    params = {
+        "GameDate": target_date.strftime("%m/%d/%Y"),
+        "LeagueID": "00",
+        "DayOffset": "0",
+    }
+    resp = _req.get(url, headers=headers, params=params, timeout=15)
+    resp.raise_for_status()
+    data = resp.json()
+
+    result_sets = {rs["name"]: rs for rs in (data.get("resultSets") or [])}
+    gh = result_sets.get("GameHeader", {})
+    col_names: list[str] = gh.get("headers", [])
+    row_set: list = gh.get("rowSet", [])
+    if not row_set:
         return []
+
+    h = {k: i for i, k in enumerate(col_names)}
     season_year = _infer_season(target_date)
     games = []
-    for row in frames[0].to_dict("records"):
-        home_id = int(row["HOME_TEAM_ID"])
-        vis_id = int(row["VISITOR_TEAM_ID"])
+    for row in row_set:
+        home_id = int(row[h["HOME_TEAM_ID"]])
+        vis_id = int(row[h["VISITOR_TEAM_ID"]])
+        status_i = h.get("GAME_STATUS_TEXT")
         games.append({
-            "game_id": str(row["GAME_ID"]),
+            "game_id": str(row[h["GAME_ID"]]),
             "season_year": season_year,
             "game_date": target_date.isoformat(),
             "home_team_id": home_id,
@@ -69,9 +111,71 @@ def _fetch_scheduled(target_date: date, team_lookup: dict) -> list[dict]:
             "home_team_abbr": team_lookup.get(home_id, str(home_id)),
             "vis_team_abbr": team_lookup.get(vis_id, str(vis_id)),
             "home_win": None,
-            "game_status_text": str(row.get("GAME_STATUS_TEXT") or ""),
+            "game_status_text": str(row[status_i]) if status_i is not None else "Scheduled",
         })
     return games
+
+
+def _fetch_scheduled(target_date: date, team_lookup: dict) -> list[dict]:
+    season_year = _infer_season(target_date)
+
+    # Attempt 1: ScoreboardV2 (faster, works for most regular-season dates)
+    try:
+        from nba_api.stats.endpoints import ScoreboardV2
+        sb = ScoreboardV2(game_date=target_date.strftime("%Y-%m-%d"), league_id="00")
+        time.sleep(1.5)
+        frames = sb.get_data_frames()
+        if frames and not frames[0].empty:
+            games = []
+            for row in frames[0].to_dict("records"):
+                home_id = int(row["HOME_TEAM_ID"])
+                vis_id = int(row["VISITOR_TEAM_ID"])
+                games.append({
+                    "game_id": str(row["GAME_ID"]),
+                    "season_year": season_year,
+                    "game_date": target_date.isoformat(),
+                    "home_team_id": home_id,
+                    "vis_team_id": vis_id,
+                    "home_team_abbr": team_lookup.get(home_id, str(home_id)),
+                    "vis_team_abbr": team_lookup.get(vis_id, str(vis_id)),
+                    "home_win": None,
+                    "game_status_text": str(row.get("GAME_STATUS_TEXT") or ""),
+                })
+            return games
+    except Exception:
+        pass
+
+    # Attempt 2: ScoreboardV3 — more reliable for playoff future dates & 2025-26 season
+    try:
+        from nba_api.stats.endpoints import ScoreboardV3
+        sb3 = ScoreboardV3(game_date=target_date.strftime("%Y-%m-%d"), league_id="00")
+        time.sleep(1.5)
+        data = sb3.get_dict()
+        v3_games = data.get("scoreboard", {}).get("games", [])
+        if v3_games:
+            games = []
+            for g in v3_games:
+                home = g.get("homeTeam", {})
+                away = g.get("awayTeam", {})
+                home_id = int(home.get("teamId", 0))
+                vis_id = int(away.get("teamId", 0))
+                games.append({
+                    "game_id": str(g.get("gameId", "")),
+                    "season_year": season_year,
+                    "game_date": target_date.isoformat(),
+                    "home_team_id": home_id,
+                    "vis_team_id": vis_id,
+                    "home_team_abbr": team_lookup.get(home_id, home.get("teamTricode", str(home_id))),
+                    "vis_team_abbr": team_lookup.get(vis_id, away.get("teamTricode", str(vis_id))),
+                    "home_win": None,
+                    "game_status_text": str(g.get("gameStatusText") or "Scheduled"),
+                })
+            return games
+    except Exception:
+        pass
+
+    # Attempt 3: direct HTTP with NBA anti-bot headers
+    return _fetch_via_requests(target_date, team_lookup)
 
 
 def _run_regular(conn, scheduled, target_date: date) -> list[dict]:
@@ -393,8 +497,11 @@ def main():
     mode = "regular"
 
     try:
-        from nba_api.stats.static import teams as nba_teams
-        team_lookup = {int(t["id"]): t["abbreviation"] for t in nba_teams.get_teams()}
+        try:
+            from nba_api.stats.static import teams as nba_teams
+            team_lookup = {int(t["id"]): t["abbreviation"] for t in nba_teams.get_teams()}
+        except Exception:
+            team_lookup = _STATIC_TEAM_LOOKUP
         scheduled = _fetch_scheduled(target_date, team_lookup)
 
         if not scheduled:

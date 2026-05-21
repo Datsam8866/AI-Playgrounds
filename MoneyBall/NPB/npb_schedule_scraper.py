@@ -218,6 +218,28 @@ def existing_game_url(connection, game_url):
     return row is not None
 
 
+def existing_any_game(connection, game):
+    """Check if any record exists for this game (with or without URL, any status)."""
+    row = connection.execute(
+        """
+        SELECT 1
+        FROM team_game_results
+        WHERE season_year = ?
+          AND game_date = ?
+          AND home_code = ?
+          AND away_code = ?
+        LIMIT 1
+        """,
+        (
+            game["season_year"],
+            game["game_date"],
+            game["home_code"],
+            game["away_code"],
+        ),
+    ).fetchone()
+    return row is not None
+
+
 def existing_scheduled_game(connection, game):
     row = connection.execute(
         """
@@ -354,9 +376,12 @@ def scrape_month(connection, session, year, month, sleep_seconds, timeout):
                 update_game(connection, placeholder_id, game)
                 updated += 1
                 continue
-        elif existing_scheduled_game(connection, game):
-            skipped += 1
-            continue
+        else:
+            # No game_url: skip if any record already exists for this game
+            # (covers both url=None placeholders AND url-having records from boxscore scraper)
+            if existing_any_game(connection, game):
+                skipped += 1
+                continue
 
         insert_game(connection, game)
         inserted += 1
