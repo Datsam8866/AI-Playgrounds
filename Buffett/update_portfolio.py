@@ -23,6 +23,63 @@ TICKER_MAP = {
     "0050": "0050.TW",
 }
 
+# 觀察池：追蹤但未持有的股票
+WATCHLIST_TICKERS = [
+    "AAPL", "AMD", "AMZN", "ARM", "AVGO", "BE", "CLS", "COHR", "CORZ", "CRM",
+    "CRWD", "CRWV", "DELL", "GLW", "GOOGL", "IBM", "IFNNY", "INTC", "IREN",
+    "LITE", "LOGI", "META", "MRVL", "MSFT", "MSTR", "MU", "NET", "NOK", "NOW",
+    "NTAP", "NVDA", "OKTA", "ORCL", "PANW", "PLTR", "QCOM", "SNDK", "SSO",
+    "TEAM", "TSLA", "TSM", "VIX", "VRT",
+]
+WATCHLIST_TICKER_MAP = {"VIX": "^VIX"}
+WATCHLIST_BENCHMARKS = ["SPY", "QQQ"]
+
+WATCHLIST_CATEGORIES = {
+    "COHR":  "光通訊",
+    "LITE":  "光通訊",
+    "GLW":   "光通訊",
+    "MRVL":  "光通訊",
+    "NOK":   "光通訊",
+    "NVDA":  "AI 晶片",
+    "AMD":   "AI 晶片",
+    "ARM":   "AI 晶片",
+    "AVGO":  "AI 晶片",
+    "INTC":  "AI 晶片",
+    "TSM":   "AI 晶片",
+    "MU":    "AI 晶片",
+    "QCOM":  "AI 晶片",
+    "IFNNY": "AI 晶片",
+    "SNDK":  "AI 晶片",
+    "MSFT":  "AI 雲端 & 軟體",
+    "GOOGL": "AI 雲端 & 軟體",
+    "AMZN":  "AI 雲端 & 軟體",
+    "META":  "AI 雲端 & 軟體",
+    "CRWV":  "AI 雲端 & 軟體",
+    "ORCL":  "AI 雲端 & 軟體",
+    "IBM":   "AI 雲端 & 軟體",
+    "NOW":   "AI 雲端 & 軟體",
+    "CRM":   "AI 雲端 & 軟體",
+    "PLTR":  "AI 雲端 & 軟體",
+    "CRWD":  "資安",
+    "PANW":  "資安",
+    "NET":   "資安",
+    "OKTA":  "資安",
+    "VRT":   "電力 & 資料中心",
+    "BE":    "電力 & 資料中心",
+    "CLS":   "電力 & 資料中心",
+    "DELL":  "電力 & 資料中心",
+    "TSLA":  "電力 & 資料中心",
+    "CORZ":  "比特幣 & 加密",
+    "IREN":  "比特幣 & 加密",
+    "MSTR":  "比特幣 & 加密",
+    "AAPL":  "消費 & 其他",
+    "LOGI":  "消費 & 其他",
+    "TEAM":  "消費 & 其他",
+    "NTAP":  "消費 & 其他",
+    "SSO":   "消費 & 其他",
+    "VIX":   "消費 & 其他",
+}
+
 
 def get_prices(tickers: list[str]) -> tuple[dict[str, float], str]:
     """回傳 (prices, price_date)，price_date 為實際取得報價的交易日。"""
@@ -146,6 +203,124 @@ def print_summary(conn):
     print(f"{'='*80}\n")
 
 
+def ensure_watchlist_history_table(conn):
+    conn.execute("""CREATE TABLE IF NOT EXISTS watchlist_price_history (
+        date   TEXT,
+        ticker TEXT,
+        close  REAL,
+        PRIMARY KEY (date, ticker)
+    )""")
+    conn.commit()
+
+
+def update_watchlist_history(conn, tickers: list[str]) -> str:
+    all_tickers = sorted(set(tickers + WATCHLIST_BENCHMARKS))
+    yf_tickers = [WATCHLIST_TICKER_MAP.get(t, t) for t in all_tickers]
+
+    # backfill 40 天（首次或資料不足），否則只補最近 5 天
+    count = conn.execute("SELECT COUNT(DISTINCT date) FROM watchlist_price_history").fetchone()[0]
+    period = "40d" if count < 20 else "5d"
+
+    raw = yf.download(yf_tickers, period=period, progress=False, auto_adjust=True)["Close"]
+    if isinstance(raw, pd.Series):
+        raw = raw.to_frame(name=yf_tickers[0])
+    raw = raw.dropna(how="all")
+
+    inserted = 0
+    for date_idx in raw.index:
+        date_str = str(date_idx.date())
+        for ticker in all_tickers:
+            yf_key = WATCHLIST_TICKER_MAP.get(ticker, ticker)
+            val = raw.loc[date_idx, yf_key] if yf_key in raw.columns else None
+            if val is None or (hasattr(val, "__float__") and pd.isna(float(val))):
+                val = raw.loc[date_idx, ticker] if ticker in raw.columns else None
+            if val is not None and not pd.isna(val):
+                conn.execute(
+                    "INSERT OR IGNORE INTO watchlist_price_history (date, ticker, close) VALUES (?,?,?)",
+                    (date_str, ticker, float(val)),
+                )
+                inserted += 1
+    conn.commit()
+    return f"{'Backfill' if period == '40d' else '更新'} {inserted} 筆歷史價格（{period}）"
+
+
+def ensure_watchlist_tables(conn):
+    conn.execute("""CREATE TABLE IF NOT EXISTS watchlist (
+        ticker   TEXT PRIMARY KEY,
+        name     TEXT,
+        category TEXT
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS watchlist_snapshot (
+        snapshot_date TEXT,
+        ticker        TEXT,
+        price         REAL,
+        prev_close    REAL,
+        change_dollar REAL,
+        change_pct    REAL,
+        PRIMARY KEY (snapshot_date, ticker)
+    )""")
+    # add category column if missing (migration)
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(watchlist)").fetchall()}
+    if "category" not in cols:
+        conn.execute("ALTER TABLE watchlist ADD COLUMN category TEXT")
+    existing = {r[0] for r in conn.execute("SELECT ticker FROM watchlist").fetchall()}
+    for ticker in WATCHLIST_TICKERS:
+        cat = WATCHLIST_CATEGORIES.get(ticker, "其他")
+        if ticker not in existing:
+            conn.execute("INSERT OR IGNORE INTO watchlist (ticker, category) VALUES (?,?)", (ticker, cat))
+        else:
+            conn.execute("UPDATE watchlist SET category=? WHERE ticker=?", (cat, ticker))
+    conn.commit()
+
+
+def get_watchlist_prices(tickers: list[str]) -> dict[str, dict]:
+    yf_tickers = [WATCHLIST_TICKER_MAP.get(t, t) for t in tickers]
+    raw = yf.download(yf_tickers, period="5d", progress=False, auto_adjust=True)["Close"]
+    if isinstance(raw, pd.Series):
+        raw = raw.to_frame(name=yf_tickers[0])
+    raw = raw.dropna(how="all")
+    if len(raw) < 2:
+        return {}
+    results = {}
+    for ticker in tickers:
+        yf_key = WATCHLIST_TICKER_MAP.get(ticker, ticker)
+        col = raw.get(yf_key) if yf_key in raw.columns else raw.get(ticker)
+        if col is None:
+            continue
+        col = col.dropna()
+        if len(col) < 2:
+            continue
+        price = float(col.iloc[-1])
+        prev_close = float(col.iloc[-2])
+        change_dollar = price - prev_close
+        change_pct = change_dollar / prev_close * 100 if prev_close else 0.0
+        results[ticker] = {
+            "price": price,
+            "prev_close": prev_close,
+            "change_dollar": change_dollar,
+            "change_pct": change_pct,
+        }
+    return results
+
+
+def insert_watchlist_snapshot(conn, watchlist_prices: dict[str, dict]):
+    existing = {r[0] for r in conn.execute(
+        "SELECT ticker FROM watchlist_snapshot WHERE snapshot_date=?", (TODAY,)
+    ).fetchall()}
+    for ticker, data in watchlist_prices.items():
+        if ticker in existing:
+            conn.execute("""UPDATE watchlist_snapshot
+                SET price=?, prev_close=?, change_dollar=?, change_pct=?
+                WHERE snapshot_date=? AND ticker=?""",
+                (data["price"], data["prev_close"], data["change_dollar"], data["change_pct"], TODAY, ticker))
+        else:
+            conn.execute("""INSERT INTO watchlist_snapshot
+                (snapshot_date, ticker, price, prev_close, change_dollar, change_pct)
+                VALUES (?,?,?,?,?,?)""",
+                (TODAY, ticker, data["price"], data["prev_close"], data["change_dollar"], data["change_pct"]))
+    conn.commit()
+
+
 def fallback_from_snapshot(conn, tickers: list[str]) -> dict[str, float]:
     """從最近一次 snapshot 補齊缺少報價的 ticker。"""
     rows = conn.execute("""
@@ -162,13 +337,14 @@ def fallback_from_snapshot(conn, tickers: list[str]) -> dict[str, float]:
 if __name__ == "__main__":
     conn = sqlite3.connect(DB_PATH)
     add_last_price_columns(conn)
+    ensure_watchlist_tables(conn)
+    ensure_watchlist_history_table(conn)
 
     tickers = [r[0] for r in conn.execute("SELECT ticker FROM holdings").fetchall()]
     print(f"下載最新報價（{', '.join(tickers)}）...")
     prices, price_date = get_prices(tickers)
     print(f"取得 {len(prices)}/{len(tickers)} 檔即時報價（交易日：{price_date or '無'}）")
 
-    # 補齊缺少的（休市、下市等）
     missing = [t for t in tickers if t not in prices]
     if missing:
         fallback = fallback_from_snapshot(conn, missing)
@@ -179,4 +355,15 @@ if __name__ == "__main__":
     update(conn, prices)
     insert_snapshot(conn, prices)
     print_summary(conn)
+
+    wl_tickers = [r[0] for r in conn.execute("SELECT ticker FROM watchlist ORDER BY ticker").fetchall()]
+    print(f"下載觀察池報價（{len(wl_tickers)} 檔）...")
+    watchlist_prices = get_watchlist_prices(wl_tickers)
+    print(f"觀察池取得 {len(watchlist_prices)}/{len(wl_tickers)} 檔報價")
+    insert_watchlist_snapshot(conn, watchlist_prices)
+
+    print("更新觀察池歷史價格...")
+    msg = update_watchlist_history(conn, wl_tickers)
+    print(msg)
+
     conn.close()

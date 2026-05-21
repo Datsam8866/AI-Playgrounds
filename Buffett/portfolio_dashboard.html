@@ -138,12 +138,12 @@ tbody tr:hover{background:var(--row-hover);}
   <div class="cards">
     <div class="card ">
       <div class="card-label">美股市值 (USD)</div>
-      <div class="card-value">$309,740</div>
-      <div class="card-sub pos">成本 $240,142 ｜ +29.0%</div>
+      <div class="card-value">$309,313</div>
+      <div class="card-sub pos">成本 $246,225 ｜ +25.6%</div>
     </div>
     <div class="card ">
       <div class="card-label">Sharpe Ratio</div>
-      <div class="card-value">2.03</div>
+      <div class="card-value">1.74</div>
       <div class="card-sub ">目前實際持倉</div>
     </div>
     <div class="card ">
@@ -175,24 +175,24 @@ tbody tr:hover{background:var(--row-hover);}
   <div class="cards">
     <div class="card ">
       <div class="card-label">美股市值</div>
-      <div class="card-value">$309,740</div>
-      <div class="card-sub ">成本 $240,142</div>
+      <div class="card-value">$309,313</div>
+      <div class="card-sub ">成本 $246,225</div>
     </div>
     <div class="card ">
       <div class="card-label">損益</div>
-      <div class="card-value">$+69,598</div>
-      <div class="card-sub pos">+29.0%</div>
+      <div class="card-value">$+63,087</div>
+      <div class="card-sub pos">+25.6%</div>
     </div>
     <div class="card ">
       <div class="card-label">Sharpe Ratio</div>
-      <div class="card-value">2.03</div>
+      <div class="card-value">1.74</div>
       <div class="card-sub ">目前實際持倉</div>
     </div>
     <div class="clickable-card" onclick="openRegimeDrawer()">
       <div class="card ">
       <div class="card-label">市場狀態</div>
       <div class="card-value"><span class="regime-badge" style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b66">CAUTION</span></div>
-      <div class="card-sub "><span id="usStatusSub">VOO 實際 56.8% ｜ 點選查看判斷</span></div>
+      <div class="card-sub "><span id="usStatusSub">VOO 實際 56.9% ｜ 點選查看判斷</span></div>
     </div>
     </div>
   </div>
@@ -203,7 +203,7 @@ tbody tr:hover{background:var(--row-hover);}
       <div class="chart-wrap tall"><canvas id="usHBar"></canvas></div>
     </div>
     <div class="chart-box">
-      <h3>損益走勢（近期，USD）</h3>
+      <h3>總資產走勢（USD）</h3>
       <div class="chart-wrap tall"><canvas id="usLine"></canvas></div>
     </div>
   </div>
@@ -254,7 +254,7 @@ tbody tr:hover{background:var(--row-hover);}
   <div class="cards">
     <div class="card">
       <div class="card-label">追蹤檔數</div>
-      <div class="card-value" style="color:var(--kpi)">43</div>
+      <div class="card-value">43</div>
       <div class="card-sub">觀察池 ｜ 依日漲幅排序</div>
     </div>
     <div class="card">
@@ -266,6 +266,12 @@ tbody tr:hover{background:var(--row-hover);}
       <div class="card-label">今日下跌</div>
       <div class="card-value neg">6</div>
       <div class="card-sub">檔</div>
+    </div>
+  </div>
+  <div class="charts-row wide">
+    <div class="chart-box">
+      <h3>類別走勢指數（過去 30 個交易日，基準 = 100）</h3>
+      <div class="chart-wrap" style="height:340px"><canvas id="wlCatChart"></canvas></div>
     </div>
   </div>
   <table>
@@ -549,7 +555,7 @@ tbody tr:hover{background:var(--row-hover);}
   <div class="drawer-head">
     <div>
       <div class="drawer-title">美股持倉明細</div>
-      <div class="drawer-sub">依市值排序 ｜ 總市值 $309,740</div>
+      <div class="drawer-sub">依市值排序 ｜ 總市值 $309,313</div>
     </div>
     <button class="drawer-close" onclick="closeHoldingsDrawer()" aria-label="關閉持倉明細">&times;</button>
   </div>
@@ -560,7 +566,7 @@ tbody tr:hover{background:var(--row-hover);}
       </tr></thead>
       <tbody><tr>
           <td><strong>VOO</strong><div class="drawer-name">Vanguard S&P 500 ETF</div></td>
-          <td class="num">56.8%</td>
+          <td class="num">56.9%</td>
           <td class="num">258</td>
           <td class="num">$175,845</td>
           <td class="num pos">+$39,880<div class="drawer-name pos">29.33%</div></td>
@@ -587,11 +593,11 @@ tbody tr:hover{background:var(--row-hover);}
           <td class="num pos">+$5,539<div class="drawer-name pos">82.51%</div></td>
         </tr>
 <tr>
-          <td><strong>SNDK</strong><div class="drawer-name">SanDisk</div></td>
-          <td class="num">3.6%</td>
-          <td class="num">8</td>
-          <td class="num">$11,140</td>
-          <td class="num pos">+$2,547<div class="drawer-name pos">29.65%</div></td>
+          <td><strong>CRWD</strong><div class="drawer-name">CrowdStrike</div></td>
+          <td class="num">3.8%</td>
+          <td class="num">18</td>
+          <td class="num">$11,702</td>
+          <td class="num pos">+$869<div class="drawer-name pos">8.02%</div></td>
         </tr>
 <tr>
           <td><strong>MU</strong><div class="drawer-name">Micron Technology</div></td>
@@ -615,11 +621,11 @@ tbody tr:hover{background:var(--row-hover);}
           <td class="num pos">+$745<div class="drawer-name pos">7.44%</div></td>
         </tr>
 <tr>
-          <td><strong>AMD</strong><div class="drawer-name">Advanced Micro Devices</div></td>
+          <td><strong>NET</strong><div class="drawer-name">Cloudflare</div></td>
           <td class="num">3.5%</td>
-          <td class="num">24</td>
-          <td class="num">$10,742</td>
-          <td class="num pos">+$4,881<div class="drawer-name pos">83.27%</div></td>
+          <td class="num">51</td>
+          <td class="num">$10,717</td>
+          <td class="num pos">+$220<div class="drawer-name pos">2.10%</div></td>
         </tr>
 <tr>
           <td><strong>AVGO</strong><div class="drawer-name">Broadcom</div></td>
@@ -643,32 +649,11 @@ tbody tr:hover{background:var(--row-hover);}
           <td class="num neg">$-379<div class="drawer-name neg">-3.82%</div></td>
         </tr>
 <tr>
-          <td><strong>CRWD</strong><div class="drawer-name">CrowdStrike</div></td>
-          <td class="num">0.2%</td>
-          <td class="num">1</td>
-          <td class="num">$650</td>
-          <td class="num pos">+$176<div class="drawer-name pos">37.04%</div></td>
-        </tr>
-<tr>
-          <td><strong>NET</strong><div class="drawer-name">Cloudflare</div></td>
-          <td class="num">0.1%</td>
-          <td class="num">1</td>
-          <td class="num">$210</td>
-          <td class="num neg">$-21<div class="drawer-name neg">-9.15%</div></td>
-        </tr>
-<tr>
           <td><strong>PLTR</strong><div class="drawer-name">Palantir Technologies</div></td>
           <td class="num">0.0%</td>
           <td class="num">1</td>
           <td class="num">$137</td>
           <td class="num neg">$-3<div class="drawer-name neg">-1.99%</div></td>
-        </tr>
-<tr>
-          <td><strong>NOW</strong><div class="drawer-name">ServiceNow</div></td>
-          <td class="num">0.0%</td>
-          <td class="num">1</td>
-          <td class="num">$103</td>
-          <td class="num pos">+$16<div class="drawer-name pos">18.74%</div></td>
         </tr></tbody>
     </table>
   </div>
@@ -848,10 +833,10 @@ const baseScales = {
   x:{ ticks:{color:tickColor,font:{size:10}}, grid:{color:gridColor} },
   y:{ ticks:{color:tickColor}, grid:{color:gridColor} }
 };
-const ACTUAL_WEIGHTS = {"AMD": 0.03468044813672439, "ARM": 0.0406139770930093, "AVGO": 0.0323698663633947, "COHR": 0.03472267815254595, "CRWD": 0.0020988897987093136, "INTC": 0.03955860580264457, "LITE": 0.030828346839625063, "MU": 0.03544860926331026, "NET": 0.0006784078595759003, "NOW": 0.0003335056028938355, "NVDA": 0.077197957360995, "PLTR": 0.0004427908039694345, "SNDK": 0.03596720760401027, "TSLA": 0.032331124184144994, "TSM": 0.035009176142463204, "VOO": 0.5677184089919838};
+const ACTUAL_WEIGHTS = {"ARM": 0.040670087244844076, "AVGO": 0.0324145868819581, "COHR": 0.034770649193126085, "CRWD": 0.037832211276330574, "INTC": 0.039613257908565534, "LITE": 0.030870937675238755, "MU": 0.03549758321243967, "NET": 0.03464660073651672, "NVDA": 0.07730461003130454, "PLTR": 0.0004434025406428677, "TSLA": 0.032375791178534806, "TSM": 0.03505754299371901, "VOO": 0.5685027391267793};
 const TW_ACTUAL_WEIGHTS = {"0050": 1.0};
 const REGIME_LABEL = "CAUTION";
-const VOO_ACTUAL = 56.771841;
+const VOO_ACTUAL = 56.850274;
 const US_BENCHMARK_PNLS = {"VT": [18286.95, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32, 21531.32], "VOO": [15909.69, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13, 18348.13], "QQQ": [29145.31, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66, 33348.66], "SOXX": [139720.12, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78, 159159.78]};
 
 function lineChart(id, labels, datasets){
@@ -869,7 +854,7 @@ function lineChart(id, labels, datasets){
 // Overview charts
 const ovDates = ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-16", "2026-05-17", "2026-05-18", "2026-05-19", "2026-05-20", "2026-05-21"];
 lineChart('ovUsChart', ovDates, [{
-  label:'損益 USD', data:[54694.08436000001, 50898.99435999998, 50898.99435999998, 80271.44436, 60223.45436, 70640.11435999998, 70640.11435999998, 70640.11435999998, 75762.64436, 70969.34436000002, 73286.48436000003, 75792.92435999998, 67451.46436000001, 67451.46436000001, 67451.46436000001, 63784.31435999999, 62963.95436, 69597.63436],
+  label:'損益 USD', data:[48611.019490000006, 44815.92948999998, 44815.92948999998, 74188.37948999999, 54140.38949, 64557.049489999976, 64557.049489999976, 64557.049489999976, 69679.57949, 64886.279490000015, 67203.41949000003, 69709.85948999997, 61368.39949000001, 61368.39949000001, 61368.39949000001, 57701.24948999999, 56880.88949, 63514.569489999994],
   borderColor:'#22c55e', backgroundColor:'#22c55e15', fill:true, tension:.3, pointRadius:3
 }]);
 lineChart('ovTwChart', ovDates, [{
@@ -881,12 +866,12 @@ lineChart('ovTwChart', ovDates, [{
 const usHBarChart = new Chart(document.getElementById('usHBar'),{
   type:'bar',
   data:{
-    labels: ["VOO", "NVDA", "ARM", "INTC", "SNDK", "MU", "TSM", "COHR", "AMD", "AVGO", "TSLA", "LITE", "CRWD", "NET", "PLTR", "NOW"],
+    labels: ["VOO", "NVDA", "ARM", "INTC", "CRWD", "MU", "TSM", "COHR", "NET", "AVGO", "TSLA", "LITE", "PLTR"],
     datasets:[
       {
         label:'實際持倉 %',
-        data: [56.8, 7.7, 4.1, 4.0, 3.6, 3.5, 3.5, 3.5, 3.5, 3.2, 3.2, 3.1, 0.2, 0.1, 0.0, 0.0],
-        backgroundColor: ["#00978A", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e"],
+        data: [56.9, 7.7, 4.1, 4.0, 3.8, 3.5, 3.5, 3.5, 3.5, 3.2, 3.2, 3.1, 0.0],
+        backgroundColor: ["#00978A", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e", "#22c55e"],
         borderRadius:2
       }
     ]
@@ -988,29 +973,82 @@ function closeRegimeDrawer(){
   document.getElementById('regimeDrawerBackdrop').classList.remove('open');
 }
 
-// US P&L trend
-const benchmarkLineColors = {VT:'#f59e0b', VOO:'#38bdf8', QQQ:'#a78bfa', SOXX:'#ef4444'};
-const usLineDatasets = [{
-  label:'Actual Portfolio',
-  data: [0, 57225.96, 57225.96, 74023.72, 62874.53, 73291.19, 73291.19, 73291.19, 78413.72, 73620.42, 73286.48, 75792.92, 67451.47, 67451.47, 67451.47, 63784.32, 62963.95, 69597.64],
-  borderColor:'#22c55e', backgroundColor:'#22c55e12', fill:false, tension:.3, pointRadius:3
+// US total market value trend
+const usMvDatasets = [{
+  label:'總市值 USD',
+  data: [294836.38, 291041.29, 291041.29, 320413.74, 300365.75, 310782.41, 310782.41, 310782.41, 315904.94, 311111.64, 313428.78, 315935.22, 307593.76, 307593.76, 307593.76, 303926.61, 303106.25, 309739.93],
+  borderColor:'#0DFDCF', backgroundColor:'#0DFDCF12', fill:true, tension:.3, pointRadius:3
 }];
-for (const ticker of ['VT', 'VOO', 'QQQ', 'SOXX']) {
-  if (US_BENCHMARK_PNLS[ticker]) {
-    usLineDatasets.push({
-      label:`100% ${ticker}`,
-      data: US_BENCHMARK_PNLS[ticker],
-      borderColor: benchmarkLineColors[ticker],
-      backgroundColor: `${benchmarkLineColors[ticker]}12`,
-      borderDash: [2, 4],
-      borderWidth: 3,
-      fill:false,
-      tension:.3,
-      pointRadius:2
+new Chart(document.getElementById('usLine'), {
+  type:'line',
+  data:{ labels:["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-16", "2026-05-17", "2026-05-18", "2026-05-19", "2026-05-20", "2026-05-21"], datasets:usMvDatasets },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{color:tickColor, usePointStyle:true, pointStyle:'line', boxWidth:42, boxHeight:4} } },
+    scales:{
+      x:{ ticks:{color:tickColor,font:{size:10}}, grid:{color:gridColor} },
+      y:{ ticks:{color:tickColor, callback:v=>'$'+v.toLocaleString()}, grid:{color:gridColor} }
+    }
+  }
+});
+
+// Watchlist category trend chart
+(function(){
+  const ctx = document.getElementById('wlCatChart');
+  if (!ctx) return;
+  const wlDates = ["2026-04-09", "2026-04-10", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-16", "2026-04-17", "2026-04-20", "2026-04-21", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-04-30", "2026-05-01", "2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-18", "2026-05-19", "2026-05-20"];
+  const catColors = {"\u5149\u901a\u8a0a": "#0DFDCF", "AI \u6676\u7247": "#f59e0b", "AI \u96f2\u7aef & \u8edf\u9ad4": "#a78bfa", "\u8cc7\u5b89": "#ef4444", "\u96fb\u529b & \u8cc7\u6599\u4e2d\u5fc3": "#22c55e", "\u6bd4\u7279\u5e63 & \u52a0\u5bc6": "#f97316", "\u6d88\u8cbb & \u5176\u4ed6": "#94a3b8"};
+  const catData   = {"\u5149\u901a\u8a0a": [100.0, 103.13, 105.42, 105.49, 103.32, 106.38, 108.54, 110.82, 109.43, 110.98, 111.93, 113.41, 110.58, 106.35, 110.77, 116.62, 118.45, 118.72, 121.23, 123.11, 116.48, 121.06, 132.36, 126.9, 136.28, 136.19, 129.95, 123.32, 123.55, 125.62], "AI \u6676\u7247": [100.0, 101.31, 104.42, 106.73, 106.58, 108.66, 110.29, 109.73, 109.91, 115.41, 115.76, 125.83, 126.35, 122.08, 126.61, 130.34, 133.11, 131.97, 140.73, 148.18, 144.39, 156.67, 159.77, 152.55, 156.01, 155.64, 149.39, 147.62, 147.82, 155.77], "AI \u96f2\u7aef & \u8edf\u9ad4": [100.0, 99.67, 104.23, 107.08, 110.25, 112.07, 112.47, 112.63, 112.87, 115.75, 108.92, 109.99, 110.29, 109.13, 109.22, 108.5, 111.53, 113.15, 113.16, 114.48, 114.9, 112.82, 111.4, 109.0, 109.22, 110.86, 110.83, 111.53, 109.71, 111.24], "\u8cc7\u5b89": [100.0, 92.17, 97.79, 96.21, 100.08, 103.62, 104.67, 107.3, 110.21, 112.6, 108.75, 109.96, 111.77, 111.03, 111.38, 108.8, 112.1, 114.88, 118.07, 117.91, 124.55, 120.91, 121.54, 120.23, 123.53, 128.18, 130.11, 134.5, 133.41, 138.17], "\u96fb\u529b & \u8cc7\u6599\u4e2d\u5fc3": [100.0, 102.53, 106.5, 113.77, 113.13, 113.76, 116.3, 118.78, 119.71, 120.54, 120.98, 122.02, 123.24, 116.03, 124.5, 128.37, 130.48, 130.8, 132.48, 135.3, 128.7, 132.7, 137.31, 134.87, 137.34, 140.36, 133.29, 126.85, 125.13, 129.32], "\u6bd4\u7279\u5e63 & \u52a0\u5bc6": [100.0, 102.61, 107.66, 112.78, 116.41, 117.47, 123.16, 124.84, 121.55, 129.21, 129.98, 128.5, 126.38, 119.95, 115.73, 120.81, 124.63, 131.17, 138.72, 148.84, 139.11, 146.06, 142.84, 140.83, 140.17, 147.09, 138.39, 132.19, 128.02, 133.27], "\u6d88\u8cbb & \u5176\u4ed6": [100.0, 99.31, 101.65, 101.3, 104.25, 105.54, 106.02, 108.8, 109.12, 110.05, 107.45, 108.29, 106.79, 107.03, 108.31, 107.2, 113.96, 116.1, 117.13, 116.09, 116.88, 119.44, 118.8, 117.03, 116.65, 116.14, 119.02, 119.39, 118.33, 118.04]};
+  const bmData    = {"SPY": [100.0, 99.93, 100.91, 102.14, 102.95, 103.2, 104.45, 104.24, 103.55, 104.6, 104.2, 105.01, 105.19, 104.67, 104.66, 105.7, 105.99, 105.6, 106.45, 107.93, 107.6, 108.49, 108.73, 108.57, 109.18, 110.04, 108.72, 108.64, 107.92, 109.02], "QQQ": [100.0, 100.14, 101.18, 103.02, 104.46, 104.96, 106.34, 106.0, 105.59, 107.36, 106.76, 108.8, 108.86, 107.76, 108.42, 109.43, 110.48, 110.27, 111.7, 114.03, 113.89, 116.56, 116.9, 115.9, 117.13, 117.96, 116.18, 115.68, 114.97, 116.87]};
+  const datasets  = [];
+  for (const [cat, values] of Object.entries(catData)) {
+    datasets.push({
+      label: cat,
+      data: values,
+      borderColor: catColors[cat] || '#888',
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3,
     });
   }
-}
-lineChart('usLine', ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-16", "2026-05-17", "2026-05-18", "2026-05-19", "2026-05-20", "2026-05-21"], usLineDatasets);
+  const bmStyles = {SPY:{color:'#ffffff',dash:[4,3]}, QQQ:{color:'#fde68a',dash:[4,3]}};
+  for (const [bm, values] of Object.entries(bmData)) {
+    const s = bmStyles[bm] || {color:'#888',dash:[4,3]};
+    datasets.push({
+      label: bm,
+      data: values,
+      borderColor: s.color,
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderDash: s.dash,
+      pointRadius: 0,
+      tension: 0.3,
+    });
+  }
+  new Chart(ctx, {
+    type: 'line',
+    data: { labels: wlDates, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: tickColor, font: { size: 11 }, boxWidth: 24, boxHeight: 2, usePointStyle: false } },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(1) ?? '—'}`
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: tickColor, font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: gridColor } },
+        y: { ticks: { color: tickColor, callback: v => v.toFixed(0) }, grid: { color: gridColor },
+              title: { display: true, text: '指數 (基準=100)', color: tickColor, font: { size: 11 } } }
+      }
+    }
+  });
+})();
 
 // TW market value trend
 lineChart('twLine', ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-16", "2026-05-17", "2026-05-18", "2026-05-19", "2026-05-20", "2026-05-21"], [{

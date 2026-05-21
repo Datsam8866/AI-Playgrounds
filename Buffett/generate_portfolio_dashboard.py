@@ -14,6 +14,17 @@ import pandas as pd
 import numpy as np
 
 ROOT    = Path(__file__).parent
+
+CATEGORY_ORDER = ["光通訊", "AI 晶片", "AI 雲端 & 軟體", "資安", "電力 & 資料中心", "比特幣 & 加密", "消費 & 其他"]
+CATEGORY_COLORS = {
+    "光通訊":         "#0DFDCF",
+    "AI 晶片":        "#f59e0b",
+    "AI 雲端 & 軟體": "#a78bfa",
+    "資安":           "#ef4444",
+    "電力 & 資料中心": "#22c55e",
+    "比特幣 & 加密":  "#f97316",
+    "消費 & 其他":    "#94a3b8",
+}
 DB_PATH = ROOT / "portfolio.sqlite"
 WF_CSV  = ROOT / "Wall Street" / "walkforward_portfolio_beta_constrained_voo_alpha.csv"
 WS_DB   = ROOT / "Wall Street" / "stock_forecast.sqlite"
@@ -735,6 +746,69 @@ def load_us_model():
             row.get("selection_stage", "unknown"),
             row.get("p_beat_qqq_calibrated", None))
 
+def load_watchlist_category_index(watchlist):
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        rows = conn.execute("""
+            SELECT date, ticker, close FROM watchlist_price_history
+            WHERE date >= date('now', '-45 days')
+            ORDER BY date
+        """).fetchall()
+    except Exception:
+        rows = []
+    conn.close()
+    if not rows:
+        return {}, [], {}
+
+    df = pd.DataFrame(rows, columns=["date", "ticker", "close"])
+    pivot = df.pivot(index="date", columns="ticker", values="close").sort_index().tail(30)
+    dates = list(pivot.index)
+    if len(dates) < 2:
+        return {}, dates, {}
+
+    ticker_to_cat = {item["ticker"]: item.get("category", "其他") for item in watchlist}
+
+    cat_indices = {}
+    for cat in CATEGORY_ORDER:
+        tickers = [t for t, c in ticker_to_cat.items() if c == cat and t in pivot.columns]
+        if not tickers:
+            continue
+        sub = pivot[tickers].copy()
+        base = sub.iloc[0].replace(0, np.nan)
+        normalized = sub.div(base) * 100
+        cat_indices[cat] = [round(v, 2) if not pd.isna(v) else None
+                            for v in normalized.mean(axis=1)]
+
+    benchmarks = {}
+    for bm in ["SPY", "QQQ"]:
+        if bm in pivot.columns:
+            col = pivot[bm]
+            base = col.iloc[0]
+            if base and base > 0:
+                benchmarks[bm] = [round(v / base * 100, 2) if not pd.isna(v) else None
+                                  for v in col]
+    return cat_indices, dates, benchmarks
+
+
+def load_watchlist():
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        rows = conn.execute("""
+            SELECT w.ticker, w.category, ws.price, ws.change_dollar, ws.change_pct
+            FROM watchlist w
+            LEFT JOIN watchlist_snapshot ws ON ws.ticker = w.ticker
+              AND ws.snapshot_date = (
+                  SELECT MAX(snapshot_date) FROM watchlist_snapshot WHERE ticker = w.ticker
+              )
+            ORDER BY w.category, ws.change_pct DESC
+        """).fetchall()
+    except Exception:
+        rows = []
+    conn.close()
+    return [{"ticker": t, "category": cat, "price": p, "change_dollar": cd, "change_pct": cp}
+            for t, cat, p, cd, cp in rows]
+
+
 def load_tw_model():
     try:
         df  = pd.read_csv(TW_WF)
@@ -861,6 +935,8 @@ def build():
     wf_frame                      = pd.read_csv(WF_CSV)
     model_w, regime, stage, p_beat = load_us_model()
     tw_model_w, tw_p_beat, tw_util = load_tw_model()
+    watchlist                     = load_watchlist()
+    cat_indices, wl_hist_dates, wl_benchmarks = load_watchlist_category_index(watchlist)
 
     us_tc, us_tm, us_tp, us_pp, us_h = summarise(holdings, "US")
     tw_tc, tw_tm, tw_tp, tw_pp, tw_h = summarise(holdings, "TW")
@@ -958,6 +1034,42 @@ def build():
     else:
         tw_grid     = '<div style="color:#94a3b8;padding:12px">模型配置資料未找到</div>'
         tw_util_str = "—"
+
+    # 觀察池：依分類群組顯示
+    CATEGORY_ORDER = ["光通訊", "AI 晶片", "AI 雲端 & 軟體", "資安", "電力 & 資料中心", "比特幣 & 加密", "消費 & 其他"]
+    from collections import defaultdict
+    wl_by_cat = defaultdict(list)
+    for item in watchlist:
+        cat = item.get("category") or "其他"
+        wl_by_cat[cat].append(item)
+    cats_present = [c for c in CATEGORY_ORDER if c in wl_by_cat]
+    for c in wl_by_cat:
+        if c not in cats_present:
+            cats_present.append(c)
+
+    wl_rows_html = ""
+    for cat in cats_present:
+        items = wl_by_cat[cat]
+        wl_rows_html += f'<tr><td colspan="4" style="background:var(--table-head);font-size:0.8rem;font-weight:700;color:var(--ac);padding:8px 12px;letter-spacing:.5px">{cat}</td></tr>\n'
+        for item in items:
+            t = item["ticker"]
+            p = item["price"]
+            cd = item["change_dollar"]
+            cp = item["change_pct"]
+            if p is None:
+                price_str, cd_str, cp_str, row_cls = "—", "—", "—", ""
+            else:
+                price_str = f"${p:,.2f}" if p < 10000 else f"${p:,.0f}"
+                sign = "+" if (cd or 0) >= 0 else ""
+                cd_str = f"{sign}{cd:.2f}" if cd is not None else "—"
+                cp_str = f"{sign}{cp:.2f}%" if cp is not None else "—"
+                row_cls = "pos" if (cp or 0) >= 0 else "neg"
+            wl_rows_html += f"""<tr>
+              <td><strong>{t}</strong></td>
+              <td class="num">{price_str}</td>
+              <td class="num {row_cls}">{cd_str}</td>
+              <td class="num {row_cls}">{cp_str}</td>
+            </tr>\n"""
 
     us_table_html = holdings_table_us(us_h, us_total_mv)
     us_drawer_rows_html = holdings_drawer_rows_us(us_h, us_total_mv)
@@ -1099,6 +1211,7 @@ tbody tr:hover{{background:var(--row-hover);}}
   <div class="tab active" onclick="switchTab(0)">總覽</div>
   <div class="tab" onclick="switchTab(1)">&#127482;&#127480; 美股</div>
   <div class="tab" onclick="switchTab(2)">&#127481;&#127484; 台股</div>
+  <div class="tab" onclick="switchTab(3)">&#128270; 觀察池</div>
 </div>
 </div>
 
@@ -1142,7 +1255,7 @@ tbody tr:hover{{background:var(--row-hover);}}
       <div class="chart-wrap tall"><canvas id="usHBar"></canvas></div>
     </div>
     <div class="chart-box">
-      <h3>損益走勢（近期，USD）</h3>
+      <h3>總資產走勢（USD）</h3>
       <div class="chart-wrap tall"><canvas id="usLine"></canvas></div>
     </div>
   </div>
@@ -1169,6 +1282,43 @@ tbody tr:hover{{background:var(--row-hover);}}
       <div class="chart-wrap tall"><canvas id="twLine"></canvas></div>
     </div>
   </div>
+</div>
+
+<!-- ══ Tab 3: 觀察池 ══ -->
+<div class="panel" id="tab3">
+  <div style="height:16px"></div>
+  <div class="cards">
+    <div class="card">
+      <div class="card-label">追蹤檔數</div>
+      <div class="card-value">{len(watchlist)}</div>
+      <div class="card-sub">觀察池 ｜ 依日漲幅排序</div>
+    </div>
+    <div class="card">
+      <div class="card-label">今日上漲</div>
+      <div class="card-value pos">{sum(1 for w in watchlist if (w['change_pct'] or 0) > 0)}</div>
+      <div class="card-sub">檔</div>
+    </div>
+    <div class="card">
+      <div class="card-label">今日下跌</div>
+      <div class="card-value neg">{sum(1 for w in watchlist if (w['change_pct'] or 0) < 0)}</div>
+      <div class="card-sub">檔</div>
+    </div>
+  </div>
+  <div class="charts-row wide">
+    <div class="chart-box">
+      <h3>類別走勢指數（過去 30 個交易日，基準 = 100）</h3>
+      <div class="chart-wrap" style="height:340px"><canvas id="wlCatChart"></canvas></div>
+    </div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>代號</th>
+      <th class="num">現價</th>
+      <th class="num">日漲跌 ($)</th>
+      <th class="num">日漲跌 (%)</th>
+    </tr></thead>
+    <tbody>{wl_rows_html}</tbody>
+  </table>
 </div>
 
 <div class="drawer-backdrop" id="holdingsDrawerBackdrop" onclick="closeHoldingsDrawer()"></div>
@@ -1470,29 +1620,82 @@ function closeRegimeDrawer(){{
   document.getElementById('regimeDrawerBackdrop').classList.remove('open');
 }}
 
-// US P&L trend
-const benchmarkLineColors = {{VT:'#f59e0b', VOO:'#38bdf8', QQQ:'#a78bfa', SOXX:'#ef4444'}};
-const usLineDatasets = [{{
-  label:'Actual Portfolio',
-  data: {us_pnls},
-  borderColor:'#22c55e', backgroundColor:'#22c55e12', fill:false, tension:.3, pointRadius:3
+// US total market value trend
+const usMvDatasets = [{{
+  label:'總市值 USD',
+  data: {json.dumps([d["mv"] for d in hist["US"]])},
+  borderColor:'#0DFDCF', backgroundColor:'#0DFDCF12', fill:true, tension:.3, pointRadius:3
 }}];
-for (const ticker of ['VT', 'VOO', 'QQQ', 'SOXX']) {{
-  if (US_BENCHMARK_PNLS[ticker]) {{
-    usLineDatasets.push({{
-      label:`100% ${{ticker}}`,
-      data: US_BENCHMARK_PNLS[ticker],
-      borderColor: benchmarkLineColors[ticker],
-      backgroundColor: `${{benchmarkLineColors[ticker]}}12`,
-      borderDash: [2, 4],
-      borderWidth: 3,
-      fill:false,
-      tension:.3,
-      pointRadius:2
+new Chart(document.getElementById('usLine'), {{
+  type:'line',
+  data:{{ labels:{us_dates}, datasets:usMvDatasets }},
+  options:{{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{{ legend:{{ labels:{{color:tickColor, usePointStyle:true, pointStyle:'line', boxWidth:42, boxHeight:4}} }} }},
+    scales:{{
+      x:{{ ticks:{{color:tickColor,font:{{size:10}}}}, grid:{{color:gridColor}} }},
+      y:{{ ticks:{{color:tickColor, callback:v=>'$'+v.toLocaleString()}}, grid:{{color:gridColor}} }}
+    }}
+  }}
+}});
+
+// Watchlist category trend chart
+(function(){{
+  const ctx = document.getElementById('wlCatChart');
+  if (!ctx) return;
+  const wlDates = {json.dumps(wl_hist_dates)};
+  const catColors = {json.dumps(CATEGORY_COLORS)};
+  const catData   = {json.dumps(cat_indices)};
+  const bmData    = {json.dumps(wl_benchmarks)};
+  const datasets  = [];
+  for (const [cat, values] of Object.entries(catData)) {{
+    datasets.push({{
+      label: cat,
+      data: values,
+      borderColor: catColors[cat] || '#888',
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3,
     }});
   }}
-}}
-lineChart('usLine', {us_dates}, usLineDatasets);
+  const bmStyles = {{SPY:{{color:'#ffffff',dash:[4,3]}}, QQQ:{{color:'#fde68a',dash:[4,3]}}}};
+  for (const [bm, values] of Object.entries(bmData)) {{
+    const s = bmStyles[bm] || {{color:'#888',dash:[4,3]}};
+    datasets.push({{
+      label: bm,
+      data: values,
+      borderColor: s.color,
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderDash: s.dash,
+      pointRadius: 0,
+      tension: 0.3,
+    }});
+  }}
+  new Chart(ctx, {{
+    type: 'line',
+    data: {{ labels: wlDates, datasets }},
+    options: {{
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {{ mode: 'index', intersect: false }},
+      plugins: {{
+        legend: {{ labels: {{ color: tickColor, font: {{ size: 11 }}, boxWidth: 24, boxHeight: 2, usePointStyle: false }} }},
+        tooltip: {{
+          callbacks: {{
+            label: ctx => `${{ctx.dataset.label}}: ${{ctx.parsed.y?.toFixed(1) ?? '—'}}`
+          }}
+        }}
+      }},
+      scales: {{
+        x: {{ ticks: {{ color: tickColor, font: {{ size: 10 }}, maxTicksLimit: 8 }}, grid: {{ color: gridColor }} }},
+        y: {{ ticks: {{ color: tickColor, callback: v => v.toFixed(0) }}, grid: {{ color: gridColor }},
+              title: {{ display: true, text: '指數 (基準=100)', color: tickColor, font: {{ size: 11 }} }} }}
+      }}
+    }}
+  }});
+}})();
 
 // TW market value trend
 lineChart('twLine', {tw_dates}, [{{
