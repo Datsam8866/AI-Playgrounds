@@ -164,6 +164,10 @@ def _merge_cached_manual_odds(league: str, date_str: str, fresh_data: dict) -> d
 
 @app.route("/")
 def index():
+    return send_from_directory(DASH_DIR, "index_logi.html")
+
+@app.route("/classic")
+def index_classic():
     return send_from_directory(DASH_DIR, "index.html")
 
 @app.route("/dashboard/<path:filename>")

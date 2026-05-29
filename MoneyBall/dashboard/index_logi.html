@@ -758,12 +758,14 @@ function buildPanels() {
         </div>
         <div class="toolbar-card mb-2">
           <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-            <button class="btn btn-primary btn-sm" onclick="startRefresh('${lg}')">
+            <!-- Update button: desktop only — mobile uses floating action bar -->
+            <button class="btn btn-primary btn-sm d-none d-md-inline-flex" onclick="startRefresh('${lg}')">
               <i class="fa-solid fa-rotate-right me-1" id="spin-${lg}"></i>Update Predictions
             </button>
-            <div class="d-flex flex-column gap-1 ms-1">
-              <label class="toolbar-label mb-0">Confidence</label>
-              <select class="form-select form-select-sm" style="width:90px" id="filter-conf-${lg}"
+            <!-- Confidence filter -->
+            <div class="d-flex align-items-center gap-1">
+              <label class="toolbar-label mb-0 d-none d-sm-block">Conf</label>
+              <select class="form-select form-select-sm" style="width:82px" id="filter-conf-${lg}"
                       onchange="renderTable('${lg}')">
                 <option value="all">All</option>
                 <option value="HIGH" selected>HIGH ★</option>
@@ -771,29 +773,30 @@ function buildPanels() {
                 <option value="LOW">LOW</option>
               </select>
             </div>
-            <div class="d-flex align-items-end gap-3 ms-1">
-              <div class="form-check mb-0" data-bs-toggle="tooltip" title="只保留任一方向 EV 大於 0 的比賽。">
+            <!-- EV / BET checkboxes -->
+            <div class="d-flex align-items-center gap-3">
+              <div class="form-check mb-0">
                 <input class="form-check-input" type="checkbox" id="filter-ev-${lg}"
                        onchange="renderTable('${lg}')">
-                <label class="form-check-label small" for="filter-ev-${lg}">+EV only</label>
+                <label class="form-check-label small" for="filter-ev-${lg}">+EV</label>
               </div>
-              <div class="form-check mb-0" data-bs-toggle="tooltip" title="只保留已達正式推薦門檻的比賽。">
+              <div class="form-check mb-0">
                 <input class="form-check-input" type="checkbox" id="filter-bet-${lg}"
                        onchange="renderTable('${lg}')">
-                <label class="form-check-label small" for="filter-bet-${lg}">BET only</label>
+                <label class="form-check-label small" for="filter-bet-${lg}">BET</label>
               </div>
             </div>
-            <div class="d-flex flex-column gap-1 ms-1" data-bs-toggle="tooltip" title="Recommended 會優先顯示 BET 與 +EV 的比賽。">
-              <label class="toolbar-label mb-0">Sort</label>
-              <select class="form-select form-select-sm sort-select" id="sort-${lg}" onchange="renderTable('${lg}')">
-                <option value="recommended">Recommended</option>
-                <option value="edge">Best Edge</option>
-                <option value="ev">Best EV</option>
-                <option value="confidence">Highest Confidence</option>
-                <option value="alpha">Matchup A-Z</option>
-              </select>
-            </div>
-            <div class="ms-auto d-flex flex-column gap-1 align-items-end">
+            <!-- Sort: full label on desktop, icon only on mobile -->
+            <select class="form-select form-select-sm sort-select" id="sort-${lg}" onchange="renderTable('${lg}')"
+                    style="width:auto;max-width:150px">
+              <option value="recommended">⭐ Recommended</option>
+              <option value="edge">Edge</option>
+              <option value="ev">EV</option>
+              <option value="confidence">Confidence</option>
+              <option value="alpha">A-Z</option>
+            </select>
+            <!-- Parlay launch: desktop only — mobile uses floating action bar -->
+            <div class="ms-auto d-none d-md-flex flex-column gap-1 align-items-end">
               <div class="toolbar-inline-note"><span class="toolbar-count" id="selected-count-${lg}">0</span> picks</div>
               <button class="btn btn-outline-secondary btn-sm parlay-launch" id="parlay-btn-${lg}" onclick="openParlay()">
                 <i class="fa-solid fa-calculator me-1"></i>Parlay · 0

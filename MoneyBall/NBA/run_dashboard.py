@@ -175,7 +175,10 @@ def _fetch_scheduled(target_date: date, team_lookup: dict) -> list[dict]:
         pass
 
     # Attempt 3: direct HTTP with NBA anti-bot headers
-    return _fetch_via_requests(target_date, team_lookup)
+    try:
+        return _fetch_via_requests(target_date, team_lookup)
+    except Exception:
+        return []
 
 
 def _run_regular(conn, scheduled, target_date: date) -> list[dict]:

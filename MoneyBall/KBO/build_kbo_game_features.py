@@ -714,6 +714,30 @@ def main():
             print(f"查詢 {target_date} 排程賽事（KBO API）…")
             scheduled = load_scheduled_games(target_date, known_ids)
             print(f"  找到 {len(scheduled)} 場排程賽事")
+
+            # Fallback: read game_state=1 rows from DB when API fails
+            if not scheduled:
+                db_scheduled = conn.execute(
+                    "SELECT game_id, season_year, sr_id, game_date, away_code, home_code "
+                    "FROM team_game_results "
+                    "WHERE game_state = 1 AND game_date = ? AND sr_id = 0",
+                    (args.date,),
+                ).fetchall()
+                scheduled = [
+                    {
+                        "game_id":     r[0],
+                        "season_year": r[1],
+                        "sr_id":       r[2],
+                        "game_date":   r[3],
+                        "away_code":   r[4],
+                        "home_code":   r[5],
+                    }
+                    for r in db_scheduled
+                    if r[0] not in known_ids
+                ]
+                if scheduled:
+                    print(f"  KBO API 失敗，改用 DB fallback：{len(scheduled)} 場")
+
             for s in scheduled:
                 print(f"    {s['game_id']}: {s['away_code']} @ {s['home_code']}")
 

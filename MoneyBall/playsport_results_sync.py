@@ -105,7 +105,7 @@ def sync_cpbl_results(target_date: date) -> dict:
     if not result["ok"]:
         return _summary(result, 0, 0, 0)
 
-    conn = sqlite3.connect(CPBL_DB)
+    conn = sqlite3.connect(CPBL_DB, timeout=30)
     inserted = updated = skipped = 0
     try:
         existing = {}
@@ -222,7 +222,7 @@ def sync_kbo_results(target_date: date) -> dict:
     if not result["ok"]:
         return _summary(result, 0, 0, 0)
 
-    conn = sqlite3.connect(KBO_DB)
+    conn = sqlite3.connect(KBO_DB, timeout=30)
     inserted = updated = skipped = 0
     try:
         existing = {}
@@ -327,7 +327,7 @@ def sync_npb_results(target_date: date) -> dict:
     if not result["ok"]:
         return _summary(result, 0, 0, 0)
 
-    conn = sqlite3.connect(NPB_DB)
+    conn = sqlite3.connect(NPB_DB, timeout=30)
     inserted = updated = skipped = 0
     try:
         existing = {}
@@ -428,7 +428,7 @@ def sync_mlb_results(target_date: date) -> dict:
     if not result["ok"]:
         return _summary(result, 0, 0, 0)
 
-    conn = sqlite3.connect(MLB_DB)
+    conn = sqlite3.connect(MLB_DB, timeout=30)
     inserted = updated = skipped = 0
     try:
         team_id_by_name = {}
