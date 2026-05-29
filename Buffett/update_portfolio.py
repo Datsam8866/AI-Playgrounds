@@ -25,13 +25,13 @@ TICKER_MAP = {
 
 # 觀察池：追蹤但未持有的股票
 WATCHLIST_TICKERS = [
-    "AAPL", "AMD", "AMZN", "ARM", "AVGO", "BE", "CLS", "COHR", "CORZ", "CRM",
-    "CRWD", "CRWV", "DELL", "GLW", "GOOGL", "IBM", "IFNNY", "INTC", "IREN",
-    "LITE", "LOGI", "META", "MRVL", "MSFT", "MSTR", "MU", "NET", "NOK", "NOW",
-    "NTAP", "NVDA", "OKTA", "ORCL", "PANW", "PLTR", "QCOM", "SNDK",
-    "TEAM", "TSLA", "TSM", "VRT",
+    "AAPL", "AMD", "AMZN", "ARM", "AVGO", "BE", "CBRS", "CDNS", "CLS", "COHR",
+    "CORZ", "CRM", "CRWD", "CRWV", "DELL", "GLW", "GOOGL", "IBM", "IFNNY",
+    "INTC", "IREN", "LITE", "LOGI", "META", "MRVL", "MSFT", "MSTR", "MU",
+    "NET", "NOK", "NOW", "NTAP", "NVDA", "OKTA", "ORCL", "PANW", "PLTR",
+    "QCOM", "SNDK", "SSO", "TEAM", "TSLA", "TSM", "VIX", "VRT",
 ]
-WATCHLIST_TICKER_MAP = {}
+WATCHLIST_TICKER_MAP = {"VIX": "^VIX"}
 WATCHLIST_BENCHMARKS = ["SPY", "QQQ"]
 
 WATCHLIST_CATEGORIES = {
@@ -76,6 +76,10 @@ WATCHLIST_CATEGORIES = {
     "LOGI":  "消費 & 其他",
     "TEAM":  "AI 雲端 & 軟體",
     "NTAP":  "消費 & 其他",
+    "CDNS":  "AI 晶片",
+    "CBRS":  "其他",
+    "SSO":   "指數 & ETF",
+    "VIX":   "指數 & ETF",
 }
 
 
@@ -89,20 +93,22 @@ def get_prices(tickers: list[str]) -> tuple[dict[str, float], str]:
     if raw.empty:
         return {}, ""
 
-    # 取最後一個有資料的交易日
-    last_date = str(raw.index[-1].date())
-    last_row = raw.iloc[-1]
-
     prices = {}
+    last_date = ""
     for ticker in tickers:
         yf_key = TICKER_MAP.get(ticker, ticker)
         # yfinance multi-ticker 欄名可能帶 tuple，嘗試多種 key 格式
-        val = last_row.get(yf_key)
-        if val is None or pd.isna(val):
-            # 嘗試只用 ticker 本身
-            val = last_row.get(ticker)
-        if val is not None and not pd.isna(val):
-            prices[ticker] = float(val)
+        col = raw.get(yf_key) if yf_key in raw.columns else raw.get(ticker)
+        if col is None:
+            continue
+        # 逐檔取最後一個「有效」交易日，避免當日盤中部分缺值整批落空
+        col = col.dropna()
+        if col.empty:
+            continue
+        prices[ticker] = float(col.iloc[-1])
+        ticker_date = str(col.index[-1].date())
+        if ticker_date > last_date:
+            last_date = ticker_date
 
     return prices, last_date
 
@@ -224,8 +230,15 @@ def update_watchlist_history(conn, tickers: list[str]) -> str:
         raw = raw.to_frame(name=yf_tickers[0])
     raw = raw.dropna(how="all")
 
+    # 非交易日（如美股假日）有時僅 ^VIX 等指數會回傳假值，造成當日近乎全空、
+    # 圖表線段斷裂。要求當日有效檔數達門檻才視為真正交易日，否則整天跳過。
+    min_valid = max(5, len(all_tickers) // 2)
+
     inserted = 0
     for date_idx in raw.index:
+        valid_on_date = int(raw.loc[date_idx].notna().sum())
+        if valid_on_date < min_valid:
+            continue
         date_str = str(date_idx.date())
         for ticker in all_tickers:
             yf_key = WATCHLIST_TICKER_MAP.get(ticker, ticker)
