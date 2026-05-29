@@ -1,6 +1,6 @@
 # MoneyBall — 多聯盟棒球勝負預測系統
 
-**最後更新：2026-05-18（threshold sweep 工具 + dashboard 高信心篩選 + KBO 2026 診斷）**
+**最後更新：2026-05-29（NPB 交流戰 walk-forward 驗證 + dashboard 納入 IL 預測）**
 
 ---
 
@@ -20,6 +20,16 @@ MoneyBall 是多聯盟運動勝負預測與 Dashboard 追蹤系統，整合 `CPB
 ---
 
 ## 最新進度
+
+### 2026-05-29：NPB 交流戰（IL）預測開放前驗證完成
+
+- `NPB/build_game_features_npb.py` 已納入 **completed IL** 場次建檔，`game_features_npb` labeled rows 由 `CL=5422 / PL=5570 / IL=0` 變成 `CL=5422 / PL=5570 / IL=1665`。
+- `NPB/evaluate_game_predictions_npb_regime.py` 新增 `--compare-il` 與 `--train-leagues`，可直接比較 `train=CL,PL` 與 `train=CL,PL,IL` 的 walk-forward 結果，並分開輸出 `CL/PL-only` 與 `IL-only` accuracy。
+- 實測結果：
+  - baseline `train=CL,PL`：`overall_cl_pl_only = 54.47% (N=7558)`，`overall_il_only = 51.05% (N=1001)`
+  - candidate `train=CL,PL,IL`：`overall_cl_pl_only = 54.23% (N=7558)`，`overall_il_only = 51.05% (N=1001)`，CL/PL 子集只回落 `0.24pp`
+- 依門檻規則，正式設定採用 **training 納入 IL**，因為對既有 CL/PL 子集的回落未超過 `0.5pp`。
+- `NPB/predict_today_npb.py` / `NPB/run_dashboard.py` 已能載入交流戰 target；本機 `python run_dashboard.py 2026-05-29` 成功輸出 **6 場 IL** 預測。注意：依目前本機 schedule source，`2026-05-29` 在 sqlite 內是 6 場交流戰，不是 3 場。
 
 ### 2026-05-18：Threshold sweep + 高信心篩選 + KBO 2026 診斷
 
@@ -236,6 +246,7 @@ python build_pitcher_features_npb.py
 - `npb_boxscore_scraper.py` 只抓先發投手，不負責結果。
 - 特徵重建必須加 `--include-scheduled`，否則未來賽程特徵會消失。
 - NPB 預測路由已分為 `early / fallback / primary`；若 `sp_available < 0.5`，會使用不含 SP 欄位的 fallback model。
+- `predict_today_npb.py` 的 target 現在固定包含 `IL`；training 預設也包含 `IL`，對照基準可用 `python evaluate_game_predictions_npb_regime.py --compare-il` 重現。
 
 ---
 

@@ -536,7 +536,7 @@ def should_insert_game(game: Game, target_year: int | None, include_scheduled: b
     if not game_is_usable(game):
         return False
     if game.status == "completed":
-        return game.season_year >= TRAIN_START_YEAR and game.league_code in {"CL", "PL"}
+        return game.season_year >= TRAIN_START_YEAR and game.league_code in VALID_LEAGUES
     if include_scheduled and game.status == "scheduled":
         return game.season_year >= TRAIN_START_YEAR and game.league_code in VALID_LEAGUES
     return False

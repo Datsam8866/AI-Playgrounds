@@ -25,7 +25,8 @@ from sklearn.linear_model import LogisticRegression
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "npb.sqlite"
 TABLE_NAME = "game_features_npb"
-TRAIN_LEAGUES = ("CL", "PL")
+TRAIN_LEAGUES = ("CL", "PL", "IL")
+TARGET_LEAGUES = ("CL", "PL", "IL")
 
 FALLBACK_FEATURES = [
     "diff_elo",
@@ -107,6 +108,7 @@ LEAGUE_CODE = {
 LEAGUE_NAMES = {
     "CL": "中央聯盟",
     "PL": "太平洋聯盟",
+    "IL": "交流戰",
 }
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -183,10 +185,10 @@ def load_target_rows(conn: sqlite3.Connection, target_date: date, verify: bool) 
         FROM {TABLE_NAME}
         WHERE game_date = ?
           AND {label_clause}
-          AND league_code IN ({placeholders(TRAIN_LEAGUES)})
+          AND league_code IN ({placeholders(TARGET_LEAGUES)})
         ORDER BY league_code, game_url
     """
-    params = (target_date.isoformat(), *TRAIN_LEAGUES)
+    params = (target_date.isoformat(), *TARGET_LEAGUES)
     return [dict(row) for row in conn.execute(query, params).fetchall()]
 
 
@@ -407,7 +409,7 @@ def build_report(
 
     total = 0
     correct = 0
-    for league in ("CL", "PL"):
+    for league in ("CL", "PL", "IL"):
         lines.append(f"## {LEAGUE_NAMES[league]}")
         if verify:
             lines.extend(
