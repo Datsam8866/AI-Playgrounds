@@ -132,20 +132,14 @@ def update(conn, prices: dict[str, float]):
 
 
 def insert_snapshot(conn, prices: dict[str, float]):
-    # 避免同一天重複寫入
-    existing = {
-        r[0]
-        for r in conn.execute(
-            "SELECT ticker FROM holdings_snapshot WHERE snapshot_date=?", (TODAY,)
-        ).fetchall()
-    }
+    # 同一天重跑時先清掉舊快照再依目前持倉重寫，確保快照永遠等於最新持倉
+    # （否則改了股數後，當天快照仍是舊股數，走勢圖最新點會與市值卡片對不上）
+    conn.execute("DELETE FROM holdings_snapshot WHERE snapshot_date=?", (TODAY,))
     rows = conn.execute(
         "SELECT market, ticker, name, shares, avg_cost, currency FROM holdings"
     ).fetchall()
 
     for market, ticker, name, shares, avg_cost, currency in rows:
-        if ticker in existing:
-            continue
         price = prices.get(ticker)
         if price is None:
             continue
