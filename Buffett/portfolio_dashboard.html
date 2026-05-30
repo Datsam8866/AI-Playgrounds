@@ -148,8 +148,8 @@ tbody tr:hover{background:var(--row-hover);}
     </div>
     <div class="card ">
       <div class="card-label">台股市值 (TWD)</div>
-      <div class="card-value">NT$1,407,000</div>
-      <div class="card-sub pos">成本 NT$1,311,940 ｜ +7.2%</div>
+      <div class="card-value">NT$1,475,600</div>
+      <div class="card-sub pos">成本 NT$1,311,940 ｜ +12.5%</div>
     </div>
     <div class="card ">
       <div class="card-label">台股 Sharpe</div>
@@ -215,13 +215,13 @@ tbody tr:hover{background:var(--row-hover);}
   <div class="cards">
     <div class="card ">
       <div class="card-label">台股市值</div>
-      <div class="card-value">NT$1,407,000</div>
+      <div class="card-value">NT$1,475,600</div>
       <div class="card-sub ">成本 NT$1,311,940</div>
     </div>
     <div class="card ">
       <div class="card-label">損益</div>
-      <div class="card-value">NT$+95,060</div>
-      <div class="card-sub pos">+7.2%</div>
+      <div class="card-value">NT$+163,660</div>
+      <div class="card-sub pos">+12.5%</div>
     </div>
     <div class="card ">
       <div class="card-label">Sharpe Ratio</div>
@@ -297,8 +297,8 @@ tbody tr:hover{background:var(--row-hover);}
 <tr>
               <td><strong>GLW</strong></td>
               <td class="num">$181.16</td>
-              <td class="num neg">-1.81</td>
-              <td class="num neg">-0.99%</td>
+              <td class="num neg">-1.53</td>
+              <td class="num neg">-0.84%</td>
             </tr>
 <tr>
               <td><strong>NOK</strong></td>
@@ -345,9 +345,9 @@ tbody tr:hover{background:var(--row-hover);}
             </tr>
 <tr>
               <td><strong>IFNNY</strong></td>
-              <td class="num">$95.59</td>
-              <td class="num pos">+2.31</td>
-              <td class="num pos">+2.48%</td>
+              <td class="num">$95.71</td>
+              <td class="num pos">+2.43</td>
+              <td class="num pos">+2.61%</td>
             </tr>
 <tr>
               <td><strong>CDNS</strong></td>
@@ -713,7 +713,7 @@ tbody tr:hover{background:var(--row-hover);}
   <div class="drawer-head">
     <div>
       <div class="drawer-title">台股持倉明細</div>
-      <div class="drawer-sub">依市值排序 ｜ 總市值 NT$1,407,000</div>
+      <div class="drawer-sub">依市值排序 ｜ 總市值 NT$1,475,600</div>
     </div>
     <button class="drawer-close" onclick="closeTwHoldingsDrawer()" aria-label="關閉台股持倉明細">&times;</button>
   </div>
@@ -726,8 +726,8 @@ tbody tr:hover{background:var(--row-hover);}
           <td><strong>0050</strong><div class="drawer-name">元大台灣50</div></td>
           <td class="num">100.0%</td>
           <td class="num">14,000</td>
-          <td class="num">NT$1,407,000</td>
-          <td class="num pos">+NT$95,060<div class="drawer-name pos">7.25%</div></td>
+          <td class="num">NT$1,475,600</td>
+          <td class="num pos">+NT$163,660<div class="drawer-name pos">12.47%</div></td>
         </tr></tbody>
     </table>
   </div>
@@ -907,7 +907,7 @@ lineChart('ovUsChart', ovDates, [{
   borderColor:'#0DFDCF', backgroundColor:'#0DFDCF12', fill:true, tension:.3, pointRadius:3
 }]);
 lineChart('ovTwChart', ovDates, [{
-  label:'市值 TWD', data:[943700.0, 945999.98, 957500.0, 957500.0, 957500.0, 957500.0, 970000.0, 970000.0, 969000.02, 969000.02, 969000.02, 969000.02, 969000.02, 954000.02, 954000.02, 949000.02, 949000.02, 949000.02, 949000.02, 949000.02, 973000.03, 973000.03, 1008000.03, 1008000.03, 1008000.03, 1475600.02, 1407000.0],
+  label:'市值 TWD', data:[943700.0, 945999.98, 957500.0, 957500.0, 957500.0, 957500.0, 970000.0, 970000.0, 969000.02, 969000.02, 969000.02, 969000.02, 969000.02, 954000.02, 954000.02, 949000.02, 949000.02, 949000.02, 949000.02, 949000.02, 973000.03, 973000.03, 1008000.03, 1008000.03, 1008000.03, 1475600.02, 1475600.02],
   borderColor:'#34d399', backgroundColor:'#34d39918', fill:true, tension:.3, pointRadius:3
 }]);
 
@@ -1102,7 +1102,7 @@ new Chart(document.getElementById('usLine'), {
 // TW market value trend
 lineChart('twLine', ["2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-16", "2026-05-17", "2026-05-18", "2026-05-19", "2026-05-20", "2026-05-21", "2026-05-22", "2026-05-23", "2026-05-24", "2026-05-25", "2026-05-26", "2026-05-27", "2026-05-28", "2026-05-29", "2026-05-30"], [{
   label:'市值 TWD',
-  data: [943700.0, 945999.98, 957500.0, 957500.0, 957500.0, 957500.0, 970000.0, 970000.0, 969000.02, 969000.02, 969000.02, 969000.02, 969000.02, 954000.02, 954000.02, 949000.02, 949000.02, 949000.02, 949000.02, 949000.02, 973000.03, 973000.03, 1008000.03, 1008000.03, 1008000.03, 1475600.02, 1407000.0],
+  data: [943700.0, 945999.98, 957500.0, 957500.0, 957500.0, 957500.0, 970000.0, 970000.0, 969000.02, 969000.02, 969000.02, 969000.02, 969000.02, 954000.02, 954000.02, 949000.02, 949000.02, 949000.02, 949000.02, 949000.02, 973000.03, 973000.03, 1008000.03, 1008000.03, 1008000.03, 1475600.02, 1475600.02],
   borderColor:'#34d399', backgroundColor:'#34d39918', fill:true, tension:.3, pointRadius:3
 }]);
 </script>
