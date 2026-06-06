@@ -12,6 +12,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 import pandas as pd
 import numpy as np
+import yfinance as yf
 
 ROOT    = Path(__file__).parent
 
@@ -941,6 +942,14 @@ def build():
     us_tc, us_tm, us_tp, us_pp, us_h = summarise(holdings, "US")
     tw_tc, tw_tm, tw_tp, tw_pp, tw_h = summarise(holdings, "TW")
 
+    # USDTWD FX rate for combined total
+    try:
+        _fx = yf.download("TWD=X", period="5d", auto_adjust=True, progress=False)
+        usdtwd = float(_fx["Close"].dropna().iloc[-1])
+    except Exception:
+        usdtwd = 31.5  # fallback
+    combined_usd = us_tm + (tw_tm / usdtwd if usdtwd else 0)
+
     # regime
     rc = {"risk_on":"#22c55e","caution":"#f59e0b","risk_off":"#ef4444"}.get(regime,"#6b7280")
     rl = regime.upper().replace("_"," ")
@@ -1224,6 +1233,7 @@ tbody tr:hover{{background:var(--row-hover);}}
     {card("Sharpe Ratio", actual_sharpe_text, "目前實際持倉")}
     {card("台股市值 (TWD)", f"NT${tw_tm:,.0f}", f"成本 NT${tw_tc:,.0f} ｜ {tw_pp:+.1f}%", pc(tw_pp))}
     {card("台股 Sharpe", tw_sharpe_text, "0050 近一年日報酬")}
+    {card("總資產合計 (USD)", f"${combined_usd:,.0f}", f"匯率 NT${usdtwd:.2f}/USD")}
   </div>
   <div class="charts-row">
     <div class="chart-box">
