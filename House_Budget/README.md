@@ -15,7 +15,6 @@
 
 ## Open Issues
 
-- 2026-10-08 Costco -4,652 (Rita) was entered as 10/08 per user input; confirm it is not a typo for 10/18.
 - Gas bill category is inconsistent historically (2026-08-14 is `Accommodation`, others `Others`).
 
 ## Last Updated
