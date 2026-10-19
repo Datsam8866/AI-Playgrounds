@@ -1,15 +1,33 @@
 # House Budget SQLite 資料庫
 
-> 最後更新：2026-10-12（同步至 2026-10-12 記帳資料）
+> 最後更新：2026-10-19（同步至 2026-10-18 記帳資料）
 
 將家庭記帳與旅遊預算 Excel 整合成單一 SQLite 資料庫，方便 SQL 查詢、月份比較與分類統計。
+
+## Current Status
+
+- 2026-10-19 session: added 12 TWD transactions (2026-09-02 to 2026-10-18; Costco, utilities, food, parking). Duplicate-amount check passed for each; `monthly_summary` rebuilt; dashboard regenerated.
+- DB: 1,617 transactions, 2024-11-25 to 2026-10-18.
+
+## Next Action
+
+- Continue live bookkeeping from 2026-10-19 onward.
+
+## Open Issues
+
+- 2026-10-08 Costco -4,652 (Rita) was entered as 10/08 per user input; confirm it is not a typo for 10/18.
+- Gas bill category is inconsistent historically (2026-08-14 is `Accommodation`, others `Others`).
+
+## Last Updated
+
+2026-10-19
 
 ## 資料概況
 
 | 項目 | 數值 |
 | --- | --- |
-| 總交易筆數 | 1,605 筆 |
-| 資料時間範圍 | 2024-11-25 至 2026-10-12 |
+| 總交易筆數 | 1,617 筆 |
+| 資料時間範圍 | 2024-11-25 至 2026-10-18 |
 | 來源 | 3 份 Excel，19 個 sheet + 即時記帳 |
 | 主交易表 | `transactions` |
 | 月份摘要表 | `monthly_summary` |
@@ -105,7 +123,7 @@ GROUP BY category ORDER BY total_twd;
 | 幣別 | 筆數 | 原幣總額 | TWD 總額 |
 | --- | ---: | ---: | ---: |
 | AUD | 167 | -6,097.99 | -124,842 |
-| TWD | 1,343 | -838,412 | -838,412 |
+| TWD | 1,355 | -853,738 | -853,738 |
 | Yen | 95 | -562,196 | -115,568 |
 
 ## 月份 TWD 淨收支
@@ -123,8 +141,8 @@ GROUP BY category ORDER BY total_twd;
 | 2025-07 | -12,620 | 2026-06 | -16,624 |
 | 2025-08 | -58,396 | 2026-07 | -59,246 |
 | 2025-09 | -37,059 | 2026-08 | -79,187 |
-| | | 2026-09 | -40,738 |
-| | | 2026-10 | +21,373 |
+| | | 2026-09 | -44,996 |
+| | | 2026-10 | +10,305 |
 
 ## 匯入規則
 
