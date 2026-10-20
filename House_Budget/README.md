@@ -15,7 +15,7 @@
 
 ## Open Issues
 
-- Gas bill category is inconsistent historically (2026-08-14 is `Accommodation`, others `Others`).
+- None.
 
 ## Last Updated
 
